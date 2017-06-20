@@ -49,7 +49,7 @@ g_edit_string_LOG_REPLY_FILE=/tmp/cf_script.rpl
 g_edit_nulldigit_COLOURED=0  # either empty or 0 - 12,
 # in gtk1 client 0 (black) prints lowerer pane, 1 (black) and 2-12 prints to upper pane
 
-DEBUG=1
+DEBUG=
 LOGGING=
 
 _ping(){
@@ -66,11 +66,18 @@ echo draw ${g_edit_nulldigit_COLOURED:-2} "$0 is started.."
 echo draw ${g_edit_nulldigit_COLOURED:-5} " with '$*' parameter."
 
 # *** Check for parameters *** #
-[ "$*" ] && {
+[ "$*" ] || {
+echo draw ${g_edit_nulldigit_COLOURED:-3} "Script needs goal_item_name, numberofalchemyattempts, ingredient and numberofingredient as arguments."
+echo draw ${g_edit_nulldigit_COLOURED:-3} "See -h --help option for more information."
+        exit 1
+}
+
+until [ $# = 0 ];
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help"|*usage)
+case "$PARAM_1" in -h|*help|*usage)
 
 echo draw ${g_edit_nulldigit_COLOURED:-0} ""
 echo draw ${g_edit_nulldigit_COLOURED:-1} ""
@@ -96,7 +103,22 @@ echo draw ${g_edit_nulldigit_COLOURED:-0} ""
 echo draw ${g_edit_nulldigit_COLOURED:-1} ""
         exit 0
 ;;
-esac
+
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*log*)    LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
+-F|*fast)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+-S|*slow)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+-X|*nocheck) unset g_nullstring_CHECK_DO;;
+
+
+#alchemy|alchemistry)        SKILL=alchemy;    CAULDRON=cauldron;;
+#bowyer|bowyery)             SKILL=bowyer;     CAULDRON=workbench;;
+#jeweler)                    SKILL=jeweler;    CAULDRON=jeweler_bench;;
+#smithery|smithing)          SKILL=smithery;   CAULDRON=forge;;
+#thaumaturgy)                SKILL=thaumaturgy;CAULDRON=thaumaturg_desk;;
+#woodsman|wood*lore)         SKILL=woodsman;   CAULDRON=stove;;
+
 
 
 # ***
@@ -107,22 +129,51 @@ esac
 # ***
 
 
+*)
 # *** testing parameters for validity *** #
 g_noedit_digit_C=0 # used in ingredients arrays, set zero as default here,
 # gets changed again, set to 1 to skip result, after g_auto_string_GOAL and g_auto_digit_NUMBER_ALCH are defined
 
 echo "${BASH_ARGC[0]} : ${BASH_ARGV[@]}" >>/tmp/cf_script.test
-#WITHOUT_FIRST=$(( ${BASH_ARGC[0]} - 1 ))
-for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
-#for c in `seq $WITHOUT_FIRST -2 1`;
+
+for c in `seq 0 2 $(( $# - 1 ))`;
 do
-vc=$((c-1));ivc=$((vc-1));((g_noedit_digit_C++));
 
-g_auto_string_INGRED[$g_noedit_digit_C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+vc=$c
+ivc=$((vc+1))
+((g_noedit_digit_C++))
+
+g_auto_string_INGRED[$g_noedit_digit_C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 echo draw ${g_edit_nulldigit_COLOURED:-3} "g_auto_string_INGRED $g_noedit_digit_C : ${g_auto_string_INGRED[$g_noedit_digit_C]}"
+case ${g_auto_string_INGRED[$g_noedit_digit_C]} in -I|*infinite) :;;
+ -*|$SKILL|$CAULDRON)
+ unset g_auto_string_INGRED[$g_noedit_digit_C]
+ ((g_noedit_digit_C--))
+ continue;;
+esac
+[ "$DEBUG" ] && echo draw 3 $g_noedit_digit_C INGRED ${g_auto_string_INGRED[$g_noedit_digit_C]}
 
-g_auto_digit_NUMBER[$g_noedit_digit_C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+g_auto_digit_NUMBER[$g_noedit_digit_C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 echo draw ${g_edit_nulldigit_COLOURED:-3} "g_auto_digit_NUMBER $g_noedit_digit_C :${g_auto_digit_NUMBER[$g_noedit_digit_C]}"
+case ${g_auto_digit_NUMBER[$g_noedit_digit_C]} in -I|*infinite) :;;
+ -*|$SKILL|$CAULDRON)
+ unset g_auto_digit_NUMBER[$g_noedit_digit_C] g_auto_string_INGRED[$g_noedit_digit_C]
+ ((g_noedit_digit_C--))
+ continue;;
+esac
+[ "$DEBUG" ] && echo draw 3 $g_noedit_digit_C NUMBER ${g_auto_digit_NUMBER[$g_noedit_digit_C]}
+
+
+# here we could shift syntax 3 water_of_the_wise 7 water
+case ${g_auto_string_INGRED[$g_noedit_digit_C]} in [0-9]*|-I|*infinite)
+ tVAR1=${g_auto_string_INGRED[$g_noedit_digit_C]}
+ tVAR2=${g_auto_digit_NUMBER[$g_noedit_digit_C]}
+ g_auto_string_INGRED[$g_noedit_digit_C]=$tVAR2
+ g_auto_digit_NUMBER[$g_noedit_digit_C]=$tVAR1
+ ;;
+esac
+[ "$DEBUG" ] && echo draw 3 $g_noedit_digit_C NUMBER ${g_auto_digit_NUMBER[$g_noedit_digit_C]}
+[ "$DEBUG" ] && echo draw 3 $g_noedit_digit_C INGRED ${g_auto_string_INGRED[$g_noedit_digit_C]}
 
 case ${g_auto_digit_NUMBER[$g_noedit_digit_C]} in
 1) g_auto_digit_NUMBER[$g_noedit_digit_C]=one;;
@@ -151,25 +202,74 @@ echo "g_auto_string_INGRED[$g_noedit_digit_C]='${g_auto_string_INGRED[$g_noedit_
 echo " g_auto_digit_NUMBER[$g_noedit_digit_C]='${g_auto_digit_NUMBER[$g_noedit_digit_C]}'"  >>/tmp/cf_script.test
 done
 
-g_auto_string_GOAL=${g_auto_string_INGRED[1]}
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
+
+g_auto_string_GOAL=${g_auto_string_INGRED[g_noedit_digit_C]}
 g_auto_string_GOAL=`echo "${g_auto_string_GOAL}" | tr '_' ' '`
-g_auto_digit_NUMBER_ALCH=${g_auto_digit_NUMBER[1]}
+g_auto_digit_NUMBER_ALCH=${g_auto_digit_NUMBER[g_noedit_digit_C]}
+[ "$DEBUG" ] && echo draw 3 $g_noedit_digit_C GOAL ${g_auto_string_GOAL} $g_auto_digit_NUMBER_ALCH
+
+# fallback
+case $g_auto_digit_NUMBER_ALCH in
+one)   g_auto_digit_NUMBER_ALCH=1;;
+two)   g_auto_digit_NUMBER_ALCH=2;;
+three) g_auto_digit_NUMBER_ALCH=3;;
+four)  g_auto_digit_NUMBER_ALCH=4;;
+five)  g_auto_digit_NUMBER_ALCH=5;;
+six)   g_auto_digit_NUMBER_ALCH=6;;
+seven) g_auto_digit_NUMBER_ALCH=7;;
+eight) g_auto_digit_NUMBER_ALCH=8;;
+nine)  g_auto_digit_NUMBER_ALCH=9;;
+ten)   g_auto_digit_NUMBER_ALCH=10;;
+eleven)    g_auto_digit_NUMBER_ALCH=11;;
+twelve)    g_auto_digit_NUMBER_ALCH=12;;
+thirteen)  g_auto_digit_NUMBER_ALCH=13;;
+fourteen)  g_auto_digit_NUMBER_ALCH=14;;
+fifteen)   g_auto_digit_NUMBER_ALCH=15;;
+sixteen)   g_auto_digit_NUMBER_ALCH=16;;
+seventeen) g_auto_digit_NUMBER_ALCH=17;;
+eightteen) g_auto_digit_NUMBER_ALCH=18;;
+nineteen)  g_auto_digit_NUMBER_ALCH=19;;
+twenty)    g_auto_digit_NUMBER_ALCH=20;;
+-I|*infinite) g_auto_digit_NUMBER_ALCH="I";;
+*) echo draw 3 "NUMBER_ALCH '$g_auto_digit_NUMBER_ALCH' incorrect";exit 1;;
+esac
 
 
-g_noedit_digit_C=1
-for c in `seq $(echo "${BASH_ARGC[0]}") -2 3`;
+if test "$g_auto_digit_NUMBER_ALCH"; then
+ test "$g_auto_digit_NUMBER_ALCH" = 'I' || test "$g_auto_digit_NUMBER_ALCH" -ge 1 || g_auto_digit_NUMBER_ALCH=1 #paranoid precaution
+fi
+
+
+# get rid of underscores
+g_auto_digit_C=$g_noedit_digit_C
+g_noedit_digit_C=0
+#for c in `seq $(echo "${BASH_ARGC[0]}") -2 3`;
+for c in `seq 1 1 $((g_auto_digit_C-1))`
 do
 ((g_noedit_digit_C++))
 g_auto_string_INGRED[$g_noedit_digit_C]=`echo "${g_auto_string_INGRED[$g_noedit_digit_C]}" | tr '_' ' '`
 echo "g_auto_string_INGRED[$g_noedit_digit_C]='${g_auto_string_INGRED[$g_noedit_digit_C]}'" >>/tmp/cf_script.test
+[ "$DEBUG" ] && echo draw 3 "INGRED[$g_noedit_digit_C]='${g_auto_string_INGRED[$g_noedit_digit_C]}'"
 done
 g_auto_digit_C=$g_noedit_digit_C
 
-} || {
-echo draw ${g_edit_nulldigit_COLOURED:-3} "Script needs goal_item_name, numberofalchemyattempts, ingredient and numberofingredient as arguments."
-echo draw ${g_edit_nulldigit_COLOURED:-3} "See -h --help option for more information."
-        exit 1
-}
+break
+;;
+
+esac
+
+sleep 0.1
+shift
+done
+
 
 test "$g_auto_string_GOAL" -a "$g_auto_digit_NUMBER_ALCH" -a "${g_auto_string_INGRED[2]}" -a "${g_auto_digit_NUMBER[2]}" || {
 echo draw ${g_edit_nulldigit_COLOURED:-3} "Need <artifact> <number> <ingredient> <numberof>"
@@ -178,6 +278,7 @@ echo draw ${g_edit_nulldigit_COLOURED:-3} "or: script $0 balm_of_first_aid 20 wa
 echo draw ${g_edit_nulldigit_COLOURED:-3} "See -h --help option for more information."
         exit 1
 }
+
 
 # *** Check if is in inventory *** #
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Checking if ingred(s) in inventory .."
@@ -205,8 +306,9 @@ sleep 0.01s
 done
 
 
-C2=1
-for one in `seq $(echo "${BASH_ARGC[0]}") -2 3`;
+C2=0
+#for one in `seq $(echo "${BASH_ARGC[0]}") -2 3`;
+for one in `seq 1 1 $((g_auto_digit_C))`
 do
 
 ((C2++))
@@ -231,39 +333,6 @@ fi
 done
 
 
-# ***
-# ***
-# *** diff marker 4
-# *** diff marker 5
-# ***
-# ***
-
-
-case $g_auto_digit_NUMBER_ALCH in
-one)   g_auto_digit_NUMBER_ALCH=1;;
-two)   g_auto_digit_NUMBER_ALCH=2;;
-three) g_auto_digit_NUMBER_ALCH=3;;
-four)  g_auto_digit_NUMBER_ALCH=4;;
-five)  g_auto_digit_NUMBER_ALCH=5;;
-six)   g_auto_digit_NUMBER_ALCH=6;;
-seven) g_auto_digit_NUMBER_ALCH=7;;
-eight) g_auto_digit_NUMBER_ALCH=8;;
-nine)  g_auto_digit_NUMBER_ALCH=9;;
-ten)   g_auto_digit_NUMBER_ALCH=10;;
-eleven)    g_auto_digit_NUMBER_ALCH=11;;
-twelve)    g_auto_digit_NUMBER_ALCH=12;;
-thirteen)  g_auto_digit_NUMBER_ALCH=13;;
-fourteen)  g_auto_digit_NUMBER_ALCH=14;;
-fifteen)   g_auto_digit_NUMBER_ALCH=15;;
-sixteen)   g_auto_digit_NUMBER_ALCH=16;;
-seventeen) g_auto_digit_NUMBER_ALCH=17;;
-eightteen) g_auto_digit_NUMBER_ALCH=18;;
-nineteen)  g_auto_digit_NUMBER_ALCH=19;;
-twenty)    g_auto_digit_NUMBER_ALCH=20;;
-esac
-test "$g_auto_digit_NUMBER_ALCH" -ge 1 || g_auto_digit_NUMBER_ALCH=1 #paranoid precaution
-
-
 f_exit(){
 RV=${1:-0}
 shift
@@ -273,7 +342,6 @@ echo "issue 1 1 $g_edit_string_DIRB"
 echo "issue 1 1 $g_auto_string_DIRF"
 echo "issue 1 1 $g_auto_string_DIRF"
 sleep 1s
-
 
 echo draw ${g_edit_nulldigit_COLOURED:-3} "Exiting $0."
 
@@ -692,7 +760,7 @@ echo issue 1 1 "apply"
 
 sleep 1s
 
- for FOR in `seq 2 1 $g_auto_digit_C`; do
+ for FOR in `seq 1 1 $g_auto_digit_C`; do
 
  case ${g_auto_digit_NUMBER[$FOR]} in
  one)   g_auto_digit_NUMBER[$FOR]=1;;
@@ -930,7 +998,7 @@ sleep 6s
 echo draw ${g_edit_nulldigit_COLOURED:-2} "dropping '$g_auto_string_GOAL' ..."
 echo issue 0 1 drop "$g_auto_string_GOAL"
 
-for FOR in `seq 2 1 $g_auto_digit_C`; do
+for FOR in `seq 1 1 $g_auto_digit_C`; do
 
  echo draw ${g_edit_nulldigit_COLOURED:-5} "drop ${g_auto_string_INGRED[$FOR]} (magic)"
  echo issue 0 1 drop "${g_auto_string_INGRED[$FOR]} (magic)"
