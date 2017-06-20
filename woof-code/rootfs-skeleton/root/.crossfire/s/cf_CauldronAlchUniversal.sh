@@ -52,14 +52,47 @@ g_edit_nulldigit_COLOURED=0  # either empty or 0 - 12,
 DEBUG=
 LOGGING=
 
+PING_DO=1
+URL=crossfire.metalforge.net # localhost if server running on local PC
 _ping(){
-    :
+ test "$PING_DO" || return 0
+
+local lFOREVER=''
+local lPRV
+
+case $1 in
+-I|--infinite) lFOREVER=1;;
+esac
+
+while :; do
+ping -c 1 -w10 -W10 "${URL:-bing.com}" >/dev/null 2>&1
+lPRV=$?
+ if test "$lFOREVER"; then
+  case $lPRV in 0) :;;
+  *) echo draw 3 "WARNING: Client seems disconnected.." >&1;;
+  esac
+  sleep 2
+ else
+  case $lPRV in 0) return 0;;
+  *) :;;
+  esac
+ fi
+
+ sleep 1
+done
+}
+
+_debug(){
+[ "$DEBUG" ]       || return 0
+echo "$*" | while read line; do echo draw 3 "$line"; done
 }
 
 _debug_two(){
 [ "$DEBUG" ]       || return 3
 [ "$DEBUG" -ge 2 ] || return 4
 }
+
+g_nullstring_CHECK_DO=1
 
 # *** Here begins program *** #
 echo draw ${g_edit_nulldigit_COLOURED:-2} "$0 is started.."
@@ -89,7 +122,7 @@ echo draw ${g_edit_nulldigit_COLOURED:-5} "NUMBER times to produce"
 echo draw ${g_edit_nulldigit_COLOURED:-5} "ARTIFACT alch with"
 echo draw ${g_edit_nulldigit_COLOURED:-2} "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
 echo draw ${g_edit_nulldigit_COLOURED:-2} "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
-echo draw ${g_edit_nulldigit_COLOURED:-5} "If NUMBER is not a digit integer ie 'X'"
+echo draw ${g_edit_nulldigit_COLOURED:-5} "If NUMBER is not a digit integer but '-I' --infinite,"
 echo draw ${g_edit_nulldigit_COLOURED:-5} "loops forever until ingredient runs out."
 echo draw ${g_edit_nulldigit_COLOURED:-3} "Since the client does split space in words"
 echo draw ${g_edit_nulldigit_COLOURED:-3} "even if quoted, the ingredients with space"
@@ -99,6 +132,13 @@ echo draw ${g_edit_nulldigit_COLOURED:-4} "and g_edit_string_CAULDRON variables"
 echo draw ${g_edit_nulldigit_COLOURED:-4} "in header of this script for your needs."
 echo draw ${g_edit_nulldigit_COLOURED:-6} "g_edit_string_SKILL variable currently set to '$g_edit_string_SKILL'"
 echo draw ${g_edit_nulldigit_COLOURED:-6} "g_edit_string_CAULDRON var currently set to '$g_edit_string_CAULDRON'"
+echo draw ${g_edit_nulldigit_COLOURED:-2} "Options:"
+echo draw ${g_edit_nulldigit_COLOURED:-5} "-d  to turn on debugging."
+echo draw ${g_edit_nulldigit_COLOURED:-5} "-L  to log to $LOG_REPLY_FILE ."
+echo draw ${g_edit_nulldigit_COLOURED:-5} "-v  to be more talkaktive."
+echo draw ${g_edit_nulldigit_COLOURED:-7} "-F each --fast sleeps 0.2 s less"
+echo draw ${g_edit_nulldigit_COLOURED:-8} "-S each --slow sleeps 0.2 s more"
+echo draw ${g_edit_nulldigit_COLOURED:-3} "-X --nocheck do not check cauldron (faster)"
 echo draw ${g_edit_nulldigit_COLOURED:-0} ""
 echo draw ${g_edit_nulldigit_COLOURED:-1} ""
         exit 0
@@ -144,24 +184,24 @@ ivc=$((vc+1))
 ((g_noedit_digit_C++))
 
 g_auto_string_INGRED[$g_noedit_digit_C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
-echo draw ${g_edit_nulldigit_COLOURED:-3} "g_auto_string_INGRED $g_noedit_digit_C : ${g_auto_string_INGRED[$g_noedit_digit_C]}"
+[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-3} "g_auto_string_INGRED $g_noedit_digit_C : ${g_auto_string_INGRED[$g_noedit_digit_C]}"
 case ${g_auto_string_INGRED[$g_noedit_digit_C]} in -I|*infinite) :;;
  -*|$SKILL|$CAULDRON)
  unset g_auto_string_INGRED[$g_noedit_digit_C]
  ((g_noedit_digit_C--))
  continue;;
 esac
-[ "$DEBUG" ] && echo draw 3 $g_noedit_digit_C INGRED ${g_auto_string_INGRED[$g_noedit_digit_C]}
+[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-3} $g_noedit_digit_C INGRED ${g_auto_string_INGRED[$g_noedit_digit_C]}
 
 g_auto_digit_NUMBER[$g_noedit_digit_C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
-echo draw ${g_edit_nulldigit_COLOURED:-3} "g_auto_digit_NUMBER $g_noedit_digit_C :${g_auto_digit_NUMBER[$g_noedit_digit_C]}"
+[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-3} "g_auto_digit_NUMBER $g_noedit_digit_C :${g_auto_digit_NUMBER[$g_noedit_digit_C]}"
 case ${g_auto_digit_NUMBER[$g_noedit_digit_C]} in -I|*infinite) :;;
  -*|$SKILL|$CAULDRON)
  unset g_auto_digit_NUMBER[$g_noedit_digit_C] g_auto_string_INGRED[$g_noedit_digit_C]
  ((g_noedit_digit_C--))
  continue;;
 esac
-[ "$DEBUG" ] && echo draw 3 $g_noedit_digit_C NUMBER ${g_auto_digit_NUMBER[$g_noedit_digit_C]}
+[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-3} $g_noedit_digit_C NUMBER ${g_auto_digit_NUMBER[$g_noedit_digit_C]}
 
 
 # here we could shift syntax 3 water_of_the_wise 7 water
@@ -172,8 +212,8 @@ case ${g_auto_string_INGRED[$g_noedit_digit_C]} in [0-9]*|-I|*infinite)
  g_auto_digit_NUMBER[$g_noedit_digit_C]=$tVAR1
  ;;
 esac
-[ "$DEBUG" ] && echo draw 3 $g_noedit_digit_C NUMBER ${g_auto_digit_NUMBER[$g_noedit_digit_C]}
-[ "$DEBUG" ] && echo draw 3 $g_noedit_digit_C INGRED ${g_auto_string_INGRED[$g_noedit_digit_C]}
+[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-3} $g_noedit_digit_C NUMBER ${g_auto_digit_NUMBER[$g_noedit_digit_C]}
+[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-3} $g_noedit_digit_C INGRED ${g_auto_string_INGRED[$g_noedit_digit_C]}
 
 case ${g_auto_digit_NUMBER[$g_noedit_digit_C]} in
 1) g_auto_digit_NUMBER[$g_noedit_digit_C]=one;;
@@ -214,7 +254,7 @@ done
 g_auto_string_GOAL=${g_auto_string_INGRED[g_noedit_digit_C]}
 g_auto_string_GOAL=`echo "${g_auto_string_GOAL}" | tr '_' ' '`
 g_auto_digit_NUMBER_ALCH=${g_auto_digit_NUMBER[g_noedit_digit_C]}
-[ "$DEBUG" ] && echo draw 3 $g_noedit_digit_C GOAL ${g_auto_string_GOAL} $g_auto_digit_NUMBER_ALCH
+[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-3} $g_noedit_digit_C GOAL ${g_auto_string_GOAL} $g_auto_digit_NUMBER_ALCH
 
 # fallback
 case $g_auto_digit_NUMBER_ALCH in
@@ -239,7 +279,7 @@ eightteen) g_auto_digit_NUMBER_ALCH=18;;
 nineteen)  g_auto_digit_NUMBER_ALCH=19;;
 twenty)    g_auto_digit_NUMBER_ALCH=20;;
 -I|*infinite) g_auto_digit_NUMBER_ALCH="I";;
-*) echo draw 3 "NUMBER_ALCH '$g_auto_digit_NUMBER_ALCH' incorrect";exit 1;;
+*) echo draw ${g_edit_nulldigit_COLOURED:-3} "NUMBER_ALCH '$g_auto_digit_NUMBER_ALCH' incorrect";exit 1;;
 esac
 
 
@@ -251,13 +291,13 @@ fi
 # get rid of underscores
 g_auto_digit_C=$g_noedit_digit_C
 g_noedit_digit_C=0
-#for c in `seq $(echo "${BASH_ARGC[0]}") -2 3`;
+
 for c in `seq 1 1 $((g_auto_digit_C-1))`
 do
 ((g_noedit_digit_C++))
 g_auto_string_INGRED[$g_noedit_digit_C]=`echo "${g_auto_string_INGRED[$g_noedit_digit_C]}" | tr '_' ' '`
 echo "g_auto_string_INGRED[$g_noedit_digit_C]='${g_auto_string_INGRED[$g_noedit_digit_C]}'" >>/tmp/cf_script.test
-[ "$DEBUG" ] && echo draw 3 "INGRED[$g_noedit_digit_C]='${g_auto_string_INGRED[$g_noedit_digit_C]}'"
+[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-3} "INGRED[$g_noedit_digit_C]='${g_auto_string_INGRED[$g_noedit_digit_C]}'"
 done
 g_auto_digit_C=$g_noedit_digit_C
 
@@ -271,7 +311,7 @@ shift
 done
 
 
-test "$g_auto_string_GOAL" -a "$g_auto_digit_NUMBER_ALCH" -a "${g_auto_string_INGRED[2]}" -a "${g_auto_digit_NUMBER[2]}" || {
+test "$g_auto_string_GOAL" -a "$g_auto_digit_NUMBER_ALCH" -a "${g_auto_string_INGRED[1]}" -a "${g_auto_digit_NUMBER[1]}" || {
 echo draw ${g_edit_nulldigit_COLOURED:-3} "Need <artifact> <number> <ingredient> <numberof>"
 echo draw ${g_edit_nulldigit_COLOURED:-3} "ie: script $0 water_of_the_wise 10 water 7 ."
 echo draw ${g_edit_nulldigit_COLOURED:-3} "or: script $0 balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
@@ -295,7 +335,7 @@ echo request items inv
 
 while [ 1 ]; do
 INVTRY=""
-read -t 1 INVTRY || break
+read -t 2 INVTRY || break
 echo "$INVTRY" >>/tmp/cf_script.inv
 [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-3} "$INVTRY"
 test "$INVTRY" = "" && break
@@ -307,7 +347,6 @@ done
 
 
 C2=0
-#for one in `seq $(echo "${BASH_ARGC[0]}") -2 3`;
 for one in `seq 1 1 $((g_auto_digit_C))`
 do
 
@@ -391,6 +430,8 @@ exit $RV
 # *** Does our player possess the skill alchemy ? *** #
 _check_skill(){
 
+[ "$g_nullstring_CHECK_DO" ] || return 0
+
 local l_auto_string_PARAM="$*"
 local l_SKILL
 
@@ -400,7 +441,7 @@ while :;
 do
  unset REPLY
  sleep 0.1
- read -t 1
+ read -t 2
   [ "$LOGGING" ] && echo "_check_skill:$REPLY" >>"$LOG_REPLY_FILE"
   [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
 
@@ -422,14 +463,20 @@ test ! "$l_auto_string_PARAM" # returns 0 if called without parameter, else 1
 
 _probe_if_on_cauldron(){
 # *** Check if standing on a $g_edit_string_CAULDRON *** #
+
+[ "$g_nullstring_CHECK_DO" ] || return 0
+
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Checking if standing on a '$g_edit_string_CAULDRON' .."
 
 [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-5} "Creating UNDER_ME_LIST .."
-UNDER_ME='';
+
+local UNDER_ME UNDER_ME_LIST
+unset UNDER_ME UNDER_ME_LIST
+
 echo request items on
 
 while [ 1 ]; do
-read -t 1 UNDER_ME
+read -t 2 UNDER_ME
 sleep 0.1s
 [ "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
 [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$UNDER_ME"
@@ -460,12 +507,15 @@ echo draw ${g_edit_nulldigit_COLOURED:-7} "OK, am on '$g_edit_string_CAULDRON' .
 
 _check_free_move(){
 # *** Check for 4 empty space to DIRB *** #
+
+[ "$g_nullstring_CHECK_DO" ] || return 0
+
 echo draw ${g_edit_nulldigit_COLOURED:-5} "Checking for space to move..."
 
 echo request map pos
 
 while [ 1 ]; do
-read -t 1 REPLY
+read -t 2 REPLY
 [ "$LOGGING" ] && echo "_check_free_move:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
 test "$REPLY" || break
@@ -509,7 +559,7 @@ esac
 echo request map $R_X $R_Y
 
 while [ 1 ]; do
-read -t 1 REPLY
+read -t 2 REPLY
 [ "$LOGGING" ] && echo "request map $R_X $R_Y:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
 test "$REPLY" || break
@@ -545,6 +595,9 @@ echo draw ${g_edit_nulldigit_COLOURED:-7} "OK."
 
 _prepare_recall(){
 # *** Readying rod of word of recall - just in case *** #
+
+[ "$g_nullstring_CHECK_DO" ] || return 0
+
 echo draw ${g_edit_nulldigit_COLOURED:-5} "Preparing for recall if monsters come forth..."
 
 RECALL=0
@@ -554,7 +607,7 @@ REPLY="";
 echo request items actv
 
 while [ 1 ]; do
-read -t 1 REPLY
+read -t 2 REPLY
 [ "$LOGGING" ] && echo "_prepare_recall:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
 test "$REPLY" || break
@@ -584,6 +637,9 @@ echo draw ${g_edit_nulldigit_COLOURED:-6} "Done."
 
 _check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
+
+[ "$g_nullstring_CHECK_DO" ] || return 0
+
 echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
 sleep ${SLEEP:-1}s
 
@@ -641,7 +697,7 @@ OLD_ANSWER=
 echo request stat cmbt
 
 while [ 1 ]; do
-read -t 1 ANSWER
+read -t 2 ANSWER
 [ "$LOGGING" ] && echo "_get_player_speed:$ANSWER" >>/tmp/cf_request.log
 [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$ANSWER"
 test "$ANSWER" || break
@@ -664,9 +720,9 @@ PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
 if test ! "$PL_SPEED"; then
  echo draw ${g_edit_nulldigit_COLOURED:-3} "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 elif test "$PL_SPEED" -gt 65; then
-SLEEP=0.2; DELAY_DRAWINFO=1.0
+SLEEP=0.6; DELAY_DRAWINFO=1.1
 elif test "$PL_SPEED" -gt 55; then
-SLEEP=0.5; DELAY_DRAWINFO=1.2
+SLEEP=0.8; DELAY_DRAWINFO=1.3
 elif test "$PL_SPEED" -gt 45; then
 SLEEP=1.0; DELAY_DRAWINFO=1.5
 elif test "$PL_SPEED" -gt 35; then
@@ -680,6 +736,15 @@ SLEEP=4.0; DELAY_DRAWINFO=9.0
 else
  echo draw ${g_edit_nulldigit_COLOURED:-3} "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
+
+SLEEP=${SLEEP:-1}
+
+_debug "SLEEP='$SLEEP'"
+test "$SLEEP_ADJ" && { SLEEP=`dc $SLEEP $SLEEP_ADJ \+ p`
+ case $SLEEP in -[0-9]*) SLEEP=0.1;; esac
+ _debug "SLEEP now set to '$SLEEP'" ; }
+
+SLEEP=${SLEEP:-1}
 
 echo draw ${g_edit_nulldigit_COLOURED:-6} "Done."
 }
@@ -701,21 +766,22 @@ _get_player_speed
 _prepare_recall
 
 
-# *** Actual script to alch the desired water of gem *** #
+# *** Actual script to alch the desired out_come_product            *** #
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
 # *** Make sure similar items are not in the inventory --           *** #
 # *** eg. staff of summon water elemental and such ...              *** #
 
-# *** So do a 'drop water' and 'drop GEM' before beginning to alch. *** #
+# *** So do a 'drop ingred_1' and 'drop ingred_2'                   *** #
+# *** before beginning to alch.                                     *** #
 # *** Then if some items are locked, unlock these and drop again.   *** #
 
-# *** Now get the number of desired water of the wise and           *** #
-# *** three times the number of the desired gem.                    *** #
+# *** Then get the number of desired ingredient_1 and               *** #
+# *** the number of the other ingredients.                          *** #
 
-# *** Now walk onto the $g_edit_string_CAULDRON and make sure       *** #
-# *** there are all the 4 tiles free                                *** #
+# *** Then walk onto the $g_edit_string_CAULDRON and make sure      *** #
+# *** there are all the 4 tiles free to move                        *** #
 # *** $g_edit_string_DIRB of the $g_edit_string_CAULDRON.           *** #
 # *** Do not open the $g_edit_string_CAULDRON, this script does it. *** #
 # *** HAPPY ALCHING !!!                                             *** #
@@ -738,29 +804,29 @@ case $g_auto_digit_NUMBER_ALCH in
 *) g_auto_digit_NUMBER_ALCH=infinite;;
 esac
 
-#for one in `seq 1 1 $g_auto_digit_NUMBER_ALCH`
+# *** MAIN LOOP *** #
 while :;
 do
 
 tBEG=`/bin/date +%s`
 
-OLD_REPLY="";
-REPLY="";
+sleep ${SLEEP:-1}
 _probe_if_on_cauldron
 
 
-OLD_REPLY="";
-REPLY="";
-
-echo watch $g_edit_string_DRAW_INFO
+#echo watch $g_edit_string_DRAW_INFO
 
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Opening cauldron '$g_edit_string_CAULDRON' .."
 #echo issue 1 1 "apply $g_edit_string_CAULDRON" ## readys cauldron in inventory: You readied cauldron.
 echo issue 1 1 "apply"
 
-sleep 1s
+sleep ${SLEEP:-1}s
+echo watch $g_edit_string_DRAW_INFO
 
  for FOR in `seq 1 1 $g_auto_digit_C`; do
+
+ OLD_REPLY="";
+ REPLY="";
 
  case ${g_auto_digit_NUMBER[$FOR]} in
  one)   g_auto_digit_NUMBER[$FOR]=1;;
@@ -806,13 +872,15 @@ sleep 1s
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
+
  test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing ${g_auto_string_INGRED[$FOR]%% *} in inventory."
+ sleep ${SLEEP:-1}
 
  done
 
 _debug_two || echo unwatch $g_edit_string_DRAW_INFO;
 
-sleep 1s
+sleep ${SLEEP:-1}s
 
 
 # ***
@@ -826,11 +894,12 @@ sleep 1s
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Closing cauldron '$g_edit_string_CAULDRON' .."
 echo issue 1 1 "$g_edit_string_DIRB"
 echo issue 1 1 "$g_edit_string_DIRB"
-sleep 1
+sleep ${SLEEP:-1}
 echo issue 1 1 "$g_auto_string_DIRF"
 echo issue 1 1 "$g_auto_string_DIRF"
-sleep 1s
+sleep ${SLEEP:-1}s
 
+sleep ${SLEEP:-1}
 _probe_if_on_cauldron
 
 # *** TODO: The $g_edit_string_CAULDRON burps and then pours forth monsters!
@@ -892,10 +961,10 @@ _debug_two || echo unwatch $g_edit_string_DRAW_INFO;
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Closing cauldron '$g_edit_string_CAULDRON' .."
 echo issue 1 1 "$g_edit_string_DIRB"
 echo issue 1 1 "$g_edit_string_DIRB"
-sleep 1
+sleep ${SLEEP:-1}
 echo issue 1 1 "$g_auto_string_DIRF"
 echo issue 1 1 "$g_auto_string_DIRF"
-sleep 1s
+sleep ${SLEEP:-1}s
 
 #monitor 1 1 apply
 #watch drawinfo 0 You open cauldron.
@@ -934,7 +1003,7 @@ _probe_if_on_cauldron
 echo draw ${g_edit_nulldigit_COLOURED:-5} "Opening cauldron ..."
 # echo issue 1 1 "apply $g_edit_string_CAULDRON"  ## readys cauldron in inventory: You readied cauldron.
  echo issue 1 1 "apply"
-sleep 1s
+sleep ${SLEEP:-1}s
 
 #echo draw ${g_edit_nulldigit_COLOURED:-5} "Taking 7 ..."
 #echo "issue 7 1 take"
@@ -970,7 +1039,7 @@ then
  FAIL=$((FAIL+1))
 fi
 
-sleep 1s
+sleep ${SLEEP:-1}s
 
 
 # ***
@@ -984,16 +1053,16 @@ sleep 1s
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Going to storage tile .."
 echo issue 1 1 "$g_edit_string_DIRB"
 echo issue 1 1 "$g_edit_string_DIRB"
-sleep 1
+sleep ${SLEEP:-1}
 echo issue 1 1 "$g_edit_string_DIRB"
 echo issue 1 1 "$g_edit_string_DIRB"
-sleep 1s
+sleep ${SLEEP:-1}s
 
 echo draw ${g_edit_nulldigit_COLOURED:-5} "Identifying .."
 echo issue 1 1 use_skill "sense curse"
 echo issue 1 1 use_skill "sense magic"
 echo issue 1 1 use_skill "$g_edit_string_SKILL"
-sleep 6s
+sleep ${SLEEP:-6}s
 
 echo draw ${g_edit_nulldigit_COLOURED:-2} "dropping '$g_auto_string_GOAL' ..."
 echo issue 0 1 drop "$g_auto_string_GOAL"
@@ -1004,12 +1073,12 @@ for FOR in `seq 1 1 $g_auto_digit_C`; do
  echo issue 0 1 drop "${g_auto_string_INGRED[$FOR]} (magic)"
  echo draw ${g_edit_nulldigit_COLOURED:-5} "drop ${g_auto_string_INGRED[$FOR]}s (magic)"
  echo issue 0 1 drop "${g_auto_string_INGRED[$FOR]}s (magic)"
- sleep 2s
+ sleep ${SLEEP:-2}s
  echo draw ${g_edit_nulldigit_COLOURED:-5} "drop ${g_auto_string_INGRED[$FOR]} (cursed)"
  echo issue 0 1 drop "${g_auto_string_INGRED[$FOR]} (cursed)"
  echo draw ${g_edit_nulldigit_COLOURED:-5} "drop ${g_auto_string_INGRED[$FOR]}s (cursed)"
  echo issue 0 1 drop "${g_auto_string_INGRED[$FOR]}s (cursed)"
- sleep 2s
+ sleep ${SLEEP:-2}s
 
 done
 
@@ -1020,15 +1089,15 @@ echo draw ${g_edit_nulldigit_COLOURED:-2} "drop slag"  # verbose
 echo issue 0 1 drop "slag"
 #echo issue 0 1 drop "slags"
 
-sleep ${g_edit_float_DELAY_DRAWINFO}s
+sleep ${g_edit_float_DELAY_DRAWINFO:-4}s
 
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Returning to cauldron ...."
 echo issue 1 1 "$g_auto_string_DIRF"
 echo issue 1 1 "$g_auto_string_DIRF"
-sleep 1
+sleep ${SLEEP:-1}
 echo issue 1 1 "$g_auto_string_DIRF"
 echo issue 1 1 "$g_auto_string_DIRF"
-sleep 2s         #speed 0.32
+sleep ${SLEEP:-2}s         #speed 0.32
 
 _debug_two && {
  # log monitor msgs
@@ -1058,7 +1127,7 @@ test "$one" = "$g_auto_digit_NUMBER_ALCH" && break
 ;;
 esac
 
-done
+done  # *** MAIN LOOP *** #
 
 
 # ***
