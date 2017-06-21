@@ -1,6 +1,10 @@
 #!/bin/bash
 # uses arrays
 
+# *** diff marker 1
+# ***
+# ***
+
 rm -f /tmp/cf_*
 
 exec 2>/tmp/cf_script.err
@@ -32,6 +36,8 @@ northeast) DIRF=southwest;;
 southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
+
+ITEM_RECALL='rod of word of recall' # f_emergency_exit uses this ( staff, scroll, rod of word of recall )
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 
@@ -80,6 +86,15 @@ _debug(){
 echo "$*" | while read line; do echo draw 3 "$line"; done
 }
 
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
+CHECK_DO=1
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 echo draw 5 " with '$*' parameter."
@@ -90,7 +105,6 @@ echo draw 3 "Script needs skill, goal_item_name, numberofalchemyattempts, ingred
 echo draw 3 "See -h --help option for more information."
         exit 1
 }
-
 
 until [ $# = 0 ];
 do
@@ -129,7 +143,7 @@ echo draw 3 "-X --nocheck do not check cauldron (faster)"
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 -F|*fast)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
 -S|*slow)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
--X|*nocheck) unset g_nullstring_CHECK_DO;;
+-X|*nocheck) unset CHECK_DO;;
 
 
 alchemy|alchemistry) SKILL=alchemy;     CAULDRON=cauldron;;
@@ -182,6 +196,13 @@ case ${NUMBER[$C]} in -I|*infinite) :;;
  continue;;
 esac
 [ "$DEBUG" ] && echo draw 3 $C NUMBER ${NUMBER[$C]}
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
 
 # here we could shift syntax 3 water_of_the_wise 7 water
 case ${INGRED[$C]} in [0-9]*|-I|*infinite)
@@ -271,6 +292,12 @@ echo "INGRED[$CC]='${INGRED[$CC]}'" >>/tmp/cf_script.test
 [ "$DEBUG" ] && echo draw 3 "INGRED[$CC]=${INGRED[$CC]}"
 done
 
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
 
 test "$SKILL" -a "$GOAL" -a "$NUMBER_ALCH" -a "${INGRED[1]}" -a "${NUMBER[1]}" || {
 echo draw 3 "Need <skill> <artifact> <number> <ingredient> <numberof>"
@@ -278,8 +305,6 @@ echo draw 3 "ie: script $0 alchemy water_of_the_wise 10 water 7 ."
 echo draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
         exit 1
 }
-
-#test "$NUMBER_ALCH" = 'I' && unset NUMBER_ALCH
 
 case $SKILL in
 alchemy|bowyer|jeweler|smithery|thaumaturgy|woodsman) :;;
@@ -323,7 +348,8 @@ f_emergency_exit(){
 RV=${1:-0}
 shift
 
-echo "issue 1 1 apply rod of word of recall"
+echo "issue 1 1 apply -u $ITEM_RECALL"
+echo "issue 1 1 apply -a $ITEM_RECALL"
 echo "issue 1 1 fire center"
 echo draw 3 "Emergency Exit $0 !"
 echo watch $DRAW_INFO
@@ -346,6 +372,13 @@ test "$*" && echo draw ${COLOURED:-3} "$*"
 beep
 exit $RV
 }
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
 
 _get_player_speed(){
 # *** Getting Player's Speed *** #
@@ -381,13 +414,13 @@ PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
 if test ! "$PL_SPEED"; then
  echo draw ${COLOURED:-3} "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 elif test "$PL_SPEED" -gt 65; then
-SLEEP=0.6; DELAY_DRAWINFO=1.1
+SLEEP=0.6; DELAY_DRAWINFO=1.5
 elif test "$PL_SPEED" -gt 55; then
-SLEEP=0.8; DELAY_DRAWINFO=1.3
+SLEEP=0.8; DELAY_DRAWINFO=2.0
 elif test "$PL_SPEED" -gt 45; then
-SLEEP=1.0; DELAY_DRAWINFO=1.5
+SLEEP=1.0; DELAY_DRAWINFO=2.5
 elif test "$PL_SPEED" -gt 35; then
-SLEEP=1.5; DELAY_DRAWINFO=2.0
+SLEEP=1.5; DELAY_DRAWINFO=3.0
 elif test "$PL_SPEED" -gt 25; then
 SLEEP=2.0; DELAY_DRAWINFO=4.0
 elif test "$PL_SPEED" -gt 15; then
@@ -415,6 +448,8 @@ _probe_if_on_cauldron(){
 
 [ "$CHECK_DO" ] || return 0
 
+echo draw ${COLOURED:-2} "Checking if standing on a '$CAULDRON' .."
+
 unset UNDER_ME UNDER_ME_LIST
 
 echo request items on
@@ -437,7 +472,16 @@ done
   _beep
   exit 1
  }
+
+echo draw ${COLOURED:-7} "OK."
 }
+
+# ***
+# ***
+# *** diff marker 10
+# *** diff marker 11
+# ***
+# ***
 
 _probe_inventory(){
 # *** Check if is in inventory *** #
@@ -540,7 +584,7 @@ REPLY="";
 
 echo "issue 1 1 get"
 
-echo watch $g_edit_string_DRAW_INFO
+echo watch $DRAW_INFO
 
 while [ 1 ]; do
 read -t 1 REPLY
@@ -562,7 +606,7 @@ echo draw ${COLOURED:-3} "Please empty the cauldron and try again."
 f_exit 1
 }
 
-echo unwatch $g_edit_string_DRAW_INFO
+echo unwatch $DRAW_INFO
 
 echo draw ${COLOURED:-7} "OK ! Cauldron SEEMS empty."
 
@@ -571,6 +615,13 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 }
+
+# ***
+# ***
+# *** diff marker 12
+# *** diff marker 13
+# ***
+# ***
 
 _probe_free_move(){
 # *** Check for 4 empty space to DIRB *** #
@@ -603,7 +654,7 @@ if test ! "${PL_POS_X//[0-9]/}" -a ! "${PL_POS_Y//[0-9]/}"; then
 
 for nr in `seq 1 1 4`; do
 
-case $g_edit_string_DIRB in
+case $DIRB in
 west)
 R_X=$((PL_POS_X-nr))
 R_Y=$PL_POS_Y
@@ -660,10 +711,16 @@ fi
 echo draw ${COLOURED:-7} "OK."
 }
 
+# ***
+# ***
+# *** diff marker 14
+# *** diff marker 15
+# ***
+# ***
+
 _get_player_speed
 _probe_inventory
 _probe_skill "$SKILL" || f_exit 1 "You do not have the skill '$SKILL'."
-_probe_inventory
 _probe_if_on_cauldron
 _probe_empty_cauldron
 _probe_free_move
@@ -683,10 +740,10 @@ _probe_free_move
 # *** Then get the number of desired ingredient_1 and               *** #
 # *** the number of the other ingredients.                          *** #
 
-# *** Then walk onto the $g_edit_string_CAULDRON and make sure      *** #
+# *** Then walk onto the $CAULDRON and make sure                    *** #
 # *** there are all the 4 tiles free to move                        *** #
-# *** $g_edit_string_DIRB of the $g_edit_string_CAULDRON.           *** #
-# *** Do not open the $g_edit_string_CAULDRON, this script does it. *** #
+# *** $DIRB of the $CAULDRON.                                       *** #
+# *** Do not open the $CAULDRON, this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
 
@@ -804,13 +861,13 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP:-1}s
 
-echo "issue 1 1 use_skill $SKILL"
+_probe_if_on_cauldron
 
 # *** TODO: The $CAULDRON burps and then pours forth monsters!
 echo watch $DRAW_INFO
-
 OLD_REPLY="";
 REPLY="";
+echo "issue 1 1 use_skill $SKILL"
 
 while :; do
 _ping
@@ -837,6 +894,13 @@ REPLY="";
 NOTHING=0
 SLAG=0
 
+# ***
+# ***
+# *** diff marker 18
+# *** diff marker 19
+# ***
+# ***
+
 echo watch $DRAW_INFO
 sleep ${SLEEP:-1}s
 
@@ -845,7 +909,7 @@ echo issue 0 0 "get all"  # "1 1 get all" gets 1 of X items topmost or each line
 
 while [ 2 ]; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "get:$REPLY" >>"$g_edit_string_LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw ${COLOURED:-6} "$REPLY"
 test "$REPLY" || break
 test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
@@ -858,28 +922,26 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-_debug_two || echo unwatch $DRAW_INFO
+echo unwatch $DRAW_INFO
 
 if test "$SLAG" = 1 -o "$NOTHING" = 1;
 then
  FAIL=$((FAIL+1))
 fi
 
-
-
-
 sleep ${SLEEP:-1}s
-
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 sleep ${SLEEP:-1}s
 
+
+if test "$SLAG" = 0 -a "$NOTHING" = 0; then
 echo "issue 1 1 use_skill sense curse"
 echo "issue 1 1 use_skill sense magic"
 echo "issue 1 1 use_skill $SKILL"
-sleep 6s
+sleep ${SLEEP:-6}s
 
 echo draw 7 "drop $GOAL"
 echo "issue 0 1 drop $GOAL"
@@ -898,24 +960,27 @@ for FOR in `seq 1 1 $C`; do
  sleep ${SLEEP:-1}s
 
 done
+fi
 
 #echo "issue 0 1 drop (magic)"
 #echo "issue 0 1 drop (cursed)"
 
+if test "$SLAG" = 1; then
 echo draw 7 "drop slag"
 echo "issue 0 1 drop slag"
 #echo "issue 0 1 drop slags"
 sleep ${SLEEP:-1}s
+fi
 
-sleep ${DELAY_DRAWINFO}s
-
-
+sleep ${SLEEP:-1}s
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP:-1}s         #speed 0.32
 
+sleep ${DELAY_DRAWINFO}s
+_probe_if_on_cauldron
 
 one=$((one+1))
 tEND=`/bin/date +%s`
@@ -931,9 +996,16 @@ test "$one" = "$NUMBER_ALCH" && break
 ;;
 esac
 
+#_probe_if_on_cauldron
 
 done  # *** END of Main Loop *** #
 
+# ***
+# ***
+# *** diff marker 20
+# *** diff marker 21
+# ***
+# ***
 
 # *** Here ends program *** #
 
@@ -969,3 +1041,7 @@ echo draw 6 "Whole script time : $TIMEAM:$TIMEAS minutes." # dark orange
 
 echo draw 2 "$0 is finished."
 _beep
+
+# ***
+# ***
+# *** diff marker 22
