@@ -320,6 +320,73 @@ echo draw ${g_edit_nulldigit_COLOURED:-3} "See -h --help option for more informa
 }
 
 
+# In case of a typo in the header ...
+case $SKILL in
+alchemy|bowyer|jeweler|smithery|thaumaturgy|woodsman) :;;
+*) echo draw 3 "'$SKILL' not valid!"
+echo draw 3 "Valid skills are alchemy, bowyer, jeweler, smithery, thaumaturgy, woodsman"
+exit 1
+;;
+esac
+echo draw 7 "OK using '$SKILL'"
+
+case $CAULDRON in
+cauldron|workbench|jeweler_bench|forge|thaumaturg_desk|stove) :;;
+*) echo draw 3 "'$CAULDRON' not valid!"
+echo draw 3 "Valid cauldrons are cauldron, workbench, jeweler_bench, forge, thaumaturg_desk, stove"
+exit 1
+;;
+esac
+echo draw 7 "OK using $SKILL on '$CAULDRON'"
+
+
+f_exit(){
+RV=${1:-0}
+shift
+
+echo "issue 1 1 $g_edit_string_DIRB"
+echo "issue 1 1 $g_edit_string_DIRB"
+echo "issue 1 1 $g_auto_string_DIRF"
+echo "issue 1 1 $g_auto_string_DIRF"
+sleep 1s
+
+echo draw ${g_edit_nulldigit_COLOURED:-3} "Exiting $0."
+
+echo unwatch
+echo unwatch $g_edit_string_DRAW_INFO
+beep
+exit $RV
+}
+
+f_emergency_exit(){
+RV=${1:-0}
+shift
+
+echo "issue 1 1 apply rod of word of recall"
+echo "issue 1 1 fire center"
+echo draw ${g_edit_nulldigit_COLOURED:-3} "Emergency Exit $0 !"
+echo unwatch $g_edit_string_DRAW_INFO
+echo "issue 1 1 fire_stop"
+
+test "$*" && echo draw ${g_edit_nulldigit_COLOURED:-5} "$*"
+beep
+exit $RV
+}
+
+f_exit_no_space(){
+RV=${1:-0}
+shift
+
+echo draw ${g_edit_nulldigit_COLOURED:-3} "On position $nr $DIRB there is Something ($IS_WALL)!"
+echo draw ${g_edit_nulldigit_COLOURED:-3} "Remove that Item and try again."
+echo draw ${g_edit_nulldigit_COLOURED:-3} "If this is a Wall, try another place."
+
+test "$*" && echo draw ${g_edit_nulldigit_COLOURED:-5} "$*"
+beep
+exit $RV
+}
+
+_probe_inventory(){
 # *** Check if is in inventory *** #
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Checking if ingred(s) in inventory .."
 
@@ -370,39 +437,6 @@ fi
 # *** TODO
 
 done
-
-
-f_exit(){
-RV=${1:-0}
-shift
-
-echo "issue 1 1 $g_edit_string_DIRB"
-echo "issue 1 1 $g_edit_string_DIRB"
-echo "issue 1 1 $g_auto_string_DIRF"
-echo "issue 1 1 $g_auto_string_DIRF"
-sleep 1s
-
-echo draw ${g_edit_nulldigit_COLOURED:-3} "Exiting $0."
-
-echo unwatch
-echo unwatch $g_edit_string_DRAW_INFO
-beep
-exit $RV
-}
-
-f_emergency_exit(){
-RV=${1:-0}
-shift
-
-echo "issue 1 1 apply rod of word of recall"
-echo "issue 1 1 fire center"
-echo draw ${g_edit_nulldigit_COLOURED:-3} "Emergency Exit $0 !"
-echo unwatch $g_edit_string_DRAW_INFO
-echo "issue 1 1 fire_stop"
-
-test "$*" && echo draw ${g_edit_nulldigit_COLOURED:-5} "$*"
-beep
-exit $RV
 }
 
 
@@ -413,19 +447,6 @@ exit $RV
 # ***
 # ***
 
-
-f_exit_no_space(){
-RV=${1:-0}
-shift
-
-echo draw ${g_edit_nulldigit_COLOURED:-3} "On position $nr $DIRB there is Something ($IS_WALL)!"
-echo draw ${g_edit_nulldigit_COLOURED:-3} "Remove that Item and try again."
-echo draw ${g_edit_nulldigit_COLOURED:-3} "If this is a Wall, try another place."
-
-test "$*" && echo draw ${g_edit_nulldigit_COLOURED:-5} "$*"
-beep
-exit $RV
-}
 
 # *** Does our player possess the skill alchemy ? *** #
 _check_skill(){
@@ -757,7 +778,7 @@ echo draw ${g_edit_nulldigit_COLOURED:-6} "Done."
 # ***
 # ***
 
-
+_probe_inventory
 _check_skill $g_edit_string_SKILL || f_exit 1 "You do not have the skill '$SKILL'."
 _probe_if_on_cauldron
 _check_free_move

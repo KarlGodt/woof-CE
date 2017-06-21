@@ -3,7 +3,7 @@
 
 rm -f /tmp/cf_*
 
-exec 2>>/tmp/cf_script.err
+exec 2>/tmp/cf_script.err
 
 TIMEA=`/bin/date +%s`
 
@@ -12,6 +12,8 @@ TIMEA=`/bin/date +%s`
 DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
                     # OR drawextinfo (new servers)
                     # used for catching msgs watch/unwatch $DRAW_INFO
+
+DELAY_DRAWINFO=4  #speed 0.32
 
 # When putting ingredients into cauldron, player needs to leave cauldron
 # to close it. Also needs to pickup and drop the result(s) to not
@@ -43,8 +45,34 @@ _beep(){
 beep -l $BEEP_LENGTH -f $BEEP_FREQ
 }
 
+PING_DO=
+URL=crossfire.metalforge.net # localhost if server running on local PC
 _ping(){
-    :
+ test "$PING_DO" || return 0
+
+local lFOREVER=''
+local lPRV
+
+case $1 in
+-I|--infinite) lFOREVER=1;;
+esac
+
+while :; do
+ping -c 1 -w10 -W10 "${URL:-bing.com}" >/dev/null 2>&1
+lPRV=$?
+ if test "$lFOREVER"; then
+  case $lPRV in 0) :;;
+  *) echo draw 3 "WARNING: Client seems disconnected.." >&1;;
+  esac
+  sleep 2
+ else
+  case $lPRV in 0) return 0;;
+  *) :;;
+  esac
+ fi
+
+ sleep 1
+done
 }
 
 _debug(){
@@ -125,13 +153,6 @@ stove)               SKILL=woodsman;    CAULDRON=stove;;
 C=0 # COUNTER used in arrays, set zero as default
 
 echo "${BASH_ARGC[0]} : ${BASH_ARGV[@]}" >>/tmp/cf_script.test
-
-##WITHOUT_FIRST=$(( ${BASH_ARGC[0]} - 1 ))
-#for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
-##for c in `seq $WITHOUT_FIRST -2 1`;
-#do
-##vc=$((c-1));ivc=$((vc-1));((C++));
-#vc=$((c-0));ivc=$((vc-1));((C++));
 
 for c in `seq 0 2 $(( $# - 1 ))`;
 do
@@ -267,7 +288,7 @@ echo draw 3 "Valid skills are alchemy, bowyer, jeweler, smithery, thaumaturgy, w
 exit 1
 ;;
 esac
-echo draw 7 "OK using $SKILL on $CAULDRON"
+echo draw 7 "OK using '$SKILL'"
 
 case $CAULDRON in
 cauldron|workbench|jeweler_bench|forge|thaumaturg_desk|stove) :;;
@@ -276,18 +297,52 @@ echo draw 3 "Valid cauldrons are cauldron, workbench, jeweler_bench, forge, thau
 exit 1
 ;;
 esac
-echo draw 7 "OK using $SKILL on $CAULDRON"
+echo draw 7 "OK using $SKILL on '$CAULDRON'"
 
+
+f_exit(){
+RV=${1:-0}
+shift
+
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+sleep ${SLEEP:-1}s
+
+test "$*" && echo draw 5 "$*"
+echo draw 3 "Exiting $0."
+
+echo unwatch
+echo watch $DRAW_INFO
+_beep
+exit $RV
+}
+
+f_emergency_exit(){
+RV=${1:-0}
+shift
+
+echo "issue 1 1 apply rod of word of recall"
+echo "issue 1 1 fire center"
+echo draw 3 "Emergency Exit $0 !"
+echo watch $DRAW_INFO
+echo "issue 1 1 fire_stop"
+
+test "$*" && echo draw 5 "$*"
+_beep
+exit $RV
+}
 
 f_exit_no_space(){
 RV=${1:-0}
 shift
 
-echo draw ${g_edit_nulldigit_COLOURED:-3} "On position $nr $DIRB there is Something ($IS_WALL)!"
-echo draw ${g_edit_nulldigit_COLOURED:-3} "Remove that Item and try again."
-echo draw ${g_edit_nulldigit_COLOURED:-3} "If this is a Wall, try another place."
+echo draw ${COLOURED:-3} "On position $nr $DIRB there is Something ($IS_WALL)!"
+echo draw ${COLOURED:-3} "Remove that Item and try again."
+echo draw ${COLOURED:-3} "If this is a Wall, try another place."
 
-test "$*" && echo draw ${g_edit_nulldigit_COLOURED:-5} "$*"
+test "$*" && echo draw ${COLOURED:-3} "$*"
 beep
 exit $RV
 }
@@ -295,7 +350,7 @@ exit $RV
 _get_player_speed(){
 # *** Getting Player's Speed *** #
 
-echo draw ${g_edit_nulldigit_COLOURED:-5} "Processing Player's speed..."
+echo draw ${COLOURED:-2} "Processing Player's speed..."
 
 ANSWER=
 OLD_ANSWER=
@@ -305,7 +360,7 @@ echo request stat cmbt
 while [ 1 ]; do
 read -t 2 ANSWER
 [ "$LOGGING" ] && echo "_get_player_speed:$ANSWER" >>/tmp/cf_request.log
-[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$ANSWER"
+[ "$DEBUG" ] && echo draw ${COLOURED:-6} "$ANSWER"
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
 OLD_ANSWER="$ANSWER"
@@ -317,14 +372,14 @@ done
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
 #PL_SPEED="0.${PL_SPEED:0:2}"
 PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
-[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-7} "Player speed is $PL_SPEED"
+[ "$DEBUG" ] && echo draw ${COLOURED:-7} "Player speed is $PL_SPEED"
 
 #PL_SPEED="${PL_SPEED:2:2}"
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
-[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-7} "Player speed set to $PL_SPEED"
+[ "$DEBUG" ] && echo draw ${COLOURED:-7} "Player speed set to $PL_SPEED"
 
 if test ! "$PL_SPEED"; then
- echo draw ${g_edit_nulldigit_COLOURED:-3} "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
+ echo draw ${COLOURED:-3} "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 elif test "$PL_SPEED" -gt 65; then
 SLEEP=0.6; DELAY_DRAWINFO=1.1
 elif test "$PL_SPEED" -gt 55; then
@@ -340,7 +395,7 @@ SLEEP=3.0; DELAY_DRAWINFO=6.0
 elif test "$PL_SPEED" -ge  0; then
 SLEEP=4.0; DELAY_DRAWINFO=9.0
 else
- echo draw ${g_edit_nulldigit_COLOURED:-3} "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
+ echo draw ${COLOURED:-3} "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
 
 SLEEP=${SLEEP:-1}
@@ -352,7 +407,7 @@ test "$SLEEP_ADJ" && { SLEEP=`dc $SLEEP $SLEEP_ADJ \+ p`
 
 SLEEP=${SLEEP:-1}
 
-echo draw ${g_edit_nulldigit_COLOURED:-6} "Done."
+echo draw ${COLOURED:-6} "Done."
 }
 
 _probe_if_on_cauldron(){
@@ -448,7 +503,7 @@ do
  sleep 0.1
  read -t 2
   [ "$LOGGING" ] && echo "_check_skill:$REPLY" >>"$LOG_REPLY_FILE"
-  [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
+  [ "$DEBUG" ] && echo draw ${COLOURED:-6} "$REPLY"
 
  case $REPLY in    '') break;;
  'request skills end') break;;
@@ -458,7 +513,7 @@ do
   case $REPLY in *"$l_auto_string_PARAM") return 0;; esac
  else # print skill
   l_SKILL=`echo "$REPLY" | cut -f4- -d' '`
-  echo draw ${g_edit_nulldigit_COLOURED:-5} "'$l_SKILL'"
+  echo draw ${COLOURED:-5} "'$l_SKILL'"
  fi
 
 done
@@ -474,7 +529,7 @@ _probe_empty_cauldron(){
 echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
 sleep ${SLEEP:-1}s
 
-echo draw ${g_edit_nulldigit_COLOURED:-5} "Checking for empty cauldron..."
+echo draw ${COLOURED:-2} "Checking for empty cauldron..."
 
 echo "issue 1 1 apply"
 sleep ${SLEEP:-1}s
@@ -490,7 +545,7 @@ echo watch $g_edit_string_DRAW_INFO
 while [ 1 ]; do
 read -t 1 REPLY
 [ "$LOGGING" ] && echo "_check_empty_cauldron:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
+[ "$DEBUG" ] && echo draw ${COLOURED:-6} "$REPLY"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 REPLY_ALL="$REPLY
@@ -502,14 +557,14 @@ sleep 0.1s
 done
 
 test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-echo draw ${g_edit_nulldigit_COLOURED:-3} "Cauldron NOT empty !!"
-echo draw ${g_edit_nulldigit_COLOURED:-3} "Please empty the cauldron and try again."
+echo draw ${COLOURED:-3} "Cauldron NOT empty !!"
+echo draw ${COLOURED:-3} "Please empty the cauldron and try again."
 f_exit 1
 }
 
 echo unwatch $g_edit_string_DRAW_INFO
 
-echo draw ${g_edit_nulldigit_COLOURED:-7} "OK ! Cauldron SEEMS empty."
+echo draw ${COLOURED:-7} "OK ! Cauldron SEEMS empty."
 
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
@@ -522,14 +577,14 @@ _probe_free_move(){
 
 [ "$CHECK_DO" ] || return 0
 
-echo draw ${g_edit_nulldigit_COLOURED:-5} "Checking for space to move..."
+echo draw ${COLOURED:-2} "Checking for space to move..."
 
 echo request map pos
 
 while [ 1 ]; do
 read -t 2 REPLY
 [ "$LOGGING" ] && echo "_check_free_move:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
+[ "$DEBUG" ] && echo draw ${COLOURED:-6} "$REPLY"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -540,7 +595,7 @@ done
 PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
 PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
 
-[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-3} "PL_POS_X='$PL_POS_X' PL_POS_Y='$PL_POS_Y'"
+[ "$DEBUG" ] && echo draw ${COLOURED:-3} "PL_POS_X='$PL_POS_X' PL_POS_Y='$PL_POS_Y'"
 
 if test "$PL_POS_X" -a "$PL_POS_Y"; then
 
@@ -567,18 +622,18 @@ R_Y=$((PL_POS_Y+nr))
 ;;
 esac
 
-[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-3} "R_X='$R_X' R_Y='$R_Y'"
+[ "$DEBUG" ] && echo draw ${COLOURED:-3} "R_X='$R_X' R_Y='$R_Y'"
 echo request map $R_X $R_Y
 
 while [ 1 ]; do
 read -t 2 REPLY
 [ "$LOGGING" ] && echo "request map $R_X $R_Y:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
+[ "$DEBUG" ] && echo draw ${COLOURED:-6} "$REPLY"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 [ "$LOGGING" ] && echo "IS_WALL='$IS_WALL'" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw  ${g_edit_nulldigit_COLOURED:-3} "IS_WALL='$IS_WALL'"
+[ "$DEBUG" ] && echo draw  ${COLOURED:-3} "IS_WALL='$IS_WALL'"
 test "$IS_WALL" = 0 || f_exit_no_space 1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
@@ -590,22 +645,23 @@ done
 
 else
 
-echo draw ${g_edit_nulldigit_COLOURED:-3} "Received Incorrect X Y parameters from server"
+echo draw ${COLOURED:-3} "Received Incorrect X Y parameters from server"
 exit 1
 
 fi
 
 else
 
-echo draw ${g_edit_nulldigit_COLOURED:-3} "Could not get X and Y position of player."
+echo draw ${COLOURED:-3} "Could not get X and Y position of player."
 exit 1
 
 fi
 
-echo draw ${g_edit_nulldigit_COLOURED:-7} "OK."
+echo draw ${COLOURED:-7} "OK."
 }
 
 _get_player_speed
+_probe_inventory
 _probe_skill "$SKILL" || f_exit 1 "You do not have the skill '$SKILL'."
 _probe_inventory
 _probe_if_on_cauldron
@@ -636,44 +692,9 @@ _probe_free_move
 
 echo "issue 1 1 pickup 0"  # precaution
 
-f_exit(){
-RV=${1:-0}
-shift
-
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-sleep 1s
-
-test "$*" && echo draw 5 "$*"
-echo draw 3 "Exiting $0."
-
-echo unwatch
-echo watch $DRAW_INFO
-_beep
-exit $RV
-}
-
-f_emergency_exit(){
-RV=${1:-0}
-shift
-
-echo "issue 1 1 apply rod of word of recall"
-echo "issue 1 1 fire center"
-echo draw 3 "Emergency Exit $0 !"
-echo watch $DRAW_INFO
-echo "issue 1 1 fire_stop"
-
-test "$*" && echo draw 5 "$*"
-_beep
-exit $RV
-}
-
-
 rm -f "$LOG_REPLY_FILE"
 
-sleep 1s
+sleep ${SLEEP:-1}s
 
 TIMEB=`/bin/date +%s`
 FAIL=0
@@ -725,7 +746,7 @@ echo "issue 1 1 apply"
 
 echo watch $DRAW_INFO
 
-sleep 1s
+sleep ${SLEEP:-1}s
 
  for FOR in `seq 1 1 $C`; do
 
@@ -774,14 +795,14 @@ esac
  done
 
 echo unwatch $DRAW_INFO
-sleep 1s
+sleep ${SLEEP:-1}s
 
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
-sleep 1
+sleep ${SLEEP:-1}
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep 1s
+sleep ${SLEEP:-1}s
 
 echo "issue 1 1 use_skill $SKILL"
 
@@ -811,13 +832,13 @@ echo unwatch $DRAW_INFO
 echo "issue 1 1 apply"
 #echo "issue 7 1 take"
 echo issue 0 0 "get all"  # "1 1 get all" gets 1 of X items topmost or each line only
-sleep 1s
+sleep ${SLEEP:-1}s
 
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
-sleep 1s
+sleep ${SLEEP:-1}s
 
 echo "issue 1 1 use_skill sense curse"
 echo "issue 1 1 use_skill sense magic"
@@ -833,12 +854,12 @@ for FOR in `seq 1 1 $C`; do
  echo "issue 0 1 drop ${INGRED[$FOR]} (magic)"
  echo draw 7 "drop ${INGRED[$FOR]}s (magic)"
  echo "issue 0 1 drop ${INGRED[$FOR]}s (magic)"
- sleep 2s
+ sleep ${SLEEP:-1}s
  echo draw 7 "drop ${INGRED[$FOR]} (cursed)"
  echo "issue 0 1 drop ${INGRED[$FOR]} (cursed)"
  echo draw 7 "drop ${INGRED[$FOR]}s (cursed)"
  echo "issue 0 1 drop ${INGRED[$FOR]}s (cursed)"
- sleep 2s
+ sleep ${SLEEP:-1}s
 
 done
 
@@ -848,8 +869,8 @@ done
 echo draw 7 "drop slag"
 echo "issue 0 1 drop slag"
 #echo "issue 0 1 drop slags"
+sleep ${SLEEP:-1}s
 
-DELAY_DRAWINFO=4  #speed 0.32
 sleep ${DELAY_DRAWINFO}s
 
 
@@ -857,7 +878,7 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep 2s         #speed 0.32
+sleep ${SLEEP:-1}s         #speed 0.32
 
 
 one=$((one+1))
