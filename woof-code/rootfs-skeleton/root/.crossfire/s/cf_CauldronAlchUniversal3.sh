@@ -314,7 +314,81 @@ echo draw ${g_edit_nulldigit_COLOURED:-3} "See -h --help option for more informa
         exit 1
 }
 
+# In case of a typo in the header ...
+case $SKILL in
+alchemy|bowyer|jeweler|smithery|thaumaturgy|woodsman) :;;
+*) echo draw 3 "'$SKILL' not valid!"
+echo draw 3 "Valid skills are alchemy, bowyer, jeweler, smithery, thaumaturgy, woodsman"
+exit 1
+;;
+esac
+echo draw 7 "OK using '$SKILL'"
 
+case $CAULDRON in
+cauldron|workbench|jeweler_bench|forge|thaumaturg_desk|stove) :;;
+*) echo draw 3 "'$CAULDRON' not valid!"
+echo draw 3 "Valid cauldrons are cauldron, workbench, jeweler_bench, forge, thaumaturg_desk, stove"
+exit 1
+;;
+esac
+echo draw 7 "OK using $SKILL on '$CAULDRON'"
+
+
+f_exit(){
+RV=${1:-0}
+shift
+
+echo "issue 1 1 $g_edit_string_DIRB"
+echo "issue 1 1 $g_edit_string_DIRB"
+echo "issue 1 1 $g_auto_string_DIRF"
+echo "issue 1 1 $g_auto_string_DIRF"
+sleep 1s
+
+echo draw ${g_edit_nulldigit_COLOURED:-3} "Exiting $0."
+
+echo unwatch
+echo unwatch $g_edit_string_DRAW_INFO
+beep
+exit $RV
+}
+
+f_emergency_exit(){
+RV=${1:-0}
+shift
+
+echo "issue 1 1 apply -u $ITEM_RECALL"
+echo "issue 1 1 apply -a $ITEM_RECALL"
+echo "issue 1 1 fire center"
+echo draw ${g_edit_nulldigit_COLOURED:-3} "Emergency Exit $0 !"
+echo unwatch $g_edit_string_DRAW_INFO
+echo "issue 1 1 fire_stop"
+
+test "$*" && echo draw ${g_edit_nulldigit_COLOURED:-5} "$*"
+beep
+exit $RV
+}
+
+f_exit_no_space(){
+RV=${1:-0}
+shift
+
+echo draw ${g_edit_nulldigit_COLOURED:-3} "On position $nr $DIRB there is Something ($IS_WALL)!"
+echo draw ${g_edit_nulldigit_COLOURED:-3} "Remove that Item and try again."
+echo draw ${g_edit_nulldigit_COLOURED:-3} "If this is a Wall, try another place."
+
+test "$*" && echo draw ${g_edit_nulldigit_COLOURED:-5} "$*"
+beep
+exit $RV
+}
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
+
+_probe_inventory(){
 # *** Check if is in inventory *** #
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Checking if ingred(s) in inventory .."
 
@@ -342,7 +416,7 @@ done
 
 
 C2=0
-for one in `seq 1 1 $g_auto_digit_C`
+for one in `seq 1 1 $((g_auto_digit_C))`
 do
 
 ((C2++))
@@ -365,100 +439,12 @@ fi
 # *** TODO
 
 done
-
-
-# ***
-# ***
-# *** diff marker 4
-# *** diff marker 5
-# ***
-# ***
-
-
-case $g_auto_digit_NUMBER_ALCH in
-one)   g_auto_digit_NUMBER_ALCH=1;;
-two)   g_auto_digit_NUMBER_ALCH=2;;
-three) g_auto_digit_NUMBER_ALCH=3;;
-four)  g_auto_digit_NUMBER_ALCH=4;;
-five)  g_auto_digit_NUMBER_ALCH=5;;
-six)   g_auto_digit_NUMBER_ALCH=6;;
-seven) g_auto_digit_NUMBER_ALCH=7;;
-eight) g_auto_digit_NUMBER_ALCH=8;;
-nine)  g_auto_digit_NUMBER_ALCH=9;;
-ten)   g_auto_digit_NUMBER_ALCH=10;;
-eleven)    g_auto_digit_NUMBER_ALCH=11;;
-twelve)    g_auto_digit_NUMBER_ALCH=12;;
-thirteen)  g_auto_digit_NUMBER_ALCH=13;;
-fourteen)  g_auto_digit_NUMBER_ALCH=14;;
-fifteen)   g_auto_digit_NUMBER_ALCH=15;;
-sixteen)   g_auto_digit_NUMBER_ALCH=16;;
-seventeen) g_auto_digit_NUMBER_ALCH=17;;
-eightteen) g_auto_digit_NUMBER_ALCH=18;;
-nineteen)  g_auto_digit_NUMBER_ALCH=19;;
-twenty)    g_auto_digit_NUMBER_ALCH=20;;
-esac
-test "$g_auto_digit_NUMBER_ALCH" -ge 1 || g_auto_digit_NUMBER_ALCH=1 #paranoid precaution
-
-
-
-f_exit(){
-RV=${1:-0}
-shift
-
-echo "issue 1 1 $g_edit_string_DIRB"
-echo "issue 1 1 $g_edit_string_DIRB"
-echo "issue 1 1 $g_auto_string_DIRF"
-echo "issue 1 1 $g_auto_string_DIRF"
-sleep 1s
-
-
-echo draw ${g_edit_nulldigit_COLOURED:-3} "Exiting $0."
-
-echo unwatch
-echo unwatch $g_edit_string_DRAW_INFO
-beep
-exit $RV
-}
-
-f_emergency_exit(){
-RV=${1:-0}
-shift
-
-echo "issue 1 1 apply rod of word of recall"
-echo "issue 1 1 fire center"
-echo draw ${g_edit_nulldigit_COLOURED:-3} "Emergency Exit $0 !"
-echo unwatch $g_edit_string_DRAW_INFO
-echo "issue 1 1 fire_stop"
-
-test "$*" && echo draw ${g_edit_nulldigit_COLOURED:-5} "$*"
-beep
-exit $RV
-}
-
-
-# ***
-# ***
-# *** diff marker 6
-# *** diff marker 7
-# ***
-# ***
-
-
-f_exit_no_space(){
-RV=${1:-0}
-shift
-
-echo draw ${g_edit_nulldigit_COLOURED:-3} "On position $nr $DIRB there is Something ($IS_WALL)!"
-echo draw ${g_edit_nulldigit_COLOURED:-3} "Remove that Item and try again."
-echo draw ${g_edit_nulldigit_COLOURED:-3} "If this is a Wall, try another place."
-
-test "$*" && echo draw ${g_edit_nulldigit_COLOURED:-5} "$*"
-beep
-exit $RV
 }
 
 # *** Does our player possess the skill alchemy ? *** #
 _check_skill(){
+
+[ "$g_nullstring_CHECK_DO" ] || return 0
 
 local l_auto_string_PARAM="$*"
 local l_SKILL
@@ -469,7 +455,7 @@ while :;
 do
  unset REPLY
  sleep 0.1
- read -t 1
+ read -t 2
   [ "$LOGGING" ] && echo "_check_skill:$REPLY" >>"$LOG_REPLY_FILE"
   [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
 
@@ -489,16 +475,29 @@ done
 test ! "$l_auto_string_PARAM" # returns 0 if called without parameter, else 1
 }
 
+# ***
+# ***
+# *** diff marker 10
+# *** diff marker 11
+# ***
+# ***
+
 _probe_if_on_cauldron(){
 # *** Check if standing on a $g_edit_string_CAULDRON *** #
+
+[ "$g_nullstring_CHECK_DO" ] || return 0
+
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Checking if standing on a '$g_edit_string_CAULDRON' .."
 
 [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-5} "Creating UNDER_ME_LIST .."
-UNDER_ME='';
+
+local UNDER_ME UNDER_ME_LIST
+unset UNDER_ME UNDER_ME_LIST
+
 echo request items on
 
 while [ 1 ]; do
-read -t 1 UNDER_ME
+read -t 2 UNDER_ME
 sleep 0.1s
 [ "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
 [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$UNDER_ME"
@@ -518,23 +517,17 @@ done
 echo draw ${g_edit_nulldigit_COLOURED:-7} "OK, am on '$g_edit_string_CAULDRON' ."
 }
 
-
-# ***
-# ***
-# *** diff marker 8
-# *** diff marker 9
-# ***
-# ***
-
-
 _check_free_move(){
 # *** Check for 4 empty space to DIRB *** #
+
+[ "$g_nullstring_CHECK_DO" ] || return 0
+
 echo draw ${g_edit_nulldigit_COLOURED:-5} "Checking for space to move..."
 
 echo request map pos
 
 while [ 1 ]; do
-read -t 1 REPLY
+read -t 2 REPLY
 [ "$LOGGING" ] && echo "_check_free_move:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
 test "$REPLY" || break
@@ -578,7 +571,7 @@ esac
 echo request map $R_X $R_Y
 
 while [ 1 ]; do
-read -t 1 REPLY
+read -t 2 REPLY
 [ "$LOGGING" ] && echo "request map $R_X $R_Y:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
 test "$REPLY" || break
@@ -612,8 +605,18 @@ fi
 echo draw ${g_edit_nulldigit_COLOURED:-7} "OK."
 }
 
+# ***
+# ***
+# *** diff marker 12
+# *** diff marker 13
+# ***
+# ***
+
 _prepare_recall(){
-# *** Readying rod of word of recall - just in case *** #
+# *** Readying $ITEM_RECALL - just in case *** #
+
+[ "$g_nullstring_CHECK_DO" ] || return 0
+
 echo draw ${g_edit_nulldigit_COLOURED:-5} "Preparing for recall if monsters come forth..."
 
 RECALL=0
@@ -623,12 +626,12 @@ REPLY="";
 echo request items actv
 
 while [ 1 ]; do
-read -t 1 REPLY
+read -t 2 REPLY
 [ "$LOGGING" ] && echo "_prepare_recall:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
+test "`echo "$REPLY" | grep '.* $ITEM_RECALL'`" && RECALL=1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -636,23 +639,17 @@ sleep 0.1s
 done
 
 if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-echo "issue 1 1 apply rod of word of recall"
+echo "issue 1 1 apply $ITEM_RECALL"
 fi
 
 echo draw ${g_edit_nulldigit_COLOURED:-6} "Done."
 }
 
-
-# ***
-# ***
-# *** diff marker 10
-# *** diff marker 11
-# ***
-# ***
-
-
 _check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
+
+[ "$g_nullstring_CHECK_DO" ] || return 0
+
 echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
 sleep ${SLEEP:-1}s
 
@@ -699,6 +696,13 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 }
 
+# ***
+# ***
+# *** diff marker 14
+# *** diff marker 15
+# ***
+# ***
+
 _get_player_speed(){
 # *** Getting Player's Speed *** #
 
@@ -710,7 +714,7 @@ OLD_ANSWER=
 echo request stat cmbt
 
 while [ 1 ]; do
-read -t 1 ANSWER
+read -t 2 ANSWER
 [ "$LOGGING" ] && echo "_get_player_speed:$ANSWER" >>/tmp/cf_request.log
 [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$ANSWER"
 test "$ANSWER" || break
@@ -733,9 +737,9 @@ PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
 if test ! "$PL_SPEED"; then
  echo draw ${g_edit_nulldigit_COLOURED:-3} "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 elif test "$PL_SPEED" -gt 65; then
-SLEEP=0.2; DELAY_DRAWINFO=1.0
+SLEEP=0.6; DELAY_DRAWINFO=1.1
 elif test "$PL_SPEED" -gt 55; then
-SLEEP=0.5; DELAY_DRAWINFO=1.2
+SLEEP=0.8; DELAY_DRAWINFO=1.3
 elif test "$PL_SPEED" -gt 45; then
 SLEEP=1.0; DELAY_DRAWINFO=1.5
 elif test "$PL_SPEED" -gt 35; then
@@ -750,18 +754,19 @@ else
  echo draw ${g_edit_nulldigit_COLOURED:-3} "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
 
+SLEEP=${SLEEP:-1}
+
+_debug "SLEEP='$SLEEP'"
+test "$SLEEP_ADJ" && { SLEEP=`dc $SLEEP $SLEEP_ADJ \+ p`
+ case $SLEEP in -[0-9]*) SLEEP=0.1;; esac
+ _debug "SLEEP now set to '$SLEEP'" ; }
+
+SLEEP=${SLEEP:-1}
+
 echo draw ${g_edit_nulldigit_COLOURED:-6} "Done."
 }
 
-
-# ***
-# ***
-# *** diff marker 12
-# *** diff marker 13
-# ***
-# ***
-
-
+_probe_inventory
 _check_skill $g_edit_string_SKILL || f_exit 1 "You do not have the skill '$SKILL'."
 _probe_if_on_cauldron
 _check_free_move
@@ -770,24 +775,32 @@ _get_player_speed
 _prepare_recall
 
 
-# *** Actual script to alch the desired water of gem *** #
+# *** Actual script to alch the desired out_come_product            *** #
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
 # *** Make sure similar items are not in the inventory --           *** #
 # *** eg. staff of summon water elemental and such ...              *** #
 
-# *** So do a 'drop water' and 'drop GEM' before beginning to alch. *** #
+# *** So do a 'drop ingred_1' and 'drop ingred_2'                   *** #
+# *** before beginning to alch.                                     *** #
 # *** Then if some items are locked, unlock these and drop again.   *** #
 
-# *** Now get the number of desired water of the wise and           *** #
-# *** three times the number of the desired gem.                    *** #
+# *** Then get the number of desired ingredient_1 and               *** #
+# *** the number of the other ingredients.                          *** #
 
-# *** Now walk onto the $g_edit_string_CAULDRON and make sure       *** #
-# *** there are all the 4 tiles free                                *** #
+# *** Then walk onto the $g_edit_string_CAULDRON and make sure      *** #
+# *** there are all the 4 tiles free to move                        *** #
 # *** $g_edit_string_DIRB of the $g_edit_string_CAULDRON.           *** #
 # *** Do not open the $g_edit_string_CAULDRON, this script does it. *** #
 # *** HAPPY ALCHING !!!                                             *** #
+
+# ***
+# ***
+# *** diff marker 16
+# *** diff marker 17
+# ***
+# ***
 
 echo "issue 1 1 pickup 0"  # precaution
 
@@ -807,30 +820,29 @@ case $g_auto_digit_NUMBER_ALCH in
 *) g_auto_digit_NUMBER_ALCH=infinite;;
 esac
 
-#for one in `seq 1 1 $g_auto_digit_NUMBER_ALCH`
+# *** MAIN LOOP *** #
 while :;
 do
 
 tBEG=`/bin/date +%s`
 
-OLD_REPLY="";
-REPLY="";
+sleep ${SLEEP:-1}
 _probe_if_on_cauldron
 
 
-OLD_REPLY="";
-REPLY="";
-
-echo watch $g_edit_string_DRAW_INFO
+#echo watch $g_edit_string_DRAW_INFO
 
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Opening cauldron '$g_edit_string_CAULDRON' .."
 #echo issue 1 1 "apply $g_edit_string_CAULDRON" ## readys cauldron in inventory: You readied cauldron.
 echo issue 1 1 "apply"
 
-sleep 1s
+sleep ${SLEEP:-1}s
+echo watch $g_edit_string_DRAW_INFO
 
- #for FOR in `seq 2 1 $g_auto_digit_C`; do
  for FOR in `seq 1 1 $g_auto_digit_C`; do
+
+ OLD_REPLY="";
+ REPLY="";
 
  case ${g_auto_digit_NUMBER[$FOR]} in
  one)   g_auto_digit_NUMBER[$FOR]=1;;
@@ -876,31 +888,32 @@ sleep 1s
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
+
  test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing ${g_auto_string_INGRED[$FOR]%% *} in inventory."
+ sleep ${SLEEP:-1}
 
  done
 
 _debug_two || echo unwatch $g_edit_string_DRAW_INFO;
 
-sleep 1s
+sleep ${SLEEP:-1}s
 
-
 # ***
 # ***
-# *** diff marker 14
-# *** diff marker 15
+# *** diff marker 18
+# *** diff marker 19
 # ***
 # ***
-
 
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Closing cauldron '$g_edit_string_CAULDRON' .."
 echo issue 1 1 "$g_edit_string_DIRB"
 echo issue 1 1 "$g_edit_string_DIRB"
-sleep 1
+sleep ${SLEEP:-1}
 echo issue 1 1 "$g_auto_string_DIRF"
 echo issue 1 1 "$g_auto_string_DIRF"
-sleep 1s
+sleep ${SLEEP:-1}s
 
+sleep ${SLEEP:-1}
 _probe_if_on_cauldron
 
 # *** TODO: The $g_edit_string_CAULDRON burps and then pours forth monsters!
@@ -930,15 +943,6 @@ done
 
 _debug_two || echo unwatch $g_edit_string_DRAW_INFO;
 
-
-# ***
-# ***
-# *** diff marker 16
-# *** diff marker 17
-# ***
-# ***
-
-
 #TODO: gtk2 client the code works.
 # Today in the gtk1 1.12 client "nothing" works:
 # 1) When apply on cauldron after use_skill alchemy on it,
@@ -962,10 +966,10 @@ _debug_two || echo unwatch $g_edit_string_DRAW_INFO;
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Closing cauldron '$g_edit_string_CAULDRON' .."
 echo issue 1 1 "$g_edit_string_DIRB"
 echo issue 1 1 "$g_edit_string_DIRB"
-sleep 1
+sleep ${SLEEP:-1}
 echo issue 1 1 "$g_auto_string_DIRF"
 echo issue 1 1 "$g_auto_string_DIRF"
-sleep 1s
+sleep ${SLEEP:-1}s
 
 #monitor 1 1 apply
 #watch drawinfo 0 You open cauldron.
@@ -999,12 +1003,19 @@ sleep 1s
 
 #request items inv 135756062 1 80.000000 0 51 cauldron
 
+# ***
+# ***
+# *** diff marker 20
+# *** diff marker 21
+# ***
+# ***
+
 _probe_if_on_cauldron
 
 echo draw ${g_edit_nulldigit_COLOURED:-5} "Opening cauldron ..."
 # echo issue 1 1 "apply $g_edit_string_CAULDRON"  ## readys cauldron in inventory: You readied cauldron.
  echo issue 1 1 "apply"
-sleep 1s
+sleep ${SLEEP:-1}s
 
 #echo draw ${g_edit_nulldigit_COLOURED:-5} "Taking 7 ..."
 #echo "issue 7 1 take"
@@ -1040,65 +1051,70 @@ then
  FAIL=$((FAIL+1))
 fi
 
-sleep 1s
-
-
-# ***
-# ***
-# *** diff marker 18
-# *** diff marker 19
-# ***
-# ***
-
+sleep ${SLEEP:-1}s
 
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Going to storage tile .."
 echo issue 1 1 "$g_edit_string_DIRB"
 echo issue 1 1 "$g_edit_string_DIRB"
-sleep 1
+sleep ${SLEEP:-1}
 echo issue 1 1 "$g_edit_string_DIRB"
 echo issue 1 1 "$g_edit_string_DIRB"
-sleep 1s
+sleep ${SLEEP:-1}s
+
+if test "$SLAG" = 0 -a "$NOTHING" = 0; then
 
 echo draw ${g_edit_nulldigit_COLOURED:-5} "Identifying .."
 echo issue 1 1 use_skill "sense curse"
 echo issue 1 1 use_skill "sense magic"
 echo issue 1 1 use_skill "$g_edit_string_SKILL"
-sleep 6s
+sleep ${SLEEP:-6}s
 
 echo draw ${g_edit_nulldigit_COLOURED:-2} "dropping '$g_auto_string_GOAL' ..."
 echo issue 0 1 drop "$g_auto_string_GOAL"
 
-for FOR in `seq 2 1 $g_auto_digit_C`; do
+for FOR in `seq 1 1 $g_auto_digit_C`; do
 
  echo draw ${g_edit_nulldigit_COLOURED:-5} "drop ${g_auto_string_INGRED[$FOR]} (magic)"
  echo issue 0 1 drop "${g_auto_string_INGRED[$FOR]} (magic)"
  echo draw ${g_edit_nulldigit_COLOURED:-5} "drop ${g_auto_string_INGRED[$FOR]}s (magic)"
  echo issue 0 1 drop "${g_auto_string_INGRED[$FOR]}s (magic)"
- sleep 2s
+ sleep ${SLEEP:-2}s
  echo draw ${g_edit_nulldigit_COLOURED:-5} "drop ${g_auto_string_INGRED[$FOR]} (cursed)"
  echo issue 0 1 drop "${g_auto_string_INGRED[$FOR]} (cursed)"
  echo draw ${g_edit_nulldigit_COLOURED:-5} "drop ${g_auto_string_INGRED[$FOR]}s (cursed)"
  echo issue 0 1 drop "${g_auto_string_INGRED[$FOR]}s (cursed)"
- sleep 2s
+ sleep ${SLEEP:-2}s
 
 done
+
+fi
+
+
+# ***
+# ***
+# *** diff marker 22
+# *** diff marker 23
+# ***
+# ***
 
 #echo "issue 0 1 drop (magic)"
 #echo "issue 0 1 drop (cursed)"
 
+if test "$SLAG" = 1; then
 echo draw ${g_edit_nulldigit_COLOURED:-2} "drop slag"  # verbose
 echo issue 0 1 drop "slag"
 #echo issue 0 1 drop "slags"
+fi
 
-sleep ${g_edit_float_DELAY_DRAWINFO}s
+sleep ${g_edit_float_DELAY_DRAWINFO:-4}s
 
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Returning to cauldron ...."
 echo issue 1 1 "$g_auto_string_DIRF"
 echo issue 1 1 "$g_auto_string_DIRF"
-sleep 1
+sleep ${SLEEP:-1}
 echo issue 1 1 "$g_auto_string_DIRF"
 echo issue 1 1 "$g_auto_string_DIRF"
-sleep 2s         #speed 0.32
+sleep ${SLEEP:-2}s         #speed 0.32
 
 _debug_two && {
  # log monitor msgs
@@ -1128,15 +1144,7 @@ test "$one" = "$g_auto_digit_NUMBER_ALCH" && break
 ;;
 esac
 
-done
-
-
-# ***
-# ***
-# *** diff marker 20
-# *** diff marker 21
-# ***
-# ***
+done  # *** MAIN LOOP *** #
 
 
 # *** Here ends program *** #
@@ -1177,4 +1185,4 @@ beep -l 500 -f 700
 
 # ***
 # ***
-# *** diff marker 22
+# *** diff marker 24
