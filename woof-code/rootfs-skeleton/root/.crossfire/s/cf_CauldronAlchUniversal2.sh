@@ -828,10 +828,46 @@ sleep 0.1s
 done
 
 echo unwatch $DRAW_INFO
+sleep ${SLEEP:-1}s
 
 echo "issue 1 1 apply"
+
+OLD_REPLY="";
+REPLY="";
+NOTHING=0
+SLAG=0
+
+echo watch $DRAW_INFO
+sleep ${SLEEP:-1}s
+
 #echo "issue 7 1 take"
 echo issue 0 0 "get all"  # "1 1 get all" gets 1 of X items topmost or each line only
+
+while [ 2 ]; do
+read -t 1 REPLY
+[ "$LOGGING" ] && echo "get:$REPLY" >>"$g_edit_string_LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw ${COLOURED:-6} "$REPLY"
+test "$REPLY" || break
+test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
+test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.*Nothing to take\!'`"      && NOTHING=1
+test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+_debug_two || echo unwatch $DRAW_INFO
+
+if test "$SLAG" = 1 -o "$NOTHING" = 1;
+then
+ FAIL=$((FAIL+1))
+fi
+
+
+
+
 sleep ${SLEEP:-1}s
 
 echo "issue 1 1 $DIRB"
