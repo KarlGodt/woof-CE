@@ -649,8 +649,13 @@ do
 
 TIMEC=${TIMEE:-$TIMEB}
 
-_check_if_on_cauldron && _check_if_empty_cauldron && _check_if_on_cauldron || break
-
+#_check_if_on_cauldron && _check_if_empty_cauldron && _check_if_on_cauldron || break
+sleep ${DELAY_DRAWINFO:-1}s
+_check_if_on_cauldron    || break
+sleep ${DELAY_DRAWINFO:-1}s
+_check_if_empty_cauldron || break
+sleep ${DELAY_DRAWINFO:-1}s
+_check_if_on_cauldron    || break
 
 echo draw 2 "Opening cauldron ..."
 echo "issue 1 1 apply"  # open cauldron
@@ -839,7 +844,7 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP:-1}s
 
-sleep ${DELAY_DRAWINFO:-1}s
+#sleep ${DELAY_DRAWINFO:-1}s
 
 
 TIMEE=`/bin/date +%s`

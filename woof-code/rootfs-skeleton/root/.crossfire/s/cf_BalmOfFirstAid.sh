@@ -500,7 +500,7 @@ fi
 SLEEP=${SLEEP:-1}
 
 _debug "SLEEP='$SLEEP'"
-test "$SLEEP_ADJ" && { SLEEP=`dc $SLEEP $SLEEP_ADJ \+ p`
+test "$SLEEP_ADJ" && { SLEEP=`dc ${SLEEP:-1} ${SLEEP_ADJ:-0} \+ p`
  case $SLEEP in -[0-9]*) SLEEP=0.1;; esac
  _debug "SLEEP now set to '$SLEEP'" ; }
 
@@ -740,10 +740,9 @@ if test "$NOTHING" = 0; then
         fi
 sleep ${SLEEP:-1}s
 fi
+sleep ${SLEEP:-1}
 
 sleep ${DELAY_DRAWINFO:-1}s
-
-
 echo draw 2 "Returning to cauldron ...."
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
@@ -751,6 +750,7 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP:-1}s
 
+sleep ${DELAY_DRAWINFO:-1}s
 _check_if_on_cauldron
 
 

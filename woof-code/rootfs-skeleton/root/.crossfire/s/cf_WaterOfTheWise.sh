@@ -347,7 +347,7 @@ fi
 SLEEP=${SLEEP:-1}
 
 _debug "SLEEP='$SLEEP'"
-test "$SLEEP_ADJ" && { SLEEP=`dc $SLEEP $SLEEP_ADJ \+ p`
+test "$SLEEP_ADJ" && { SLEEP=`dc ${SLEEP:-1} ${SLEEP_ADJ:-0} \+ p`
  case $SLEEP in -[0-9]*) SLEEP=0.1;; esac
  _debug "SLEEP now set to '$SLEEP'" ; }
 
@@ -761,7 +761,6 @@ echo "issue 0 1 drop slag"   # many times draws 'But there is only 1 slags' ...
 sleep ${SLEEP:-1}s
 fi
 
-
 sleep ${DELAY_DRAWINFO:-1}s
 
 echo draw 2 "Returning to cauldron ...."
@@ -771,7 +770,7 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP:-1}s
 
-
+sleep ${DELAY_DRAWINFO:-1}s
 _check_on_cauldron
 
 TIMEE=`/bin/date +%s`
