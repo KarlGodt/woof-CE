@@ -42,6 +42,7 @@ southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
 
+ITEM_RECALL='rod of word of recall' # f_emergency_exit uses this ( staff, scroll, rod of word of recall )
 
 DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
                     # OR drawextinfo (new servers)
@@ -104,14 +105,12 @@ _draw 3 "-X --nocheck do not check cauldron (faster)"
         exit 0
 }
 
-
 # ***
 # ***
 # *** diff marker 2
 # *** diff marker 3
 # ***
 # ***
-
 
 # times
 _say_minutes_seconds(){
@@ -204,6 +203,13 @@ do
 `echo "$lMSG"`
 EoI
 }
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
 
 _log(){
     test "$LOGGING" || return 0
@@ -318,14 +324,12 @@ shift
 sleep 0.1
 done
 
-
 # ***
 # ***
-# *** diff marker 4
-# *** diff marker 5
+# *** diff marker 6
+# *** diff marker 7
 # ***
 # ***
-
 
 test "$GEM" || {
 _draw 3 "Need GEM set as parameter."
@@ -364,7 +368,8 @@ f_emergency_exit(){
 RV=${1:-0}
 shift
 
-_is "1 1 apply rod of word of recall"
+_is "1 1 apply -u $ITEM_RECALL"
+_is "1 1 apply -a $ITEM_RECALL"
 _is "1 1 fire center"
 _draw 3 "Emergency Exit $0 !"
 echo unwatch $DRAW_INFO
@@ -388,9 +393,15 @@ exit $RV
 # 5.) _check_empty_cauldron
 # 6.) _prepare_recall
 
-# *** Does our player possess the skill alchemy ? *** #
-_check_skill(){
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
 
+_check_skill(){
+# *** Does our player possess the skill alchemy ? *** #
 [ "$CHECK_DO" ] || return 0
 
 local lPARAM="$*"
@@ -466,19 +477,8 @@ __debug "$UNDER_ME_LIST"
  }
 }
 
-
-# ***
-# ***
-# *** diff marker 6
-# *** diff marker 7
-# ***
-# ***
-
-
-# *** Check if standing on a cauldron *** #
-
 f_check_on_cauldron(){
-
+# *** Check if standing on a cauldron *** #
 [ "$CHECK_DO" ] || return 0
 
 _draw 4 "Checking if on cauldron..."
@@ -521,6 +521,13 @@ __debug "UNDER_ME_LIST='$UNDER_ME_LIST'"
 _draw 7 "Done."
 }
 
+# ***
+# ***
+# *** diff marker 10
+# *** diff marker 11
+# ***
+# ***
+
 _check_free_move(){
 # *** Check for 4 empty space to DIRB *** #
 
@@ -538,8 +545,7 @@ _ping
 read -t 2 REPLY
  _log "$LOG_REPLY_FILE" "request map pos:$REPLY"
  _debug "map pos:'$REPLY'"
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
+
  case $REPLY in
  '')         break;;
  $OLD_REPLY) break;;
@@ -617,17 +623,15 @@ fi
 _draw 7 "OK."
 }
 
-
 # ***
 # ***
-# *** diff marker 8
-# *** diff marker 9
+# *** diff marker 12
+# *** diff marker 13
 # ***
 # ***
-
 
 _prepare_recall(){
-# *** Readying rod of word of recall - just in case *** #
+# *** Readying $ITEM_RECALL - just in case *** #
 
 [ "$CHECK_DO" ] || return 0
 
@@ -644,17 +648,19 @@ _ping
 read -t 2 REPLY
 _log "$LOG_REPLY_FILE" "request items actv:$REPLY"
 _debug "REPLY='$REPLY'"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
+
+case $REPLY in
+'')         break;;
+$OLD_REPLY) break;;
+*$ITEM_RECALL*) RECALL=1;;
+esac
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
 if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-_is "1 1 apply rod of word of recall"
+_is "1 1 apply $ITEM_RECALL"
 fi
 
 _draw 6 "Done."
@@ -666,7 +672,6 @@ _check_empty_cauldron(){
 
 _is "0 1 pickup 0"  # precaution otherwise might pick up cauldron
 _sleepSLEEP
-
 
 _draw 5 "Checking for empty cauldron..."
 
@@ -692,8 +697,7 @@ test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 REPLY_ALL="$REPLY
 $REPLY_ALL"
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -714,18 +718,16 @@ _is "1 1 $DIRF"
 _is "1 1 $DIRF"
 }
 
-
 # ***
 # ***
-# *** diff marker 10
-# *** diff marker 11
+# *** diff marker 14
+# *** diff marker 15
 # ***
 # ***
-
 
 _get_player_speed(){
 # *** Getting Player's Speed *** #
-#[ "$CHECK_DO" ] || return 0
+
 _draw 5 "Processing Player's speed..."
 
 
@@ -791,23 +793,20 @@ _draw 6 "Done."
 
 _get_player_speed
 _check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
-#__check_on_cauldron
 f_check_on_cauldron
 _check_free_move
 _check_empty_cauldron
-#_get_player_speed
 _prepare_recall
 
-# *** Actual script to alch the desired water of gem *** #
-#test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
-test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
-NUMBER=${NUMBER:-infinite}
 
-_test_integer(){
-test "$*" || return 3
-test ! "${*//[0-9]/}"
-}
+# ***
+# ***
+# *** diff marker 16
+# *** diff marker 17
+# ***
+# ***
 
+# *** Actual script to alch the desired water of gem                *** #
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -826,13 +825,13 @@ test ! "${*//[0-9]/}"
 # *** HAPPY ALCHING !!!                                             *** #
 
 
-# ***
-# ***
-# *** diff marker 12
-# *** diff marker 13
-# ***
-# ***
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
+NUMBER=${NUMBER:-infinite}
 
+_test_integer(){
+test "$*" || return 3
+test ! "${*//[0-9]/}"
+}
 
 # *** Now LOOPING *** #
 
@@ -871,8 +870,7 @@ DW=0
  *"You put the water"*) DW=$((DW+1)); unset REPLY;;
  '') break;;
  esac
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
+
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -901,8 +899,7 @@ DW=0
  *"You put the $GEM"*) DW=$((DW+1)); unset REPLY;;
  '') break;;
  esac
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
+
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -912,6 +909,13 @@ test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing $GEM in inven
 echo unwatch $DRAW_INFO
 _sleepSLEEP
 
+# ***
+# ***
+# *** diff marker 18
+# *** diff marker 19
+# ***
+# ***
+
 _is "1 1 $DIRB"
 _is "1 1 $DIRB"
 _is "1 1 $DIRF"
@@ -920,7 +924,7 @@ _sleepSLEEP
 
 f_check_on_cauldron
 
-#echo watch $DRAW_INFO
+echo watch $DRAW_INFO
 
 _is "1 1 use_skill alchemy"
 _sleepSLEEP
@@ -936,26 +940,24 @@ REPLY="";
  read -t 1 REPLY
  _log "$LOG_REPLY_FILE" "alchemy:$REPLY"
  _debug "REPLY='$REPLY'"
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep '.*pours forth monsters\!'`"    && f_emergency_exit 1
- test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && break 2 # exit 1
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
+
+case $REPLY in
+'')         break;;
+$OLD_REPLY) break;;
+ # (level < 100) {                /* WHAMMY the CAULDRON */
+ #        if (!QUERY_FLAG(cauldron, FLAG_CURSED)) {
+*Your*cauldron*darker*) break 2;;
+ # (level < 110) {                /* SUMMON EVIL MONSTERS */
+*pours*forth*monsters*) f_emergency_exit 1;;
+ # /* MANA STORM - watch out!! */
+*You*unwisely*release*potent*forces*) break 2;;
+esac
+
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
 
 echo unwatch $DRAW_INFO
-
-
-# ***
-# ***
-# *** diff marker 14
-# *** diff marker 15
-# ***
-# ***
-
 
 _is "1 1 apply"
 _sleepSLEEP
@@ -974,12 +976,19 @@ SLAG=0
  read -t 1 REPLY
  _log "$LOG_REPLY_FILE" "get:$REPLY"
   _debug "REPLY='$REPLY'"
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep '.*Nothing to take\!'`"   && NOTHING=1
- test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
+
+case $REPLY in
+'')         break;;
+$OLD_REPLY) break;;
+ # else if (level < 60) {                 /* CREATE MONSTER */
+ #        draw_ext_info_format(NDI_UNIQUE, 0, op, MSG_TYPE_SKILL, MSG_TYPE_SKILL_FAILURE,
+ #                             "The %s %s.", cauldron->name, cauldron_sound());
+ #        remove_contents(cauldron->inv, NULL);
+ #        return;
+*"Nothing to take"*)   NOTHING=1;;
+*"You pick up the slag"*) SLAG=1;;
+esac
+
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -992,6 +1001,13 @@ fi
 echo unwatch $DRAW_INFO
 _sleepSLEEP
 
+# ***
+# ***
+# *** diff marker 20
+# *** diff marker 21
+# ***
+# ***
+
 _is "1 1 $DIRB"
 _is "1 1 $DIRB"
 _is "1 1 $DIRB"
@@ -1001,7 +1017,7 @@ _sleepSLEEP
 _debug "NOTHING is '$NOTHING'" #DEBUG
 
 if test "$NOTHING" = 0; then
- if test $SLAG = 0; then
+ if test "$SLAG" = 0; then
 
 _is "1 1 use_skill sense curse"
 _is "1 1 use_skill sense magic"
@@ -1054,15 +1070,8 @@ else
 fi
 
 test "$one" = "$NUMBER" && break
-done
+done  # *** Main Loop *** #
 
-
-# ***
-# ***
-# *** diff marker 16
-# *** diff marker 17
-# ***
-# ***
 
 # *** Here ends program *** #
 _say_statistics_end
@@ -1072,4 +1081,4 @@ _beep
 
 # ***
 # ***
-# *** diff marker 18
+# *** diff marker 22
