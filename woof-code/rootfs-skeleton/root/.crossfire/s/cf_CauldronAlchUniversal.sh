@@ -52,7 +52,7 @@ g_edit_nulldigit_COLOURED=0  # either empty or 0 - 12,
 DEBUG=
 LOGGING=
 
-ITEM_RECALL='rod of word of recall' # f_emergency_exit uses this ( staff, scroll, rod of word of recall )
+g_edit_string_ITEM_RECALL='rod of word of recall' # f_emergency_exit uses this ( staff, scroll, rod of word of recall )
 
 PING_DO=1
 URL=crossfire.metalforge.net # localhost if server running on local PC
@@ -322,23 +322,23 @@ echo draw ${g_edit_nulldigit_COLOURED:-3} "See -h --help option for more informa
 
 
 # In case of a typo in the header ...
-case $SKILL in
+case $g_edit_string_SKILL in
 alchemy|bowyer|jeweler|smithery|thaumaturgy|woodsman) :;;
-*) echo draw 3 "'$SKILL' not valid!"
+*) echo draw 3 "'$g_edit_string_SKILL' not valid!"
 echo draw 3 "Valid skills are alchemy, bowyer, jeweler, smithery, thaumaturgy, woodsman"
 exit 1
 ;;
 esac
-echo draw 7 "OK using '$SKILL'"
+echo draw 7 "OK using '$g_edit_string_SKILL'"
 
-case $CAULDRON in
+case $g_edit_string_CAULDRON in
 cauldron|workbench|jeweler_bench|forge|thaumaturg_desk|stove) :;;
-*) echo draw 3 "'$CAULDRON' not valid!"
+*) echo draw 3 "'$g_edit_string_CAULDRON' not valid!"
 echo draw 3 "Valid cauldrons are cauldron, workbench, jeweler_bench, forge, thaumaturg_desk, stove"
 exit 1
 ;;
 esac
-echo draw 7 "OK using $SKILL on '$CAULDRON'"
+echo draw 7 "OK using $g_edit_string_SKILL on '$g_edit_string_CAULDRON'"
 
 
 f_exit(){
@@ -355,7 +355,7 @@ echo draw ${g_edit_nulldigit_COLOURED:-3} "Exiting $0."
 
 echo unwatch
 echo unwatch $g_edit_string_DRAW_INFO
-beep
+beep -l 500 -f 700
 exit $RV
 }
 
@@ -363,15 +363,15 @@ f_emergency_exit(){
 RV=${1:-0}
 shift
 
-echo "issue 1 1 apply -u $ITEM_RECALL"
-echo "issue 1 1 apply -a $ITEM_RECALL"
+echo "issue 1 1 apply -u $g_edit_string_ITEM_RECALL"
+echo "issue 1 1 apply -a $g_edit_string_ITEM_RECALL"
 echo "issue 1 1 fire center"
 echo draw ${g_edit_nulldigit_COLOURED:-3} "Emergency Exit $0 !"
 echo unwatch $g_edit_string_DRAW_INFO
 echo "issue 1 1 fire_stop"
 
 test "$*" && echo draw ${g_edit_nulldigit_COLOURED:-5} "$*"
-beep
+beep -l 500 -f 700
 exit $RV
 }
 
@@ -384,7 +384,7 @@ echo draw ${g_edit_nulldigit_COLOURED:-3} "Remove that Item and try again."
 echo draw ${g_edit_nulldigit_COLOURED:-3} "If this is a Wall, try another place."
 
 test "$*" && echo draw ${g_edit_nulldigit_COLOURED:-5} "$*"
-beep
+beep -l 500 -f 700
 exit $RV
 }
 
@@ -397,6 +397,9 @@ exit $RV
 
 _probe_inventory(){
 # *** Check if is in inventory *** #
+
+[ "$g_nullstring_CHECK_DO" ] || return 0
+
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Checking if ingred(s) in inventory .."
 
 echo draw ${g_edit_nulldigit_COLOURED:-5} "Creating /tmp/cf_script.inv -- this may take some time .."
@@ -620,9 +623,10 @@ echo draw ${g_edit_nulldigit_COLOURED:-7} "OK."
 # ***
 
 _prepare_recall(){
-# *** Readying $ITEM_RECALL - just in case *** #
+# *** Readying $g_edit_string_ITEM_RECALL - just in case *** #
 
-[ "$g_nullstring_CHECK_DO" ] || return 0
+[ "$g_nullstring_CHECK_DO" ]     || return 0
+[ "$g_edit_string_ITEM_RECALL" ] || return 3
 
 echo draw ${g_edit_nulldigit_COLOURED:-5} "Preparing for recall if monsters come forth..."
 
@@ -638,7 +642,7 @@ read -t 2 REPLY
 [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.* $ITEM_RECALL'`" && RECALL=1
+test "`echo "$REPLY" | grep ".* $g_edit_string_ITEM_RECALL"`" && RECALL=1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -646,7 +650,7 @@ sleep 0.1s
 done
 
 if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-echo "issue 1 1 apply $ITEM_RECALL"
+echo "issue 1 1 apply $g_edit_string_ITEM_RECALL"
 fi
 
 echo draw ${g_edit_nulldigit_COLOURED:-6} "Done."

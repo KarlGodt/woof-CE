@@ -790,6 +790,12 @@ case $NUMBER_ALCH in
 *) NUMBER_ALCH=infinite;;
 esac
 
+# ***
+# ***
+# *** diff marker 16
+# *** diff marker 17
+# ***
+# ***
 
 while :;
 do
