@@ -11,7 +11,7 @@ TIMEA=`/bin/date +%s`
 #DEBUG=1   # unset to disable, set to anything to enable
 #LOGGING=1 # unset to disable, set to anything to enable
 
-DRAW_INFO=drawextinfo # drawinfo (old servers or clients compiled by confused compiler)
+DRAW_INFO=drawinfo    # drawinfo (old servers or clients compiled by confused compiler)
                       # OR drawextinfo (new servers)
                       # used for catching msgs watch/unwatch $DRAW_INFO
 
@@ -620,13 +620,18 @@ _verbose "apply"
 echo issue 1 1 apply  # handle trap release, being killed
 sleep 1
 
+HAVE_CHEST=0
 _verbose "get all"
 echo issue 0 0 get all
 sleep 1
 
-
 _verbose "drop chest"
 echo issue 0 0 drop chest # Nothing to drop.
+#TODO:
+# never ending loop, because no 'Nothing to drop.' issued by
+#You consider dropping the chest keys but then decide it would be better to hold on to them for now.
+#This item is locked
+
 
  while :; do
   sleep 0.1
@@ -655,6 +660,7 @@ echo issue 0 0 drop chest # Nothing to drop.
    #*'You find '*)  _handle_trap_event || return 112  ;;
 
    *'The chest was empty.'*)      :;;
+   *'You pick up the chest'*) HAVE_CHEST=$((HAVE_CHEST+1));;
    *'You pick up '*)              :;;
    *'You were unable to take '*)  :;; #You were unable to take one of the items.
    *' tasted '*)     :;;  # food tasted good
@@ -691,6 +697,8 @@ _verbose "$DIRF"
 echo issue 1 1 $DIRF
 sleep 1
 
+test "$HAVE_CHEST" = 0 && break
+
 done
 
 _debug "unwatch $DRAW_INFO"
@@ -709,7 +717,8 @@ echo unwatch $DRAW_INFO
 _find_traps
 _disarm_traps && _open_chest
 
-echo issue 0 0 get all #pickup chests if bomb
+echo issue 0 0 get all   # pick up chests if bomb
+echo issue 0 0 drop bomb # drops also flametome of create bomb ..
 
 _identify(){
 set - "sense curse" "sense magic" alchemy bowyer jeweler literacy smithery thaumaturgy woodsman
