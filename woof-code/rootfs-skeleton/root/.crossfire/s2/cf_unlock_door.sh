@@ -145,6 +145,7 @@ seventeen)      PARAM_1=17;;
 eighteen)       PARAM_1=18;;
 nineteen)       PARAM_1=19;;
 twenty)         PARAM_1=20;;
+*) :;;
 
 esac
 
@@ -152,9 +153,11 @@ esac
 
 _number_to_direction(){
 
+teat "$1" || return 3
+
 case $1 in
 [0-8]) DIRN=$1;;
-*)    return 1;;
+*)    return 4;;
 esac
 
 case $1 in
@@ -172,8 +175,8 @@ case $1 in
 
 esac
 
-readonly DIR DIRN;
-return $?
+readonly DIR DIRN && test "$DIR" -a "$DIRN"
+
 }
 
 _debug "'$#' Parameters: '$*'"
@@ -809,22 +812,23 @@ _lockpick_door
 
 # *** Here ends program *** #
 
+__count_time(){
+
 TIMEZ=`/bin/date +%s`
 
+ _compute_minutes_seconds(){
+ unset TIMEXM TIMEXS
+ test "$1" -a "$2" || return 3
 
-_compute_minutes_seconds(){
-unset TIMEXM TIMEXS
-test "$1" -a "$2" || return 3
+ local lTIMEX=$(( $1 - $2 ))
 
-local lTIMEX=$(( $1 - $2 ))
+ case $lTIMEX in -*) lTIMEX=$(( $2 - $1 ));; esac
+ case $lTIMEX in -*) return 4;; esac
 
-case $lTIMEX in -*) lTIMEX=$(( $2 - $1 ));; esac
-case $lTIMEX in -*) return 4;; esac
-
-TIMEXM=$((lTIMEX/60))
-TIMEXS=$(( lTIMEX - (TIMEXM*60) ))
-case $TIMEXS in [0-9]) TIMEXS="0$TIMEXS";; esac
-}
+ TIMEXM=$((lTIMEX/60))
+ TIMEXS=$(( lTIMEX - (TIMEXM*60) ))
+ case $TIMEXS in [0-9]) TIMEXS="0$TIMEXS";; esac
+ }
 
 if test "$TIMEZ" -a "$TIMEB"; then
 _compute_minutes_seconds $TIMEZ $TIMEB && \
@@ -835,6 +839,26 @@ if test "$TIMEZ" -a "$TIMEA"; then
 _compute_minutes_seconds $TIMEZ $TIMEA && \
  echo draw 4 "Whole script took $TIMEXM:$TIMEXS minutes."
 fi
+
+}
+
+_count_time(){
+
+test "$*" || return 3
+
+TIMEE=`/bin/date +%s` || return 4
+
+TIMEX=$((TIMEE - $*)) || return 5
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
+_count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
+_count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
 
 
 _draw 2 "$0 is finished."

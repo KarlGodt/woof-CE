@@ -560,9 +560,9 @@ _count_time(){
 
 test "$*" || return 3
 
-TIMEE=`/bin/date +%s`
+TIMEE=`/bin/date +%s` || return 4
 
-TIMEX=$((TIMEE - $*)) || return 4
+TIMEX=$((TIMEE - $*)) || return 5
 TIMEM=$((TIMEX/60))
 TIMES=$(( TIMEX - (TIMEM*60) ))
 
