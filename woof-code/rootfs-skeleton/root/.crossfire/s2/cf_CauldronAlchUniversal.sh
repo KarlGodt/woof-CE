@@ -528,7 +528,98 @@ _say_statistics_end
 exit $RV
 }
 
+# *** PREREQUISITES *** #
+# 1.) _get_player_speed
+# 2.) _check_skill alchemy || f_exit 1 "You seem not to have the skill alchemy."
+# 3.) _check_on_cauldron
+# 4.) _check_free_move
+# 5.) _check_empty_cauldron
+# 6.) _ready_recall
+
 # *** pre-requisites *** #
+
+_get_player_speed(){
+# *** Getting Player's Speed *** #
+
+_draw 4 "Processing Player's Speed..."
+
+
+ANSWER=
+OLD_ANSWER=
+
+echo request stat cmbt
+
+while :; do
+read -t 2 ANSWER
+_log "$LOG_REQUEST_FILE" "$ANSWER"
+_debug "'$ANSWER'"
+
+case $ANSWER in ''|$OLD_ANSWER) break;;
+*request*stat*cmbt*end*) break;; esac
+
+OLD_ANSWER="$ANSWER"
+sleep 0.1
+done
+
+#PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
+PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
+PL_SPEED=${PL_SPEED:-40000}
+PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
+_debug "Player speed is $PL_SPEED"  #DEBUG
+
+PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
+_debug "Player speed is $PL_SPEED"  #DEBUG
+
+  if test "$PL_SPEED" -gt 35; then
+SLEEP=1.5; DELAY_DRAWINFO=2.0
+elif test "$PL_SPEED" -gt 25; then
+SLEEP=2.0; DELAY_DRAWINFO=4.0
+elif test "$PL_SPEED" -gt 15; then
+SLEEP=3.0; DELAY_DRAWINFO=6.0
+fi
+
+_debug "SLEEP='$SLEEP'"
+SLEEP=`dc ${SLEEP:-1} ${SLEEP_ADJ:-0} \+ p` || SLEEP=1
+ case $SLEEP in -[0-9]*) SLEEP=0.1;; esac
+_debug "SLEEP now set to '$SLEEP'"
+
+SLEEP=${SLEEP:-1}
+
+_draw 7 "Done."
+}
+
+_check_skill(){
+# *** Does our player possess the skill alchemy ? *** #
+[ "$CHECK_DO" ] || return 0
+
+local lPARAM="$*"
+local lSKILL
+
+echo request skills
+
+while :;
+do
+ unset REPLY
+ sleep 0.1
+ read -t 2
+  _log "$LOG_REQUEST_FILE" "_check_skill:$REPLY"
+  _debug "$REPLY"
+
+ case $REPLY in    '') break;;
+ 'request skills end') break;;
+ esac
+
+ if test "$lPARAM"; then
+  case $REPLY in *$lPARAM) return 0;; esac
+ else # print skill
+  lSKILL=`echo "$REPLY" | cut -f4- -d' '`
+  _draw 5 "'$lSKILL'"
+ fi
+
+done
+
+test ! "$lPARAM" # returns 0 if called without parameter, else 1
+}
 
 _check_if_on_cauldron(){
 # *** Check if standing on a $CAULDRON *** #
@@ -557,6 +648,97 @@ done
  exit 1
  }
 
+}
+
+_check_free_move(){
+# *** Check for 4 empty space to DIRB *** #
+[ "$CHECK_DO" ] || return 0
+_draw 4 "Checking for space to move..."
+
+echo request map pos
+
+while :; do
+_ping
+read -t 2 REPLY
+ _log "$LOG_REQUEST_FILE" "request map pos:$REPLY"
+ _debug "REPLY='$REPLY'"
+
+case $REPLY in ''|$OLD_REPLY) break;;
+*request*map*pos*end*) break;; esac
+
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+
+PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
+PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
+_debug "PL_POS_X='$PL_POS_X' PL_POS_Y='$PL_POS_Y'"
+
+if test "$PL_POS_X" -a "$PL_POS_Y"; then
+
+if test ! "${PL_POS_X//[[:digit:]]/}" -a ! "${PL_POS_Y//[[:digit:]]/}"; then
+
+for nr in `seq 1 1 4`; do
+
+case $DIRB in
+west)
+R_X=$((PL_POS_X-nr))
+R_Y=$PL_POS_Y
+;;
+east)
+R_X=$((PL_POS_X+nr))
+R_Y=$PL_POS_Y
+;;
+north)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y-nr))
+;;
+south)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y+nr))
+;;
+esac
+
+_debug "R_X='$R_X' R_Y='$R_Y'"
+echo request map $R_X $R_Y
+
+while :; do
+_ping
+read -t 2 REPLY
+_log "$LOG_REQUEST_FILE" "request map '$R_X' '$R_Y':$REPLY"
+_debug "REPLY='$REPLY'"
+
+IS_WALL=`echo "$REPLY" | awk '{print $16}'`
+_log "$LOG_REQUEST_FILE" "IS_WALL='$IS_WALL'"
+_debug "IS_WALL='$IS_WALL'"
+
+test "$IS_WALL" = 0 || f_exit_no_space 1
+
+case $REPLY in ''|$OLD_REPLY) break;;
+*request*map*end*) break;; esac
+
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+done
+
+else
+
+_draw 3 "Received Incorrect X Y parameters from server"
+exit 1
+
+fi
+
+else
+
+_draw 3 "Could not get X and Y position of player."
+exit 1
+
+fi
+
+_draw 7 "OK."
 }
 
 _probe_empty_cauldron_yes(){
@@ -592,9 +774,52 @@ _is "1 1 $DIRF"
 return ${lRV:-4}
 }
 
-_check_if_on_cauldron || exit 2
-_probe_empty_cauldron_yes || f_exit 1
+_ready_recall(){
+# *** Readying $ITEM_RECALL - just in case *** #
+[ "$CHECK_DO" ] || return 0
+_draw 4 "Preparing for recall..."
+RECALL=0
+OLD_REPLY="";
+REPLY="";
 
+echo request items actv
+
+while :; do
+read -t 2 REPLY
+_log "$LOG_REQUEST_FILE" "request items actv:$REPLY"
+_debug "REPLY='$REPLY'"
+
+case $REPLY in ''|$OLD_REPLY) break;;
+*request*items*actv*end*) break;;
+*$ITEM_RECALL*) RECALL=1;;
+esac
+
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
+_is "1 1 apply $ITEM_RECALL"
+fi
+
+_sleepSLEEP
+_draw 7 "Done."
+}
+
+# *** PREREQUISITES *** #
+# 1.) _get_player_speed
+# 2.) _check_skill alchemy || f_exit 1 "You seem not to have the skill alchemy."
+# 3.) _check_on_cauldron
+# 4.) _check_free_move
+# 5.) _check_empty_cauldron
+# 6.) _ready_recall
+
+_get_player_speed
+_check_skill "$SKILL" || f_exit 1 "You seem not to have the skill '$SKILL'."
+_check_if_on_cauldron || exit 2
+_check_free_move
+_probe_empty_cauldron_yes || f_exit 1
+_ready_recall
 
 # *** Actual script to alch the desired $GOAL                       *** #
 
