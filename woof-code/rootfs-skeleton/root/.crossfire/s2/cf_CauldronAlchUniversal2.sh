@@ -31,11 +31,8 @@ DELAY_DRAWINFO=4  #speed 0.32
 
 ITEM_RECALL='rod of word of recall'  # rod / scroll of word of recall
 
-#set empty default
-C=0 #set zero as default
-
 #logging
-LOGGING=1
+
 TMP_DIR=/tmp/crossfire_client
 LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
  LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
@@ -248,7 +245,7 @@ then
  echo draw 7 "PLEASE increase your INTELLIGENCE !!"
 else
  SUCC=$((one-FAIL))
- echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+ echo draw 7 "You succeeded $SUCC times of $one ." # green
 fi
 }
 
@@ -283,6 +280,7 @@ _draw 4 "NUMBER can be set to '-I' to run infinite,"
 _draw 4 "until one ingredient runs out."
 _draw 3 "Space in ARTIFACT and INGREDIENT need to be substituted by Underscore"
 _draw 3 "ie 'balm of first aid' as 'balm_of_first_aid'"
+
 _draw 7 "Options:"
 _draw 2 "-c CAULDRON ie '-c thaumturg_desk'"
 _draw 2 "-s SKILL    ie '-s jeweler"
@@ -291,6 +289,9 @@ _draw 5 "-d : print $DRAW_INFO to message pane"
 _draw 5 "-h : print this usage"
 _draw 5 "-L : log $DRAW_INFO to $TMP_DIR/cf_script files"
 _draw 5 "-v : print verbose messages"
+_draw 7 "-F each --fast sleeps 0.2 s less"
+_draw 8 "-S each --slow sleeps 0.2 s more"
+_draw 3 "-X --nocheck do not check cauldron (faster)"
 
 _draw 0 ""
 
@@ -305,8 +306,11 @@ test "$1" || return 3
      *debug) DEBUG=$((DEBUG+1));;
 #    *force) FORCE=$((FORCE+1));;
      *help|*usage)  _usage;;
-     *logging) LOGGING=$((LOGGING+1));;
+     *log*)    LOGGING=$((LOGGING+1));;
      *verbose) VERBOSE=$((VERBOSE+1));;
+     *fast)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+     *slow)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+     *nocheck) unset CHECK_DO;;
      *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
  esac
 
@@ -316,13 +320,16 @@ _short_opts(){
 
 test "$1" || return 3
 
-case $1 in -debug|-help|-usage|-logging|-verbose)
+case $1 in -debug|-help|-usage|-log*|-verbose)
   case $1 in
      *debug) DEBUG=$((DEBUG+1));;
 #    *force) FORCE=$((FORCE+1));;
      *help|*usage)  _usage;;
-     *logging) LOGGING=$((LOGGING+1));;
+     *log*)    LOGGING=$((LOGGING+1));;
      *verbose) VERBOSE=$((VERBOSE+1));;
+     *fast)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+     *slow)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+     *nocheck) unset CHECK_DO;;
      *) _draw 3 "Ignoring unhandled option '$PARAM_1'";; # unreached
  esac
 return 0;;
@@ -336,6 +343,9 @@ esac
       h) _usage;;
       L) LOGGING=$((LOGGING+1));;
       v) VERBOSE=$((VERBOSE+1));;
+      F) SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+      S) SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+      X) unset CHECK_DO;;
       *) _draw 3 "Ignoring unhandled option '$oneOP'";;
      esac
    done
@@ -385,13 +395,16 @@ _ingreds_and_numbers(){
  done
 }
 
+#set empty default
+C=0 #set zero as default
+CHECK_DO=1
+
 # *** Here begins program *** #
 _draw 2 "$0 is started.."
 _draw 5 " with '$*' parameter."
 
 # *** Check for parameters *** #
 
-#test "$1" -a "$2" -a "$3" -a "$4" -a "$5" || {
 test "$*" || {
 _draw 3 "Need <skill> <artifact> <number> <ingredient> <numberof>"
 _draw 3 "ie: script $0 alchemy water_of_the_wise 10 water 7 ."
@@ -405,11 +418,13 @@ until test "$#" = 0
 do
 PARAM_1="$1"
 case "$PARAM_1" in
-help|usage) _usage;;
-debug)     DEBUG=$((DEBUG+1));;
-logging) LOGGING=$((LOGGING+1));;
-verbose) VERBOSE=$((VERBOSE+1));;
-
+*help|*usage) _usage;;
+*debug)     DEBUG=$((DEBUG+1));;
+*log*)    LOGGING=$((LOGGING+1));;
+*verbose) VERBOSE=$((VERBOSE+1));;
+*fast)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+*slow)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+*nocheck) unset CHECK_DO;;
 '') :;;
 
 --) :;;
@@ -443,6 +458,7 @@ jeweler)                    CAULDRON=${CAULDRON:-jeweler_bench};;
 smithery)                   CAULDRON=${CAULDRON:-forge};;
 thaumaturgy)                CAULDRON=${CAULDRON:-thaumaturg_desk};;
 woodsman)                   CAULDRON=${CAULDRON:-stove};;
+
 cauldron)        CAULDRON=${CAULDRON:-cauldron};        SKILL=alchemy;;
 workbench)       CAULDRON=${CAULDRON:-workbench};       SKILL=bowyer;;
 jeweler_bench)   CAULDRON=${CAULDRON:-jeweler_bench};   SKILL=jeweler;;
@@ -652,6 +668,7 @@ exit $RV
 
 _check_if_on_cauldron(){
 # *** Check if standing on a $CAULDRON *** #
+[ "$CHECK_DO" ] || return 0
 _draw 2 "Checking if standing on '$CAULDRON' .."
 
 unset UNDER_ME UNDER_ME_LIST
@@ -679,7 +696,7 @@ done
 }
 
 _probe_empty_cauldron_yes(){
-
+[ "$CHECK_DO" ] || return 0
 _draw 2 "Probing for empty $CAULDRON .."
 local lRV=1
 
@@ -715,7 +732,7 @@ _check_if_on_cauldron || exit 2
 _probe_empty_cauldron_yes || f_exit 1 "Cauldron not empty."
 
 
-# *** Actual script to alch the desired water of gem *** #
+# *** Actual script to alch the desired $GOAL                       *** #
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -747,7 +764,7 @@ one=0
 while :;
 do
 
-tBEG=${tEND:-`date +%s`}
+tBEG=${tEND:-$TIMEB}
 
 OLD_REPLY="";
 REPLY="";
@@ -800,6 +817,7 @@ _ping
 echo watch $DRAW_INFO
 _is "1 1 use_skill $SKILL"
 
+one=$((one+1))
 OLD_REPLY="";
 REPLY="";
 
@@ -813,6 +831,7 @@ _debug "$REPLY"
  $OLD_REPLY)        break;;
  *pours*forth*monsters*)    f_emergency_exit 1;;
  *You*unwisely*release*potent*forces*) break 2;; #exit 1;;
+ *Your*cauldron*darker*) break 2;;
  esac
 
 OLD_REPLY="$REPLY"
@@ -822,35 +841,72 @@ done
 echo unwatch $DRAW_INFO
 
 _is "1 1 apply"
+
+OLD_REPLY="";
+REPLY="";
+NOTHING=0
+SLAG=0
+echo unwatch $DRAW_INFO
+
 _is "0 0 get all"  # TODO: cauldron is gone: You can't pick up a [wood]* floor.
 
-sleep 1s
+while :; do
+read -t 1 REPLY
+_log "$LOG_REPLY_FILE" "get:$REPLY"
+_debug "REPLY='$REPLY'"
 
-_is "1 1 $DIRB"
-_is "1 1 $DIRB"
-_is "1 1 $DIRB"
-_is "1 1 $DIRB"
-sleep 1s
+case "$REPLY" in
+$OLD_REPLY) break;;
+*"Nothing to take!")   NOTHING=1;;
+*"You pick up the slag.") SLAG=1;;
+'') break;;
+esac
 
-_is "1 1 use_skill sense curse"
-_is "1 1 use_skill sense magic"
-_is "1 1 use_skill $SKILL"
-sleep 6s
-
-_is "0 1 drop $GOAL"
-
-for FOR in `seq 1 1 $((C-1))`; do
-
- _is "0 1 drop ${INGRED[$FOR]} (magic)"
- _is "0 1 drop ${INGRED[$FOR]}s (magic)"   # TODO: waters of the wise, not water of the wises ...
- sleep 2s
- _is "0 1 drop ${INGRED[$FOR]} (cursed)"
- _is "0 1 drop ${INGRED[$FOR]}s (cursed)"  # TODO: waters of the wise, not water of the wises ...
- sleep 2s
-
+OLD_REPLY="$REPLY"
+sleep 0.1s
 done
 
-_is "0 1 drop slag"
+echo unwatch $DRAW_INFO
+
+if test "$SLAG" = 1 -o "$NOTHING" = 1;
+then
+ FAIL=$((FAIL+1))
+fi
+
+sleep 1s
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+sleep 1s
+
+if test "$NOTHING" = 0; then
+ if test "$SLAG" = 0; then
+  _is "1 1 use_skill sense curse"
+  _is "1 1 use_skill sense magic"
+  _is "1 1 use_skill $SKILL"
+  sleep 6s
+
+  _is "0 1 drop $GOAL"
+
+  for FOR in `seq 1 1 $((C-1))`; do
+
+  _is "0 1 drop ${INGRED[$FOR]} (magic)"
+  _is "0 1 drop ${INGRED[$FOR]}s (magic)"   # TODO: waters of the wise, not water of the wises ...
+  sleep 2s
+  _is "0 1 drop ${INGRED[$FOR]} (cursed)"
+  _is "0 1 drop ${INGRED[$FOR]}s (cursed)"  # TODO: waters of the wise, not water of the wises ...
+  sleep 2s
+
+  done
+
+ else
+  _is "0 1 drop slag"
+  sleep 2s
+ fi
+fi
+sleep 2s
+
 
 sleep ${DELAY_DRAWINFO}s
 
@@ -861,10 +917,10 @@ _is "1 1 $DIRF"
 _is "1 1 $DIRF"
 sleep 2s         #speed 0.32
 
-_check_if_on_cauldron || exit 2
+_check_if_on_cauldron || break
 
 
-one=$((one+1))
+#one=$((one+1))
 tEND=`date +%s`
 tLAP=$((tEND-tBEG))
 

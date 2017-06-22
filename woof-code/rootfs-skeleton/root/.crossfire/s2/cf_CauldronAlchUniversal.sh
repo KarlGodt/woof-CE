@@ -38,11 +38,8 @@ DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/u
 
 ITEM_RECALL='rod of word of recall'  # rod / scroll of word of recall
 
-#set empty default
-C=0 #set zero as default
-
 #logging
-LOGGING=1
+
 TMP_DIR=/tmp/crossfire_client
 LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
  LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
@@ -288,11 +285,21 @@ _draw 4 "PLEASE MANUALLY EDIT SKILL and CAULDRON variables"
 _draw 4 "in header of this script for your needs."
 _draw 6 "SKILL variable currently set to '$SKILL'"
 _draw 6 "CAULDRON var currently set to '$CAULDRON'"
+_draw 2 "Options:"
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-v  to be more talkaktive."
+_draw 7 "-F each --fast sleeps 0.2 s less"
+_draw 8 "-S each --slow sleeps 0.2 s more"
+_draw 3 "-X --nocheck do not check cauldron (faster)"
 _draw 0 ""
 
         exit 0
 }
 
+#set empty default
+C=0 #set zero as default
+CHECK_DO=1
 
 # *** Here begins program *** #
 _draw 2 "$0 is started.."
@@ -301,6 +308,7 @@ _draw 5 " with '$*' parameter."
 # *** Check for parameters *** #
 [ "$*" ] || {
 _draw 3 "Script needs goal_item_name, numberofalchemyattempts, ingredient and numberofingredient as arguments."
+_draw 3 "See -h --help options for more info."
         exit 1
 }
 
@@ -314,6 +322,9 @@ case "$PARAM_1" in
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
+-F|*fast)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+-S|*slow)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+-X|*nocheck) unset CHECK_DO;;
 
 #-s|*skill)     SKILL=$2; shift;;
 #-c|*cauldron)  SKILL=$2; shift;;
@@ -521,6 +532,7 @@ exit $RV
 
 _check_if_on_cauldron(){
 # *** Check if standing on a $CAULDRON *** #
+[ "$CHECK_DO" ] || return 0
 _draw 2 "Checking if standing on '$CAULDRON' .."
 
 unset UNDER_ME UNDER_ME_LIST
@@ -548,7 +560,7 @@ done
 }
 
 _probe_empty_cauldron_yes(){
-
+[ "$CHECK_DO" ] || return 0
 _draw 2 "Probing for empty $CAULDRON .."
 local lRV=1
 
@@ -584,7 +596,7 @@ _check_if_on_cauldron || exit 2
 _probe_empty_cauldron_yes || f_exit 1
 
 
-# *** Actual script to alch the desired water of gem *** #
+# *** Actual script to alch the desired $GOAL                       *** #
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -666,7 +678,7 @@ _is "1 1 $DIRF"
 sleep 1s
 
 _is "1 1 use_skill $SKILL"
-
+one=$((one+1))
 # *** TODO: The $CAULDRON burps and then pours forth monsters!
 
 echo watch $DRAW_INFO
@@ -683,7 +695,8 @@ _debug "$REPLY"
  case $REPLY in '') break;;
  $OLD_REPLY)        break;;
  *pours*forth*monsters*)   f_emergency_exit 1;;
- *You*unwisely*release*potent*forces*) exit 1;;
+ *You*unwisely*release*potent*forces*) break 2;;
+ *Your*cauldron*darker*) break 2;;
  esac
 
 OLD_REPLY="$REPLY"
@@ -692,38 +705,73 @@ done
 
 echo unwatch $DRAW_INFO
 
+OLD_REPLY="";
+REPLY="";
+NOTHING=0
+SLAG=0
+
 _is "1 1 apply"
+
+echo watch $DRAW_INFO
 # TODO: cauldron is gone: You can't pick up a wood floor.
 _is "0 0 get all"
 
-sleep 1s
+while :; do
+read -t 1 REPLY
+_log "$LOG_REPLY_FILE" "get:$REPLY"
+_debug "REPLY='$REPLY'"
 
-_is "1 1 $DIRB"
-_is "1 1 $DIRB"
-_is "1 1 $DIRB"
-_is "1 1 $DIRB"
-sleep 1s
+case "$REPLY" in
+$OLD_REPLY) break;;
+*"Nothing to take!")   NOTHING=1;;
+*"You pick up the slag.") SLAG=1;;
+'') break;;
+esac
 
-_is "1 1 use_skill sense curse"
-_is "1 1 use_skill sense magic"
-_is "1 1 use_skill $SKILL"
-sleep 6s
-
-_is "0 1 drop $GOAL"
-
-for FOR in `seq 1 1 $((C-1))`; do
-
- _is "0 1 drop ${INGRED[$FOR]} (magic)"
- _is "0 1 drop ${INGRED[$FOR]}s (magic)"  # TODO: waters of the wise, not water of the wises ...
- sleep 2s
- _is "0 1 drop ${INGRED[$FOR]} (cursed)"
- _is "0 1 drop ${INGRED[$FOR]}s (cursed)" # TODO: waters of the wise, not water of the wises ...
- sleep 2s
-
+OLD_REPLY="$REPLY"
+sleep 0.1s
 done
 
-_is "0 1 drop slag"
+echo unwatch $DRAW_INFO
 
+if test "$SLAG" = 1 -o "$NOTHING" = 1;
+then
+ FAIL=$((FAIL+1))
+fi
+
+sleep 1s
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+sleep 1s
+
+if test "$NOTHING" = 0; then
+ if test "$SLAG" = 0; then
+  _is "1 1 use_skill sense curse"
+  _is "1 1 use_skill sense magic"
+  _is "1 1 use_skill $SKILL"
+  sleep 6s
+
+  _is "0 1 drop $GOAL"
+
+  for FOR in `seq 1 1 $((C-1))`; do
+
+  _is "0 1 drop ${INGRED[$FOR]} (magic)"
+  _is "0 1 drop ${INGRED[$FOR]}s (magic)"  # TODO: waters of the wise, not water of the wises ...
+  sleep 2s
+  _is "0 1 drop ${INGRED[$FOR]} (cursed)"
+  _is "0 1 drop ${INGRED[$FOR]}s (cursed)" # TODO: waters of the wise, not water of the wises ...
+  sleep 2s
+
+  done
+
+ else
+  _is "0 1 drop slag"
+  sleep 2s
+ fi
+fi
+sleep 2s
 
 sleep ${DELAY_DRAWINFO}s
 
@@ -734,10 +782,10 @@ _is "1 1 $DIRF"
 _is "1 1 $DIRF"
 sleep 2s         #speed 0.32
 
-_check_if_on_cauldron || exit 2
+_check_if_on_cauldron || break
 
 
-one=$((one+1))
+#one=$((one+1))
 tEND=`date +%s`
 tLAP=$((tEND-tBEG))
 

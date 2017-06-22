@@ -142,10 +142,10 @@ _draw 5 "NUMBER times to produce NUMBER of"
 _draw 5 "Water of the Wise ."
 _draw 4 "If no number given, loops as long"
 _draw 4 "as ingredient could be dropped."
-_draw 4 "Options:"
-_draw 4 "-d  to turn on debugging."
-_draw 4 "-L  to log to $LOG_REPLY_FILE ."
-_draw 4 "-v  to be more talkaktive."
+_draw 2 "Options:"
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-v  to be more talkaktive."
 _draw 7 "-F each --fast sleeps 0.2 s less"
 _draw 8 "-S each --slow sleeps 0.2 s more"
 _draw 3 "-X --nocheck do not check cauldron (faster)"
@@ -299,7 +299,7 @@ _draw 3 "Exiting $0."
 echo unwatch
 echo unwatch $DRAW_INFO
 
-NUMBER=$((one-1))
+#NUMBER=$((one-1))
 _say_statistics_end
 _beep
 exit $RV
@@ -316,7 +316,7 @@ _draw 3 "Emergency Exit $0 !"
 echo unwatch $DRAW_INFO
 _is "1 1 fire_stop"
 
-NUMBER=$((one-1))
+#NUMBER=$((one-1))
 _say_statistics_end
 test "$*" && _draw 5 "$*"
 _beep
@@ -347,8 +347,10 @@ while :; do
 read -t 2 ANSWER
 _log "$LOG_REQUEST_FILE" "$ANSWER"
 _debug "'$ANSWER'"
-test "$ANSWER" || break
-test "$ANSWER" = "$OLD_ANSWER" && break
+
+case $ANSWER in ''|$OLD_ANSWER) break;;
+*request*stat*cmbt*end*) break;; esac
+
 OLD_ANSWER="$ANSWER"
 sleep 0.1
 done
@@ -370,12 +372,10 @@ elif test "$PL_SPEED" -gt 15; then
 SLEEP=3.0; DELAY_DRAWINFO=6.0
 fi
 
-SLEEP=${SLEEP:-1}
-
 _debug "SLEEP='$SLEEP'"
-test "$SLEEP_ADJ" && { SLEEP=`dc $SLEEP ${SLEEP_ADJ:-0} \+ p`
+SLEEP=`dc ${SLEEP:-1} ${SLEEP_ADJ:-0} \+ p` || SLEEP=1
  case $SLEEP in -[0-9]*) SLEEP=0.1;; esac
- _debug "SLEEP now set to '$SLEEP'" ; }
+_debug "SLEEP now set to '$SLEEP'"
 
 SLEEP=${SLEEP:-1}
 
@@ -442,7 +442,7 @@ done
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 _draw 3 "Need to stand upon cauldron!"
 _beep
-exit 1
+f_exit 1
         }
 
 _draw 7 "Done."
@@ -460,8 +460,10 @@ _ping
 read -t 2 REPLY
  _log "$LOG_REQUEST_FILE" "request map pos:$REPLY"
  _debug "REPLY='$REPLY'"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+
+case $REPLY in ''|$OLD_REPLY) break;;
+*request*map*pos*end*) break;; esac
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -510,8 +512,10 @@ _log "$LOG_REQUEST_FILE" "IS_WALL='$IS_WALL'"
 _debug "IS_WALL='$IS_WALL'"
 
 test "$IS_WALL" = 0 || f_exit_no_space 1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+
+case $REPLY in ''|$OLD_REPLY) break;;
+*request*map*end*) break;; esac
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -559,8 +563,8 @@ read -t 1 REPLY
 _log "$LOG_REPLY_FILE" "get:$REPLY"
 _debug "REPLY='$REPLY'"
 
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+case $REPLY in ''|$OLD_REPLY) break;; esac
+
 REPLY_ALL="$REPLY
 $REPLY_ALL"
 
@@ -602,9 +606,10 @@ read -t 2 REPLY
 _log "$LOG_REQUEST_FILE" "request items actv:$REPLY"
 _debug "REPLY='$REPLY'"
 
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep ".* $ITEM_RECALL"`" && RECALL=1
+case $REPLY in ''|$OLD_REPLY) break;;
+*request*items*actv*end*) break;;
+*$ITEM_RECALL*) RECALL=1;;
+esac
 
 OLD_REPLY="$REPLY"
 sleep 0.1s
@@ -705,6 +710,7 @@ _check_on_cauldron
 _sleepSLEEP
 #_is "1 1 use_skill alchemy"
 _is "0 0 use_skill alchemy"
+one=$((one+1))
 
 # TOTO monsters
 echo watch $DRAW_INFO
@@ -823,7 +829,7 @@ _sleepSLEEP
 
 _check_on_cauldron
 
-one=$((one+1))
+#one=$((one+1))
 
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`

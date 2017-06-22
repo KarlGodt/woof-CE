@@ -309,7 +309,7 @@ echo unwatch
 echo unwatch $DRAW_INFO
 _beep
 #NUMBER=$((one-1))
-NUMBER=$one
+#NUMBER=$one
 _say_statistics_end
 exit $RV
 }
@@ -326,7 +326,7 @@ _is "1 1 fire_stop"
 _beep
 _beep
 #NUMBER=$((one-1))
-NUMBER=$one
+#NUMBER=$one
 _say_statistics_end
 test "$*" && _draw 5 "$*"
 exit $RV
@@ -371,8 +371,9 @@ read -t 2 ANSWER
 _log "$LOG_REQUEST_FILE" "request stat cmbt:$ANSWER"
 _debug "$ANSWER"
 
-test "$ANSWER" || break
-test "$ANSWER" = "$OLD_ANSWER" && break
+case $ANSWER in ''|$OLD_ANSWER) break;;
+*request*stat*cmbt*end*) break;; esac
+
 OLD_ANSWER="$ANSWER"
 sleep 0.1
 done
@@ -397,6 +398,8 @@ _debug "SLEEP='$SLEEP'"
 SLEEP=`dc ${SLEEP:-1} ${SLEEP_ADJ:-0} \+ p` || SLEEP=1
  case $SLEEP in -[0-9]*) SLEEP=0.1;; esac
 _debug "SLEEP now set to '$SLEEP'"
+
+SLEEP=${SLEEP:-1}
 
 _draw 6 "Done."
 }
@@ -423,7 +426,7 @@ do
  esac
 
  if test "$lPARAM"; then
-  case $REPLY in *$lPARAM) return 0;; esac
+  case $REPLY in *$lPARAM) return 0;; esac # TODO: empty pipe full of more skills listed ..
  else # print skill
   lSKILL=`echo "$REPLY" | cut -f4- -d' '`
   _draw 5 "'$lSKILL'"
@@ -467,7 +470,7 @@ done
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 _draw 3 "Need to stand upon cauldron!"
 _beep
-exit 1
+ f_exit 1
 }
 
 _draw 7 "OK."
@@ -485,8 +488,10 @@ _ping
 read -t 2 REPLY
  _log "$LOG_REQUEST_FILE" "request map pos:$REPLY"
  _debug "REPLY='$REPLY'"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+
+case $REPLY in ''|$OLD_REPLY) break;;
+*request*map*pos*end*) break;; esac
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -532,10 +537,11 @@ _debug "REPLY='$REPLY'"
 IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 _log "$LOG_REQUEST_FILE" "IS_WALL='$IS_WALL'"
 _debug "IS_WALL='$IS_WALL'"
-
 test "$IS_WALL" = 0 || f_exit_no_space 1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+
+case $REPLY in ''|$OLD_REPLY) break;;
+*request*map*end*) break;; esac
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -585,8 +591,9 @@ _ping
 read -t 1 REPLY
 _log "$LOG_REPLY_FILE" "get:$REPLY"
 _debug "REPLY='$REPLY'"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+
+case $REPLY in ''|$OLD_REPLY) break;; esac
+
 REPLY_ALL="$REPLY
 $REPLY_ALL"
 
@@ -626,9 +633,11 @@ _ping
 read -t 2 REPLY
 _log "$LOG_REQUEST_FILE" "request items actv:$REPLY"
 _debug "REPLY='$REPLY'"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep ".* $ITEM_RECALL"`" && RECALL=1
+
+case $REPLY in ''|$OLD_REPLY) break;;
+*request*items*actv*end*) break;;
+*$ITEM_RECALL*) RECALL=1;;
+esac
 
 OLD_REPLY="$REPLY"
 sleep 0.1s
@@ -765,6 +774,7 @@ _is "1 1 use_skill alchemy"
 
 echo watch $DRAW_INFO
 
+one=$((one+1))
 OLD_REPLY="";
 REPLY="";
 
@@ -856,7 +866,7 @@ _sleepSLEEP
 
 _check_on_cauldron
 
-one=$((one+1))
+#one=$((one+1))
 
 TIMEE=`date +%s`
 TIMER=$((TIMEE-TIMEC))
