@@ -35,6 +35,7 @@ fi
 # *** Check if standing on a cauldron *** #
 _check_if_on_cauldron(){  # called by _alch_and_get(), _return_to_cauldron()
 _sleep
+[ "$CHECK_DO" ] || return 0
 _draw 5 "Checking if on a cauldron..."
 
 local UNDER_ME='';
@@ -109,6 +110,8 @@ return 0
 
 _check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
+_sleep
+[ "$CHECK_DO" ] || return 0
 
 local REPLY OLD_REPLY REPLY_ALL
 unset REPLY OLD_REPLY REPLY_ALL
@@ -149,7 +152,7 @@ _is 99 1 get
 while :; do
 #cr=$((cr+1))
 read -t $TMOUT
-_log "$REPLY_LOG" "take:$cr:$REPLY"
+_log "$REPLY_LOG" "_check_empty_cauldron:$cr:$REPLY"
 _debug "$REPLY"
 #REPLY_ALL="$REPLY
 #$REPLY_ALL"
@@ -191,6 +194,8 @@ _draw 7 "OK ! Cauldron SEEMS empty."
 
 _alch_and_get(){
 
+local lSKILL=${*:-alchemy}
+
 _check_if_on_cauldron
 
 local REPLY OLD_REPLY
@@ -205,14 +210,14 @@ _watch
 fi
 
 sleep 0.5
-_is 1 1 use_skill alchemy
+_is 1 1 use_skill $lSKILL
 
 # *** TODO: The cauldron burps and then pours forth monsters!
 OLD_REPLY="";
 REPLY="";
 while :; do
 read -t $TMOUT
-_log "$REPLY_LOG" "alchemy:$REPLY"
+_log "$REPLY_LOG" "_alch_and_get:alchemy:$REPLY"
 _debug "$REPLY"
 case $REPLY in
                                                        #(level < 25)  /* INGREDIENTS USED/SLAGGED */
@@ -329,7 +334,6 @@ _sleep
 }
 
 _close_cauldron(){
-
 #_is 2 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRB
@@ -360,18 +364,21 @@ _sleep
 }
 
 _check_cauldron_cursed_spell(){  #TODO
+[ "$CHECK_DO" ] || return 0
 _is 1 1 cast detect curse
 _is 1 1 fire 0 # 0 is center
 _is 1 1 fire_stop
 }
 
 _check_cauldron_cursed_ready_skill(){  #TODO
+[ "$CHECK_DO" ] || return 0
 _is 1 1 ready_skill sense curse
 _is 1 1 fire 0 # 0 is center
 _is 1 1 fire_stop
 }
 
 _check_cauldron_cursed_use_skill(){  #TODO
+[ "$CHECK_DO" ] || return 0
 _is 1 1 use_skill sense curse
 }
 
@@ -381,7 +388,7 @@ _go_drop_alch_yeld_cauldron  ## sleeps at the end
 
 _check_food_level $COUNT_CHECK_FOOD $MIN_FOOD_LEVEL_DEF ## early return or long code with sleep
 
-_get_player_speed -l || sleep ${DELAY_DRAWINFO}s
+_get_player_speed -l || sleep ${DELAY_DRAWINFO:-2}s
 
 _check_if_on_cauldron  ## sleeps at the beginning
 

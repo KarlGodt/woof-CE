@@ -496,6 +496,22 @@ south)
 R_X=$PL_POS_X
 R_Y=$((PL_POS_Y+nr))
 ;;
+northwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+northeast)
+R_X=$((PL_POS_X+nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+southwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y+nr))
+;;
+southeast)
+R_X=$((PL_POS_X+nr))
+R_Y=$((PL_POS_Y+nr))
+;;
 esac
 
 _debug "R_X='$R_X' R_Y='$R_Y'"
@@ -677,6 +693,7 @@ sleep 0.5s
 
 echo watch $DRAW_INFO
 
+DW=0
 _is "1 1 drop 7 water"
 
 while :; do
@@ -688,6 +705,7 @@ _debug "REPLY='$REPLY'"
  *"Nothing to drop.") break 2;; #f_exit 1;;
  *"There are only"*)  break 2;; #f_exit 1;;
  *"There is only"*)   break 2;; #f_exit 1;;
+ *"You put the water"*) DW=$((DW+1)); unset REPLY;;
  '') break;;
  esac
 
@@ -695,7 +713,7 @@ _debug "REPLY='$REPLY'"
  sleep 0.1s
 done
 
-
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing water in inventory."
 echo unwatch $DRAW_INFO
 _sleepSLEEP
 

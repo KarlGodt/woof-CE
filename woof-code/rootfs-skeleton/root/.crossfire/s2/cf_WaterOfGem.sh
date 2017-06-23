@@ -576,6 +576,22 @@ south)
 R_X=$PL_POS_X
 R_Y=$((PL_POS_Y+nr))
 ;;
+northwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+northeast)
+R_X=$((PL_POS_X+nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+southwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y+nr))
+;;
+southeast)
+R_X=$((PL_POS_X+nr))
+R_Y=$((PL_POS_Y+nr))
+;;
 esac
 
 _debug "R_X='$R_X' R_Y='$R_Y'"
@@ -762,6 +778,7 @@ _is "1 1 drop 1 water of the wise"
 
 OLD_REPLY="";
 REPLY="";
+DW=0
 
  while :; do
  read -t 1 REPLY
@@ -773,6 +790,7 @@ REPLY="";
  *"Nothing to drop.") break 2;; #f_exit 1;;
  *"There are only"*)  break 2;; #f_exit 1;;
  *"There is only"*)   break 2;; #f_exit 1;;
+ *"You put the water"*) DW=$((DW+1)); unset REPLY;;
  '') break;;
  esac
 
@@ -780,13 +798,14 @@ REPLY="";
  sleep 0.1s
  done
 
-
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing water of the wise in inventory."
 _sleepSLEEP
 # *** drop ingredients *** #
 _is "1 1 drop 3 $GEM"
 
 OLD_REPLY="";
 REPLY="";
+DW=0
 
 while :; do
 read -t 1 REPLY
@@ -798,6 +817,7 @@ _debug "REPLY='$REPLY'"
  *"Nothing to drop.") break 2;; #f_exit 1;;
  *"There are only"*)  break 2;; #f_exit 1;;
  *"There is only"*)   break 2;; #f_exit 1;;
+ *"You put the $GEM"*) DW=$((DW+1)); unset REPLY;;
  '') break;;
  esac
 
@@ -805,6 +825,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing $GEM in inventory."
 echo unwatch $DRAW_INFO
 
 _sleepSLEEP

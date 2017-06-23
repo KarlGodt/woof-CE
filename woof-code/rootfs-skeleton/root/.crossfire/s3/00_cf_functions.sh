@@ -4,41 +4,24 @@
 _set_global_variables(){
 LOGGING=${LOGGING:-''}  #set to ANYTHING ie "1" to enable, empty to disable
 DEBUG=${DEBUG:-''}      #set to ANYTHING ie "1" to enable, empty to disable
-TMOUT=${TMOUT:-1}       # read -t timeout
-SLEEP=${SLEEP:-1}       #default sleep value, refined in _get_player_speed()
+TMOUT=${TMOUT:-1}       # read -t timeout seconds ( integer )
+SLEEP=${SLEEP:-1}       #default sleep value, refined in _get_player_speed() (float)
 SLEEP_MOD=${SLEEP_MOD:-'*'}       # add -F --fast (/) and -S --slow (*) options
 SLEEP_MOD_VAL=${SLEEP_MOD_VAL:-1} # "
 
-DELAY_DRAWINFO=${DELAY_DRAWINFO:-2}  #default seconds pause to sync, refined in _get_player_speed()
-DRAWINFO=${DRAWINFO:-drawinfo}   #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
-DRAW_INFO=${DRAW_INFO:-drawinfo}
+DELAY_DRAWINFO=${DELAY_DRAWINFO:-2}  #default seconds pause to sync, refined in _get_player_speed() (float)
 
-FUNCTION_CHECK_FOR_SPACE=_check_for_space # request map pos works
-case $* in
-*-version" "*) CLIENT_VERSION="$2"
-case $CLIENT_VERSION in 0.*|1.[0-9].*|1.1[0-2].*)
-DRAWINFO=drawextinfo #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
-                     #     except use_skill alchemy :watch drawinfo 0 The cauldron emits sparks.
-                     # and except apply             :watch drawinfo 0 You open cauldron.
-                     #
-                     # and probably more ...? TODO!
-FUNCTION_CHECK_FOR_SPACE=_check_for_space_old_client # needs request map near
-;;
-esac
-;;
-esac
-
-COUNT_CHECK_FOOD=${COUNT_CHECK_FOOD:-10} # number between attempts to check foodlevel.
+COUNT_CHECK_FOOD=${COUNT_CHECK_FOOD:-10} # number between attempts to check foodlevel. (integer)
                     #  1 would mean check every single time, which is too much
 EAT_FOOD=${EAT_FOOD:-waybread}   # set to desired food to eat ie food, mushroom, booze, .. etc.
 FOOD_DEF="$EAT_FOOD"     # default
 MIN_FOOD_LEVEL_DEF=${MIN_FOOD_LEVEL_DEF:-300} # default minimum. 200 starts to beep. waybread has foodvalue of 500 .
-                         # 999 is max foodlevel
+                         # 999 is max foodlevel (integer)
 
-HP_MIN_DEF=${HP_MIN_DEF:-20}  # minimum HP to return home. Lowlevel characters probably need this set.
+HP_MIN_DEF=${HP_MIN_DEF:-20}  # minimum HP to return home. Lowlevel characters probably need this set. (integer)
 
 DIRB=${DIRB:-west}  # direction back to go while alching on a cauldron. depends on the location.
-case $DIRB in       # should have four tiles free to move to DIRB
+case $DIRB in       # should have four tiles free to move to DIRB (west, east, south, north)
 1|n)   DIRB=north;;
 2|ne)  DIRB=northeast;;
 3|e)   DIRB=east;;
@@ -59,8 +42,12 @@ northwest) DIRF=southeast;;
 southwest) DIRF=northeast;;
 south)     DIRF=north;;
 southeast) DIRF=northest;;
-*)    _exit 2 "Incorrect move direction '$DIRB' .";;
+*)    _exit 2 "Incorrect move direction '$DIRB' .";; # _exit() further down in this library
 esac
+
+ITEM_RECALL='rod of word of recall' # scroll, staff, rod, heavy rod
+# apply rod of word of recall also applys heavy rod
+# used in _emergency_exit()
 
 SOUND_DIR=${SOUND_DIR:-"$HOME"/.crossfire/sounds}
 
@@ -102,6 +89,9 @@ BEEP_FREQ=700
 PING_DO=${PING_DO:-}
 URL=crossfire.metalforge.net
 
+CHECK_DO=1  # alchemy scripts, -X option unsets it ( empty or string )
+CHECK_NO=   # casting spells if verylonglist of spells have to be probed ( empty or string )
+
 oldPWD="$PWD"
 cd "${MY_SELF%/*}"
 
@@ -112,23 +102,72 @@ sleep 0.1
 done
 cd "$oldPWD"
 
-exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err  # direct errs to file, otherwise appear in msg pane
+# Here is a Chicken vs Egg problem:
+# I am only able to receive the server version by
+# issuing the 'server' command. This needs watch $DRAWINFO
+# defined already beforehand (unfortunately)
+ DRAWINFO=${DRAWINFO:-drawinfo}
+DRAW_INFO=${DRAWINFO:-drawinfo}
+# older servers <= 1.12.0 send drawinfo , never server send drawextinfo
+# drawinfo (old servers or clients compiled by confused compiler)
+# OR drawextinfo (new servers)
+# used for catching msgs watch/unwatch $DRAW_INFO
+
+#_get_server_version
+
+# Here is a missinig command: The 'version' command just shows the
+# server version. The client version is available from the client menu
+# under 'help' > 'about' .
+# Therefore adding a "dirty" -version option to this function
+# to manually define the client version.
+
+FUNCTION_CHECK_FOR_SPACE=_check_for_space # request map pos works
+case $* in
+*-version" "*) CLIENT_VERSION="$2"
+# case $CLIENT_VERSION in 0.*|1.[0-9].*|1.1[0-2].*)
+#  DRAWINFO=drawinfo  #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
+#                     #     except use_skill alchemy :watch drawinfo 0 The cauldron emits sparks.
+#                     # and except apply             :watch drawinfo 0 You open cauldron.
+#                     #
+#                     # and probably more ...? TODO!
+#
+# ;;
+# esac
+ case $CLIENT_VERSION in 0.*|1.[0-9].*|1.1[0-1].*)
+ FUNCTION_CHECK_FOR_SPACE=_check_for_space_old_client # needs request map near
+ ;;
+ esac
+;;
+esac
+
+ DRAWINFO=${DRAWINFO:-drawinfo}
+DRAW_INFO=${DRAWINFO:-drawinfo}
+
+exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err  # direct errs to file,
+# otherwise may appear in msg pane or as perror or LOG to stderr
+## /**  client/common/proto.h, misc.c
+## * Log messages of a certain importance to stderr. See 'client.h' for a full
+## * list of possible log levels.
+## */
+## void LOG(LogLevel level, const char *origin, const char *format, ...) {
+##  fprintf(stderr, "[%s] (%s) %s\n", getLogLevelText(level), origin, buf);
+
 }
 
 _sleep(){
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 }
 
 _unwatch(){
-_debug "unwatch $DRAWINFO"
-echo unwatch $DRAWINFO
+_debug "unwatch ${DRAWINFO:-drawinfo}"
+echo unwatch ${DRAWINFO:-drawinfo}
 sleep 0.2
 }
 
 _watch(){
 _unwatch
-_debug "watch $DRAWINFO"
-echo watch $DRAWINFO
+_debug "watch ${DRAWINFO:-drawinfo}"
+echo watch ${DRAWINFO:-drawinfo}
 sleep 0.2
 }
 
@@ -182,7 +221,8 @@ _debug "_emergency_exit:$*"
 RV=${1:-0}
 shift
 
-_is 1 1 apply rod of word of recall
+_is 1 1 apply -u "$ITEM_RECALL"
+_is 1 1 apply -a "$ITEM_RECALL"
 _is 1 1 fire center
 _draw 3 "Emergency Exit $0 !"
 
@@ -215,7 +255,9 @@ exit $RV
 _error(){ # cast by _do_program, _direction_word_to_number, _parse_parameters
 # ***
 
+if _test_integer $1; then
 RV=$1;shift
+fi
 _draw 3 "$*"
 exit $RV
 }
@@ -278,10 +320,11 @@ return $?
 
 
 _check_if_on_item(){  #+++2017-03-20
-local ITEM="$*"
-_draw 5 "Checking if on a '$ITEM' ..."
+[ "$CHECK_DO" ] || return 0
+local lITEM="$*"
+_draw 5 "Checking if on a '$lITEM' ..."
 
-test "$ITEM" || {
+test "$lITEM" || {
  _draw 3 "_check_if_on_item:Need <ITEM> as parameter."
  exit 1
  }
@@ -312,14 +355,14 @@ unset UNDER_ME
 sleep 0.1s
 done
 
-test "`echo "$UNDER_ME_LIST" | grep " ${ITEM} .*cursed"`" && {
-_draw 3 "You stand upon a cursed ${ITEM}!"
+test "`echo "$UNDER_ME_LIST" | grep " ${lITEM} .*cursed"`" && {
+_draw 3 "You stand upon a cursed ${lITEM}!"
 _beep
 _exit 1
 }
 
-test "`echo "$UNDER_ME_LIST" | grep " ${ITEM}$"`" || {
-_draw 3 "Need to stand upon ${ITEM}!"
+test "`echo "$UNDER_ME_LIST" | grep " ${lITEM}$"`" || {
+_draw 3 "Need to stand upon ${lITEM}!"
 _beep
 _exit 1
 }
@@ -329,10 +372,11 @@ return 0
 }
 
 _check_if_on_item_topmost(){  #+++2017-03-20
-local ITEM="$*"
+[ "$CHECK_DO" ] || return 0
+local lITEM="$*"
 _draw 5 "Checking if on a topmost '$ITEM' ..."
 
-test "$ITEM" || {
+test "$lITEM" || {
  _draw 3 "_check_if_on_item_topmost:Need <ITEM> as parameter."
  exit 1
  }
@@ -362,21 +406,21 @@ unset UNDER_ME
 sleep 0.1s
 done
 
-test "`echo "$UNDER_ME_LIST" | grep " ${ITEM} .*cursed"`" && {
-_draw 3 "You stand upon a cursed ${ITEM}!"
+test "`echo "$UNDER_ME_LIST" | grep " ${lITEM} .*cursed"`" && {
+_draw 3 "You stand upon a cursed ${lITEM}!"
 _beep
 _exit 1
 }
 
-test "`echo "$UNDER_ME_LIST" | grep " ${ITEM}$"`" || {
-_draw 3 "Need to stand upon ${ITEM}!"
+test "`echo "$UNDER_ME_LIST" | grep " ${lITEM}$"`" || {
+_draw 3 "Need to stand upon ${lITEM}!"
 _beep
 _exit 1
 }
 
-#test "`echo "$UNDER_ME_LIST" | head -n1 | grep " ${ITEM}$"`" || {
-test "`echo "$UNDER_ME_LIST" | tail -n1 | grep " ${ITEM}$"`" || {
-_draw 3 "${ITEM} is not topmost!"
+#test "`echo "$UNDER_ME_LIST" | head -n1 | grep " ${lITEM}$"`" || {
+test "`echo "$UNDER_ME_LIST" | tail -n1 | grep " ${lITEM}$"`" || {
+_draw 3 "${lITEM} is not topmost!"
 _beep
 _exit 1
 }
@@ -393,7 +437,7 @@ _debug "_counter_for_checks:$*:$PROBE_DO:$STATS_DO:$check_c"
 check_c=$((check_c + 1))
 
 if test "$PROBE_DO" -o "$STATS_DO"; then
-test $check_c -eq $CHECK_COUNT && unset check_c
+test $check_c -ge $CHECK_COUNT && unset check_c
 else false
 fi
 }
@@ -403,7 +447,7 @@ _counter_for_checks1(){
 # ***
 #test "$check_c" -eq $CHECK_COUNT && unset check_c
 check_c1=$((check_c1+1))
-test $check_c1 -eq $CHECK_COUNT_FOOD && unset check_c1
+test $check_c1 -ge $CHECK_COUNT_FOOD && unset check_c1
 }
 
 # *** PROBE_DO
@@ -411,5 +455,5 @@ _counter_for_checks2(){
 # ***
 #test "$check_c2" -eq $CHECK_COUNT && unset check_c
 check_c2=$((check_c2+1))
-test $check_c2 -eq $CHECK_COUNT_PROBE && unset check_c2
+test $check_c2 -ge $CHECK_COUNT_PROBE && unset check_c2
 }

@@ -14,20 +14,39 @@ test "$VERBOSE" || return 0
 _draw ${COL_VERB:-12} "VERBOSE:$*"
 }
 
-__draw(){
+_draw_(){
+    if _test_integer $1; then
     local COLOUR="$1"
     test "$COLOUR" || COLOUR=1 #set default
     shift
-    local MSG="$@"
+    fi
+    local MSG="$*"
     echo $DRAWINFO $COLOUR "$MSG"
 }
 
 _draw(){
+    if _test_integer $1; then
     local COLOUR="$1"
     COLOUR=${COLOUR:-1} #set default
     shift
-    local MSG="$@"
+    fi
+    local MSG="$*"
     echo draw $COLOUR "$MSG"
+}
+
+__draw(){
+    if _test_integer $1; then
+    local lCOLOUR="$1"
+    lCOLOUR=${lCOLOUR:-1} #set default
+    shift
+    fi
+    local lMSG="$*"
+while read -r line
+do
+   _draw $lCOLOUR "$line"
+    done <<EoI
+`echo "$lMSG"`
+EoI
 }
 
 _black()  { _draw 0  "$*"; }
@@ -47,7 +66,7 @@ alias _grey=_gray
 
 __debug(){
 test "$DEBUG" || return 0
-    _draw ${COL_DEB:-3} "DEBUG:$@"
+    _draw ${COL_DEB:-3} "DEBUG:$*"
 }
 
 _debug(){
@@ -82,6 +101,7 @@ _log(){
     local lFILE
     test "$2" && {
     lFILE="$1"; shift; } || lFILE="$LOGFILE"
+  lFILE=${lFILE:-/tmp/cf_script.log}
    echo "$*" >>"$lFILE"
 }
 
@@ -108,19 +128,22 @@ test -e "$SOUND_DIR"/${1}.raw && \
 _success(){
  _sound 0 bugle_charge
 }
+alias _snd_success=_success
 
 _failure(){
  _sound 0 ouch1
 }
+alias _snd_failure=_failure
 
 _disaster(){
  _sound 0 Missed
 }
+alias _snd_disaster=_disaster
 
 _unknown(){
  _sound 0 TowerClock
 }
-
+alias _snd_unknown=_unknown
 
 _say_start_msg(){
 # *** Here begins program *** #

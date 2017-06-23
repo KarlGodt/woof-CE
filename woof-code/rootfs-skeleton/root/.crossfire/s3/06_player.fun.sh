@@ -114,7 +114,7 @@ test ! "$ANSWER" -a "$OLD_ANSWER" && ANSWER="$OLD_ANSWER"  #+++2017-03-20
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
 
-PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
+PL_SPEED=`echo "scale=2;${PL_SPEED:-40000} / 100000" | bc -l`
 _debug "Player speed is '$PL_SPEED'"
 
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
@@ -167,6 +167,7 @@ case $SLEEP in .*) SLEEP="0$SLEEP";; esac
 _debug "SLEEP='$SLEEP'"
 fi
 
+
 SLEEP=${SLEEP:-1}
 _verbose "Finally set SLEEP='$SLEEP'"
 
@@ -176,7 +177,7 @@ return 0
 
 _check_for_space(){
 # *** Check for 4 empty space to DIRB *** #
-
+[ "$CHECK_DO" ] || return 0
 local REPLY_MAP OLD_REPLY NUMBERT
 unset REPLY_MAP OLD_REPLY NUMBERT
 
@@ -253,7 +254,7 @@ R_Y=$((PL_POS_Y+nr))
 ;;
 esac
 
-
+_debug "R_X='$R_X' R_Y='$R_Y'"
 echo request map $R_X $R_Y
 
  while :; do
@@ -293,7 +294,7 @@ _draw 7 "OK."
 
 _check_for_space_old_client(){
 # *** Check for 4 empty space to DIRB ***#
-
+[ "$CHECK_DO" ] || return 0
 local REPLY_MAP OLD_REPLY NUMBERT cm
 unset REPLY_MAP OLD_REPLY NUMBERT cm
 
@@ -376,7 +377,7 @@ R_Y=$((PL_POS_Y+nr))
 ;;
 esac
 
-
+_debug "R_X='$R_X' R_Y='$R_Y'"
 echo request map $R_X $R_Y
 
  while :; do
@@ -416,7 +417,7 @@ _draw 7 "OK."
 
 _prepare_rod_of_recall(){
 # *** Unreadying rod of word of recall - just in case *** #
-
+[ "$CHECK_DO" ] || return 0
 local RECALL OLD_REPLY REPLY
 unset RECALL OLD_REPLY REPLY
 

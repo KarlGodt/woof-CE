@@ -212,6 +212,7 @@ _find_traps_single(){
 [ "$SKILL_FIND" = no ] && return 3
 
 local NUM=${1:-$MAX_SEARCH}
+local FALLBACK
 
 _draw 6 "find traps '$NUM' times.."
 
@@ -221,6 +222,7 @@ echo watch $DRAW_INFO
 while :;
 do
 
+FALLBACK=0
 [ "$DEBUG" -o "$VERBOSE" ] && _verbose "${NUM} search ..."
 _is 1 1 search
 
@@ -233,10 +235,12 @@ _is 1 1 search
                 #SKILL_FIND=no;  break 2;;
 
     *'You spot a '*) _debug "Found Trap";
+    # TODO: Could spottings be counted ?
+    FALLBACK=1
     _disarm_traps_single;
     case $? in 112) return 112;; esac
     #NUM=${1:-$MAX_SEARCH} # reset in case of always failing without setting off
-    #NUM=$((NUM+1))
+    [ "$FORCE" ] || NUM=$((NUM+1))
     break;;
 
    *'You search the area.'*) :;;
@@ -246,7 +250,13 @@ _is 1 1 search
   unset REPLY
  done
 
-NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
+NUM=$((NUM-1));
+
+if test "$FORCE" -a "$FALLBACK" = 0; then
+ test "$NUM" -gt 0 || break;
+else
+ test "$NUM" -gt 0 || break;
+fi
 sleep 1
 
 done
