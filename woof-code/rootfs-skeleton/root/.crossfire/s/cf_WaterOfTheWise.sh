@@ -1,5 +1,7 @@
 #!/bin/ash
 
+exec 2>/tmp/cf_script.err
+
 # Now count the whole script time
 TIMEA=`date +%s`
 
@@ -26,6 +28,8 @@ SLEEP=4.0          # sleep seconds after codeblocks
 DELAY_DRAWINFO=8.0 # sleep seconds to sync msgs from script with msgs from server
 
 DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+
+ITEM_RECALL='rod of word of recall' # scroll, staff, rod
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
@@ -139,8 +143,8 @@ f_emergency_exit(){
 RV=${1:-0}
 shift
 
-echo "issue 1 1 apply -u rod of word of recall"
-echo "issue 1 1 apply -a rod of word of recall"
+echo "issue 1 1 apply -u $ITEM_RECALL"
+echo "issue 1 1 apply -a $ITEM_RECALL"
 echo "issue 1 1 fire center"
 echo draw 3 "Emergency Exit $0 !"
 echo unwatch $DRAW_INFO
@@ -272,7 +276,7 @@ echo draw 7 "Done."
 }
 
 _ready_rod_of_recall(){
-# *** Readying rod of word of recall - just in case *** #
+# *** Readying $ITEM_RECALL - just in case *** #
 [ "$CHECK_DO" ]    || return 0
 [ "$ITEM_RECALL" ] || return 3
 
@@ -289,18 +293,120 @@ read -t 2 REPLY
 [ "$DEBUG" ] && echo draw 3 "'$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
+test "`echo "$REPLY" | grep '.* $ITEM_RECALL'`" && RECALL=1
 
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
 if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-echo "issue 1 1 apply rod of word of recall"
+echo "issue 1 1 apply $ITEM_RECALL"
 fi
 
 sleep ${SLEEP}s
 echo draw 7 "Done."
+}
+
+_check_free_move(){
+# *** Check for 4 empty space to DIRB *** #
+[ "$CHECK_DO" ] || return 0
+
+echo draw 5 "Checking for space to move..."
+
+echo request map pos
+
+while [ 1 ]; do
+read -t 2 REPLY
+[ "$LOGGING" ] && echo "request map pos:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
+PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
+[ "$DEBUG" ] && echo draw 3 "PL_POS_X='$PL_POS_X' PL_POS_Y='$PL_POS_Y'"
+
+if test "$PL_POS_X" -a "$PL_POS_Y"; then
+
+if test ! "${PL_POS_X//[[:digit:]]/}" -a ! "${PL_POS_Y//[[:digit:]]/}"; then
+
+for nr in `seq 1 1 4`; do
+
+case $DIRB in
+west)
+R_X=$((PL_POS_X-nr))
+R_Y=$PL_POS_Y
+;;
+east)
+R_X=$((PL_POS_X+nr))
+R_Y=$PL_POS_Y
+;;
+north)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y-nr))
+;;
+northwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+northeast)
+R_X=$((PL_POS_X+nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+south)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y+nr))
+;;
+southwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y+nr))
+;;
+southeast)
+R_X=$((PL_POS_X+nr))
+R_Y=$((PL_POS_Y+nr))
+;;
+esac
+
+[ "$DEBUG" ] && echo draw 3 "R_X='$R_X' R_Y='$R_Y'"
+echo request map $R_X $R_Y
+
+while [ 2 ]; do
+read -t 2 REPLY
+[ "$LOGGING" ] && echo "request map $R_X $R_Y:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "'$REPLY'"
+
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+
+IS_WALL=`echo "$REPLY" | awk '{print $16}'`
+[ "$LOGGING" ] && echo "$IS_WALL" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "IS_WALL='$IS_WALL'"
+test "$IS_WALL" = 0 || f_exit_no_space 1
+
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+done
+
+else
+
+echo draw 3 "Received Incorrect X Y parameters from server"
+exit 1
+
+fi
+
+else
+
+echo draw 3 "Could not get X and Y position of player."
+exit 1
+
+fi
+
+echo draw 7 "OK."
 }
 
 _check_empty_cauldron(){
@@ -359,6 +465,7 @@ _check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
 f_check_on_cauldron
 #_get_player_speed
 #_ready_rod_of_recall
+_check_free_move
 _check_empty_cauldron
 _ready_rod_of_recall
 
@@ -410,7 +517,8 @@ echo "issue 1 1 drop 7 water"
 
 while [ 2 ]; do
 read -t 1 REPLY
-echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "'$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && break 2 #f_exit 1
@@ -446,7 +554,8 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "alchemy:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "alchemy:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "'$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
@@ -474,7 +583,8 @@ SLAG=0
 
 while [ 2 ]; do
 read -t 1 REPLY
-echo "get:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "'$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`"   && NOTHING=1

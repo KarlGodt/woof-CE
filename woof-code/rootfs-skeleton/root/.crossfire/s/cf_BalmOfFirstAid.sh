@@ -1,5 +1,7 @@
 #!/bin/ash
 
+exec 2>/tmp/cf_script.err
+
 # Now count the whole script time
 TIMEA=`date +%s`
 
@@ -26,6 +28,8 @@ northeast) DIRF=southwest;;
 southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
+
+ITEM_RECALL='rod of word of recall' # scroll, staff, rod
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
@@ -116,8 +120,8 @@ f_emergency_exit(){
 RV=${1:-0}
 shift
 
-echo "issue 1 1 apply -u rod of word of recall"
-echo "issue 1 1 apply -a rod of word of recall"
+echo "issue 1 1 apply -u $ITEM_RECALL"
+echo "issue 1 1 apply -a $ITEM_RECALL"
 echo "issue 1 1 fire center"
 echo draw 3 "Emergency Exit $0 !"
 echo unwatch $DRAW_INFO
@@ -141,16 +145,6 @@ beep
 exit $RV
 }
 
-# *** Monitoring function *** #
-# *** Todo ...            *** #
-f_monitor_malfunction(){
-
-while [ 1 ]; do
-read -t 1 ERRORMSGS
-
-sleep 0.1s
-done
-}
 
 # *** PREREQUISITES *** #
 # 1.) _check_skill
@@ -329,7 +323,7 @@ echo draw 7 "OK."
 }
 
 _prepare_recall(){
-# *** Readying rod of word of recall - just in case *** #
+# *** Readying $ITEM_RECALL - just in case *** #
 [ "$CHECK_DO" ]    || return 0
 [ "$ITEM_RECALL" ] || return 3
 
@@ -348,14 +342,14 @@ read -t 2 REPLY
 
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep ".* rod of word of recall"`" && RECALL=1
+test "`echo "$REPLY" | grep ".* $ITEM_RECALL"`" && RECALL=1
 
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
 if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-echo "issue 1 1 apply rod of word of recall"
+echo "issue 1 1 apply $ITEM_RECALL"
 fi
 
 echo draw 6 "Done."
@@ -457,12 +451,14 @@ SLEEP=`dc ${SLEEP:-1} ${SLEEP_ADJ:-0} \+ p` || SLEEP=1
 echo draw 6 "Done."
 }
 
+_get_player_speed
 _check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
 _check_if_on_cauldron
 _check_free_move
-_prepare_recall
+#_prepare_recall
 _check_empty_cauldron
-_get_player_speed
+#_get_player_speed
+_prepare_recall
 
 # *** Actual script to alch the desired balm of first aid           *** #
 

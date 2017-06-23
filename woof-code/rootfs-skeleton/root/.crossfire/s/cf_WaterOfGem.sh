@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 
 exec 2>/tmp/cf_script.err
 
@@ -46,6 +46,8 @@ esac
 DELAY_DRAWINFO=2    # sleep seconds to sync msgs from script with msgs from server
 
 DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+
+ITEM_RECALL='rod of word of recall' # scroll, staff, rod
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
@@ -135,6 +137,34 @@ _kill_jobs
 exit $RV
 }
 
+f_emergency_exit(){
+RV=${1:-0}
+shift
+
+echo "issue 1 1 apply -u $ITEM_RECALL"
+echo "issue 1 1 apply -a $ITEM_RECALL"
+echo "issue 1 1 fire center"
+echo draw 3 "Emergency Exit $0 !"
+echo unwatch $DRAW_INFO
+echo "issue 1 1 fire_stop"
+
+test "$*" && echo draw 5 "$*"
+beep
+exit $RV
+}
+
+f_exit_no_space(){
+RV=${1:-0}
+shift
+
+echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
+echo draw 3 "Remove that Item and try again."
+echo draw 3 "If this is a Wall, try another place."
+
+test "$*" && echo draw 5 "$*"
+beep
+exit $RV
+}
 
 CHECK_DO=1
 
@@ -335,6 +365,7 @@ read -t 2 REPLY
 [ "$LOGGING" ] && echo "request map pos:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 3 "$REPLY"
 
+test "$REPLY" = "$OLD_REPLY" && break
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -473,6 +504,7 @@ return 0
 }
 
 #_check_if_on_cauldron && _check_if_empty_cauldron && _check_if_on_cauldron || f_exit 1
+_get_player_speed
 _check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
 _check_free_move
 
