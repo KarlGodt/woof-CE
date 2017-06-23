@@ -615,6 +615,35 @@ done
 
 _identify
 
+_count_time(){
+
+ TIMEZ=`/bin/date +%s`
+
+ _compute_minutes_seconds(){
+ unset TIMEXM TIMEXS
+ test "$1" -a "$2" || return 3
+
+ local lTIMEX=$(( $1 - $2 ))
+
+ case $lTIMEX in -*) lTIMEX=$(( $2 - $1 ));; esac
+ case $lTIMEX in -*) return 4;; esac
+
+ TIMEXM=$((lTIMEX/60))
+ TIMEXS=$(( lTIMEX - (TIMEXM*60) ))
+ case $TIMEXS in [0-9]) TIMEXS="0$TIMEXS";; esac
+ }
+
+
+_compute_minutes_seconds $TIMEZ $TIMEB && \
+ _draw 5 "Whole loop took $TIMEXM:$TIMEXS minutes."
+
+_compute_minutes_seconds $TIMEZ $TIMEA && \
+ _draw 4 "Whole script took $TIMEXM:$TIMEXS minutes."
+
+}
+
+_count_time
+
 # *** Here ends program *** #
 _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
