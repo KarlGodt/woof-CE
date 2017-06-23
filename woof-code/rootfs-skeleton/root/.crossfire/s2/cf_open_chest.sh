@@ -5,8 +5,6 @@ exec 2>/tmp/cf_script.err
 # Now count the whole script time
 TIMEA=`date +%s`
 
-#DEBUG=1   # unset to disable, set to anything to enable
-#LOGGING=1 # unset to disable, set to anything to enable
 
 DRAW_INFO=drawinfo # drawextinfo
 
@@ -163,6 +161,7 @@ done
 
 # ** set pickup  0 and drop chests
 
+#_is 0 0 lock bomb ##+++2017-06-23 # TODO:toggles
 
 _is 0 0 pickup 0
 sleep 1
@@ -288,7 +287,7 @@ local SECONDLINE=''
           break  # at low level better exit with beep
          else _draw 3 "Quitting - triggered bomb."
           _draw 3 "Use -f otion to go on."
-          return 112 # save chests from being destroyed
+          return 113 # save chests from being destroyed
          fi;;
 
         #You detonate a Rune of Mass Confusion!
@@ -532,7 +531,7 @@ _is 1 1 use_skill "disarm traps"
          break  # at low level better exit with beep
         else _draw 3 "Quitting - triggered bomb."
          _draw 3 "Use -f otion to go on."
-         return 112 # save chests from being destroyed
+         return 113 # save chests from being destroyed
         fi;;
 
    #You detonate a Rune of Mass Confusion!
@@ -621,6 +620,7 @@ sleep 1
 _open_chest(){
 # ** open chest, apply, get ** #
 
+CHESTS_ALL=0
 TIMEB=`/bin/date +%s`
 
 _draw 6 "apply and get .."
@@ -636,6 +636,7 @@ _is 1 1 apply  # handle trap release, being killed
                # spit out tooth, then eats it ...
 
 _is 0 0 get all
+CHESTS=0
 
 _is 0 0 drop chest # Nothing to drop.
 
@@ -663,6 +664,7 @@ _is 0 0 drop chest # Nothing to drop.
 
 #  *'You find '*) _handle_trap_detonation_event || return 112;;
    *'You find '*)    :;;
+   *'You pick up '*chest*) CHESTS=$((CHESTS+1));;
    *'You pick up '*) :;;
    *'You were unable to take '*)  :;; #You were unable to take one of the items.
 
@@ -690,6 +692,7 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 sleep 0.5
 
+test $CHESTS_ALL -gt ${CHESTS:-0} || CHESTS_ALL=${CHESTS:-0}
 
 _is 1 1 $DIRB
 sleep 0.1
@@ -701,6 +704,46 @@ done
 }
 
 
+_cleanup_bomb(){
+_is 0 0 get all   # pickup chests if bomb
+_is 0 0 drop bomb # :)
+_is 0 0 get flametome
+_is 0 0 get wand
+_is 0 0 get scroll
+}
+
+_cleanup_trap(){
+_is 0 0 get all   # pick up chests if icestorm, fireball, etc.
+}
+
+_flee(){
+for n in `seq 1 1 ${*:-9}`
+do
+_is 1 1 $DIRB
+done
+}
+
+_identify(){
+set - "sense curse" "sense magic" alchemy bowyer jeweler literacy smithery thaumaturgy woodsman
+for skill in "$@"; do
+_is 0 0 use_skill "$skill"
+done
+}
+
+
+_find_traps $NUMBER
+case $? in 0)
+ _open_chest
+ case $? in 0) _identify;;
+ 112) _cleanup_trap;;
+ 113) _cleanup_bomb; _flee 9;;
+ esac;;
+112) _cleanup_trap;;
+113) _cleanup_bomb; _flee 9;;
+esac
+
+
+__main__(){
 _find_traps $NUMBER
 case $? in 112) :;;
 *)    _open_chest;;
@@ -708,6 +751,10 @@ esac
 
 _is 0 0 get all   #pickup chests if bomb, fire storm, dragon breath, etc
 _is 0 0 drop bomb
+_is 0 0 get flametome
+_is 0 0 get wand
+_is 0 0 get scroll
+}
 
 # *** Here ends program *** #
 _debug "unwatch $DRAW_INFO"
@@ -743,13 +790,19 @@ fi
 
 }
 
+_test_integer(){
+test "$*" || return 3
+test ! "${*//[0-9]/}"
+}
+
 _count_time(){
 
 test "$*" || return 3
+_test_integer "$*" || return 4
 
-TIMEE=`/bin/date +%s` || return 4
+TIMEE=`/bin/date +%s` || return 5
 
-TIMEX=$((TIMEE - $*)) || return 5
+TIMEX=$((TIMEE - $*)) || return 6
 TIMEM=$((TIMEX/60))
 TIMES=$(( TIMEX - (TIMEM*60) ))
 
@@ -761,6 +814,7 @@ return 0
 _count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
 _count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
 
+test "$CHESTS_ALL" && _draw 5 "You opened $((CHESTS_ALL+1)) chest(s)."
 
 _draw 2 "$0 is finished."
 _beep

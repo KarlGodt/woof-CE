@@ -4,9 +4,6 @@ exec 2>/tmp/cf_script.err
 
 TIMEA=`date +%s`
 
-#DEBUG=1   # unset to disable, set to anything to enable
-#LOGGING=1 # unset to disable, set to anything to enable
-
 DRAW_INFO=drawinfo # drawextinfo
 
 DEF_SEARCH=9
@@ -126,6 +123,9 @@ done
 # TODO : check if available space to walk in DIRB
 
 # ** set pickup  0 and drop chests
+
+#Can't find any matching item.
+#echo issue 0 0 lock bomb  ##+++2017-06-23 TODO:toggles
 
 _verbose "Setting pickup 0 .."
 echo issue 0 0 pickup 0
@@ -410,7 +410,7 @@ local SECONDLINE=''
       break # usually better to exit with beep
       else _draw 3 "Quitting - Bomb!"
        _draw 2 "Use -f option to ignore."
-       return 112
+       return 113
       fi;;
 
    *'A portal opens up, and screaming hordes pour'*)
@@ -499,6 +499,7 @@ _open_chest(){
 
 _draw 6 "apply and get .."
 
+CHESTS_ALL=0
 NUM=${NUMBER:-90} # 90 * 50kg -> 4500@Str 30, should be enough
 CNT=0  # _handle_trap_event() uses CNT and NUM
 
@@ -517,7 +518,7 @@ sleep 0.5
 
 _verbose "get all"
 echo issue 0 0 get all
-
+CHESTS=0
 sleep 0.5
 
 
@@ -540,37 +541,10 @@ echo issue 0 0 drop chest # Nothing to drop.
 
    *'You find '*) :;;
 
+   *'You pick up '*chest*) CHESTS=$((CHESTS+1));;
    *'You pick up '*)              :;;
    *'You were unable to take '*)  :;; # one of the items.
    *'too heavy'*)                 :;;
-
-#  # msgs from cast dexterity
-#  *'You lack the skill '*) :;;
-#  *'You can no longer use the skill:'*)     :;;
-#  *'You ready'*)                            :;;  # talisman of sorcery *. the spell holy symbol of Probity *.
-#  *'You can now use the skill:'*)           :;;  # praying.
-#  *'You grow no more agile'*)               :;;
-#  *'You recast the spell while in effect'*) :;;
-#  *'The effects'*'are draining out'*)       :;;
-#  *'The effects'*'are about to expire'*)    :;;
-#  *'You feel'*)                             :;; # clumsy. stronger. more agile. healthy. smarter.
-#
-#  # msgs from cure disease
-#  *'You stop using the'*) :;; # talisman of Frost *.
-#  *'You cure'*)           :;; # a disease!
-#  *'You no longer feel'*) :;; # diseased.
-#
-#  #msgs from cure poison
-#  *'Your body feels'*) :;; # cleansed
-#
-#  *' entered '*|*' leaves '*|*' left '*) :;; # the game
-#  *' chats:'*|*' tells you:'*)           :;;
-#
-#   *'You feel full'*) :;;  # , but what a waste of food!
-#   *' tasted '*)      :;;  # food tasted good
-#   *' your '*)        :;;  #
-#   *'Your '*)         :;;  # Your monster beats monster
-#   *'You killed '*)   :;;
 
   '') break;;
 
@@ -586,6 +560,8 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 sleep 1
 
+test $CHESTS_ALL -gt ${CHESTS:-0} || CHESTS_ALL=${CHESTS:-0}
+
 _verbose "$DIRB"
 echo issue 1 1 $DIRB
 sleep 0.1
@@ -599,12 +575,24 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
 
-
-_find_traps
-_disarm_traps && _open_chest
-
-echo issue 0 0 get all   # pickup chests if bomb, fireball, etc.
+_cleanup_bomb(){
+echo issue 0 0 get all   # pickup chests if bomb
 echo issue 0 0 drop bomb # :)
+echo issue 0 0 get flametome
+echo issue 0 0 get wand
+echo issue 0 0 get scroll
+}
+
+_cleanup_trap(){
+echo issue 0 0 get all   # pick up chests if icestorm, fireball, etc.
+}
+
+_flee(){
+for n in `seq 1 1 ${*:-9}`
+do
+echo issue 1 1 $DIRB
+done
+}
 
 _identify(){
 set - "sense curse" "sense magic" alchemy bowyer jeweler literacy smithery thaumaturgy woodsman
@@ -613,7 +601,18 @@ echo issue 0 0 use_skill "$skill"
 done
 }
 
-_identify
+_find_traps
+_disarm_traps
+case $? in 0)
+ TIMEB=`/bin/date +%s`
+ _open_chest
+ case $? in 0) _identify;;
+ 112) _cleanup_trap;;
+ 113) _cleanup_bomb; _flee 9;;
+ esac;;
+112) _cleanup_trap;;
+113) _cleanup_bomb; _flee 9;;
+esac
 
 _count_time(){
 
@@ -643,6 +642,9 @@ _compute_minutes_seconds $TIMEZ $TIMEA && \
 }
 
 _count_time
+
+test "$CHESTS_ALL" && _draw 5 "You opened $((CHESTS_ALL+1)) chest(s)."
+
 
 # *** Here ends program *** #
 _debug "unwatch $DRAW_INFO"
