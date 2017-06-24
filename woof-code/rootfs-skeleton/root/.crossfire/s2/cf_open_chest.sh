@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 
 exec 2>/tmp/cf_script.err
 
@@ -54,29 +54,36 @@ COL_GRAY=9
 COL_BROWN=10
 COL_GOLD=11
 COL_TAN=12
+COL_VERB=$COL_ORANGE
+COL_DBG=$COL_DORANGE
 
 _draw(){
-test "$*" || return
-local COLOUR=${1:-0}
-shift
+test "$*" || return 3
+local lCOLOUR=0
+case $1 in [0-9]|[1[0-4]) lCOL_VERB=$1; shift;; esac
+
 while read -r line
 do
 test "$line" || continue
-echo draw $COLOUR "$line"
+echo draw $lCOLOUR "$line"
 sleep 0.1
 done <<EoI
-`echo "$@"`
+`echo "$*"`
 EoI
 }
 
 _verbose(){
 [ "$VERBOSE" ] || return 0
-_draw ${COL_VERB:-12} "$*"
+local lCOL_VERB=$COL_VERB
+case $1 in [0-9]|[1[0-4]) lCOL_VERB=$1; shift;; esac
+_draw ${lCOL_VERB:-12} "$*"
 }
 
 _debug(){
 [ "$DEBUG" ] || return 0
-_draw ${COL_DBG:-11} "$*"
+local lCOL_DBG=$COL_DBG
+case $1 in [0-9]|[1[0-4]) lCOL_DBG=$1; shift;; esac
+_draw ${lCOL_DBG:-11} "$*"
 }
 
 _log(){
@@ -130,7 +137,7 @@ case $PARAM_1 in
      *debug) DEBUG=$((DEBUG+1));;
      *force) FORCE=$((FORCE+1));;
      *help|*usage)  _usage;;
-     *logging) LOGGING=$((LOGGING+1));;
+     *log*)    LOGGING=$((LOGGING+1));;
      *verbose) VERBOSE=$((VERBOSE+1));;
      *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
      esac
@@ -286,7 +293,7 @@ local SECONDLINE=''
          if [ "$FORCE" ]; then
           break  # at low level better exit with beep
          else _draw 3 "Quitting - triggered bomb."
-          _draw 3 "Use -f otion to go on."
+          _draw 3 "Use -f option to go on."
           return 113 # save chests from being destroyed
          fi;;
 
@@ -296,7 +303,7 @@ local SECONDLINE=''
          if [ "$FORCE" ]; then
           break  # at low level better exit with beep
          else _draw 3 "Quitting - multiplifying trap."
-          _draw 3 "Use -f otion to go on."
+          _draw 3 "Use -f option to go on."
           return 112
          fi;;
 
@@ -329,7 +336,7 @@ local SECONDLINE=''
          if [ "$FORCE" ]; then
           break  # at low level better exit with beep
          else _draw 3 "Quitting - triggered trap."
-          _draw 3 "Use -f otion to go on."
+          _draw 3 "Use -f option to go on."
           return 112
          fi;;
 
@@ -338,7 +345,7 @@ local SECONDLINE=''
          if [ "$FORCE" ]; then
           break # always better to exit with beep
          else _draw "Quitting - surrounded by monsters."
-          _draw 3 "Use -f otion to go on."
+          _draw 3 "Use -f option to go on."
           return 112
          fi;;
 
@@ -530,7 +537,7 @@ _is 1 1 use_skill "disarm traps"
         if [ "$FORCE" ]; then
          break  # at low level better exit with beep
         else _draw 3 "Quitting - triggered bomb."
-         _draw 3 "Use -f otion to go on."
+         _draw 3 "Use -f option to go on."
          return 113 # save chests from being destroyed
         fi;;
 
@@ -540,7 +547,7 @@ _is 1 1 use_skill "disarm traps"
         if [ "$FORCE" ]; then
          break  # at low level better exit with beep
         else _draw 3 "Quitting - multiplifying trap."
-         _draw 3 "Use -f otion to go on."
+         _draw 3 "Use -f option to go on."
          return 112  # these multiplify
         fi;;
 
@@ -574,7 +581,7 @@ _is 1 1 use_skill "disarm traps"
         if [ "$FORCE" ]; then
          break  # at low level better exit with beep
         else _draw 3 "Quitting - detonated trap."
-         _draw 3 "Use -f otion to go on."
+         _draw 3 "Use -f option to go on."
          return 112
         fi;;
 
@@ -583,7 +590,7 @@ _is 1 1 use_skill "disarm traps"
         if [ "$FORCE" ]; then
          break # always better to exit with beep
         else _draw "Quitting - surrounded by monsters."
-          _draw 3 "Use -f otion to go on."
+          _draw 3 "Use -f option to go on."
          return 112
         fi;;
 
@@ -620,7 +627,7 @@ sleep 1
 _open_chest(){
 # ** open chest, apply, get ** #
 
-CHESTS_ALL=0
+PICKUP_CNT_MAX=0
 TIMEB=`/bin/date +%s`
 
 _draw 6 "apply and get .."
@@ -632,11 +639,13 @@ do
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
+
 _is 1 1 apply  # handle trap release, being killed
                # spit out tooth, then eats it ...
+APPLY_CNT=$((APPLY_CNT+1))
 
 _is 0 0 get all
-CHESTS=0
+PICKUP_CNT=0
 
 _is 0 0 drop chest # Nothing to drop.
 
@@ -664,7 +673,7 @@ _is 0 0 drop chest # Nothing to drop.
 
 #  *'You find '*) _handle_trap_detonation_event || return 112;;
    *'You find '*)    :;;
-   *'You pick up '*chest*) CHESTS=$((CHESTS+1));;
+   *'You pick up '*chest*) PICKUP_CNT=$((PICKUP_CNT+1));;
    *'You pick up '*) :;;
    *'You were unable to take '*)  :;; #You were unable to take one of the items.
 
@@ -682,7 +691,7 @@ _is 0 0 drop chest # Nothing to drop.
   *'You feel clumsy'*)                      :;;
 
   '') break;;
-   *) _handle_trap_detonation_event || return 112
+   *) _handle_trap_detonation_event || return $?
       break;;
   esac
  done
@@ -692,7 +701,8 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 sleep 0.5
 
-test $CHESTS_ALL -gt ${CHESTS:-0} || CHESTS_ALL=${CHESTS:-0}
+test $PICKUP_CNT_MAX -gt ${PICKUP_CNT:-0} || PICKUP_CNT_MAX=${PICKUP_CNT:-0}
+test ${PICKUP_CNT:-0} = 0 && break
 
 _is 1 1 $DIRB
 sleep 0.1
@@ -734,7 +744,9 @@ done
 _find_traps $NUMBER
 case $? in 0)
  _open_chest
- case $? in 0) _identify;;
+ case $? in 0) _identify;
+      #test "$PICKUP_CNT_MAX" && _draw 5 "You opened $((PICKUP_CNT_MAX+1)) chest(s)."
+      ;;
  112) _cleanup_trap;;
  113) _cleanup_bomb; _flee 9;;
  esac;;
@@ -814,7 +826,15 @@ return 0
 _count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
 _count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
 
-test "$CHESTS_ALL" && _draw 5 "You opened $((CHESTS_ALL+1)) chest(s)."
+if test "${APPLY_CNT:-0}"; then
+ _draw 5 "You applied (opened) ${APPLY_CNT:-0} (chest(s))."
+elif test "$PICKUP_CNT_MAX" -a "$PICKUP_CNT"; then
+ _draw 5 "You likely opened $(( ( PICKUP_CNT_MAX + 1 ) - PICKUP_CNT )) chest(s)."
+elif test "$PICKUP_CNT_MAX"; then
+ _draw 5 "You had apparently $((PICKUP_CNT_MAX+1)) chest(s)."
+else
+ _draw 3 "FIXME: Could not count (opened) chests .."
+fi
 
 _draw 2 "$0 is finished."
 _beep

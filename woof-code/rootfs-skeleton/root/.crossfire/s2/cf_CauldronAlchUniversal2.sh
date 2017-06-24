@@ -565,7 +565,7 @@ echo request items inv
 while :; do
 INVTRY=""
 read -t 1 INVTRY || break
-echo "$INVTRY" >>"$LOG_INV_FILE"  # grep ingred further down, not otional
+echo "$INVTRY" >>"$LOG_INV_FILE"  # grep ingred further down, not optional
 #_log -file="$LOG_INV_FILE" "$INVTRY"
 _debugx "$INVTRY"
 

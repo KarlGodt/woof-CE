@@ -338,7 +338,7 @@ _usage() {
 
 echo draw 5 "Script to use_skill oratory."
 echo draw 5 "Syntax:"
-echo draw 5 "script $0 <direction> [number]"
+echo draw 5 "script $0 <direction> <<number>>"
 echo draw 5 "For example: 'script $0 5 west'"
 echo draw 5 "will issue 5 use_skill throwing in west."
 echo draw 6 "Abbr. for north:n, northeast:ne .."

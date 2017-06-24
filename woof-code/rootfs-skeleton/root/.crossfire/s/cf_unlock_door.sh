@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 
 exec 2>/tmp/cf_script.err
 
@@ -264,7 +264,7 @@ fi
 
 -d|*debug)      DEBUG=$((DEBUG+1));;
 -I|*infinite) FOREVER=$((FOREVER+1));;
--L|*logging)  LOGGING=$((LOGGING+1));;
+-L|*log*)     LOGGING=$((LOGGING+1));;
 -v|*verbose)  VERBOSE=$((VERBOSE+1));;
 
 '')     :;;

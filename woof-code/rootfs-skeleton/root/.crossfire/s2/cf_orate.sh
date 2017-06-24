@@ -175,7 +175,7 @@ nw|northwest)   DIR=northwest; DIRN=8;;
 #    *force) FORCE=$((FORCE+1));;
      *help|*usage)  _usage;;
      *infinite) FOREVER=$((FOREVER+1));;
-     *logging)  LOGGING=$((LOGGING+1));;
+     *log*)     LOGGING=$((LOGGING+1));;
      *verbose)  VERBOSE=$((VERBOSE+1));;
      *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
      esac

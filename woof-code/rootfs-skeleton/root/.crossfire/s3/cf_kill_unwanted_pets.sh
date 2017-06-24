@@ -40,7 +40,7 @@ case $PARAM_1 in
           _say_help_and_exit;;
 -h|*help) _say_help_and_exit;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
+-L|*log*)    LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 *) :;;
 esac

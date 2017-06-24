@@ -34,7 +34,7 @@ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 _usage(){
 _blue "Script to melt icecube."
 _blue "Syntax:"
-_blue "script $0 [number]"
+_blue "script $0 <<number>>"
 _blue "For example: 'script $0 5'"
 _blue "will issue 5 times mark icecube and apply filint and steel."
 _navy "Without number breaks infinite loop"
@@ -65,10 +65,10 @@ PARAM_1="$1"
 
 # *** implementing 'help' option *** #
 case "$PARAM_1" in
--h|*"help"*) _usage;;
+-h|*help|*usage) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -F|*fast)   SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
+-L|*log*)    LOGGING=$((LOGGING+1));;
 -S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 [0-9]*)

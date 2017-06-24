@@ -252,7 +252,7 @@ fi
 
 -d|*debug)      DEBUG=$((DEBUG+1));;
 -I|*infinite) FOREVER=$((FOREVER+1));;
--L|*logging)  LOGGING=$((LOGGING+1));;
+-L|*log*)     LOGGING=$((LOGGING+1));;
 -S|*short)      SHORT=$((SHORT+1));;
 -v|*verbose)  VERBOSE=$((VERBOSE+1));;
 

@@ -83,7 +83,7 @@ _usage() {
 
 _draw 5 "Script to lockpick doors."
 _draw 5 "Syntax:"
-_draw 5 "script $0 <direction> [number]"
+_draw 5 "script $0 <direction> <<number>>"
 _draw 5 "For example: 'script $0 5 west'"
 _draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
 _draw 4 "Options:"
@@ -238,7 +238,7 @@ fi
 
 -h|*help|*usage)  _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
+-L|*log*)    LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 *)  _draw 3 "Ignoring unhandled option '$PARAM_1'";;
 esac

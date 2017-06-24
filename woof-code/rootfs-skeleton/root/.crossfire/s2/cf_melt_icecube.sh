@@ -115,7 +115,7 @@ beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 _usage(){
 _draw 5 "Script to melt icecube."
 _draw 2 "Syntax:"
-_draw 5 "script $0 [number]"
+_draw 5 "script $0 <<number>>"
 _draw 5 "For example: 'script $0 5'"
 _draw 5 "will issue 5 times mark icecube and apply flint and steel."
 _draw 5 "Options:"
@@ -139,7 +139,7 @@ PARAM_1="$1"
 case "$PARAM_1" in -h|*help|*usage) _usage;;
 
 -d|*debug)     DEBUG=$((DEBUG+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
+-L|*log*)    LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 
 '') :;;

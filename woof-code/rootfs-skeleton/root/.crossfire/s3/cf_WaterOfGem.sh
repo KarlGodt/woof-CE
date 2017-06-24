@@ -88,7 +88,7 @@ PARAM_1="$1"
 case "$PARAM_1" in -h|*"help"*) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -F|*fast)   SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
+-L|*log*)    LOGGING=$((LOGGING+1));;
 -S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 

@@ -64,7 +64,7 @@ case "$PARAM_1" in
 -h|*"help"|*usage) _usage;;
 
 -d|*debug)     DEBUG=$((DEBUG+1));;
-#-L|*logging) LOGGING=$((LOGGING+1));;
+#-L|*log*)   LOGGING=$((LOGGING+1));;
 '') :;;
 
 [0-9]*)

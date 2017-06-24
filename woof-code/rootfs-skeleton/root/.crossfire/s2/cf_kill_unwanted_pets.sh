@@ -55,7 +55,7 @@ echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
 ;;
 
 -d|*debug)     DEBUG=$((DEBUG+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
+-L|*log*)    LOGGING=$((LOGGING+1));;
 '') :;;
 
 *) :

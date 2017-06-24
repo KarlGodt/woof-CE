@@ -21,7 +21,7 @@ _usage() {
 
 _draw 5 "Script to open chests."
 _draw 5 "Syntax:"
-_draw 5 "script $0 [number]"
+_draw 5 "script $0 <<number>>"
 _draw 5 "For example: 'script $0 5'"
 _draw 5 "will issue 5 times search, disarm, apply and get."
 _draw 4 "Options:"
@@ -54,7 +54,7 @@ case $PARAM_1 in
      *debug) DEBUG=$((DEBUG+1));;
      *force) FORCE=$((FORCE+1));;
      *help)  _usage;;
-     *logging) LOGGING=$((LOGGING+1));;
+     *log*)    LOGGING=$((LOGGING+1));;
      *verbose) VERBOSE=$((VERBOSE+1));;
      *) _draw 3 "Ignoring unhandled option '$oneOP'";;
      esac

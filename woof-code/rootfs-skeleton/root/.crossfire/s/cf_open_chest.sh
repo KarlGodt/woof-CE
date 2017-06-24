@@ -42,16 +42,17 @@ COL_VERB=$COL_ORANGE
 COL_DBG=$COL_DORANGE
 
 _draw(){
-test "$*" || return
-local lCOLOUR=${1:-0}
-shift
+test "$*" || return 3
+local lCOLOUR=0
+case $1 in [0-9]|[1[0-4]) lCOL_VERB=$1; shift;; esac
+
 while read -r line
 do
 test "$line" || continue
 echo draw $lCOLOUR "$line"
 sleep 0.1
 done <<EoI
-`echo "$@"`
+`echo "$*"`
 EoI
 }
 
@@ -79,7 +80,7 @@ _usage() {
 
 _draw 5 "Script to open chests."
 _draw 5 "Syntax:"
-_draw 5 "script $0 [number]"
+_draw 5 "script $0 <<number>>"
 _draw 5 "For example: 'script $0 5'"
 _draw 5 "will issue 5 times search, disarm, apply and get."
 _draw 4 "Options:"
@@ -109,7 +110,7 @@ case $PARAM_1 in
 -h|*help|*usage)  _usage;;
 -f|*force)     FORCE=$((FORCE+1));;
 -d|*debug)     DEBUG=$((DEBUG+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
+-L|*log*)    LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 
 '')     :;;
@@ -141,6 +142,52 @@ echo issue 1 1 $DIRF
 sleep 1
 
 # TODO : check if on chest
+
+_count_item_stack(){
+
+test "$*" || return 3
+local lITEM="$*"
+ITEM_CNT=0
+
+echo draw 2 "Counting '$lITEM' ..."
+
+echo issue 0 0 drop "$lITEM"
+sleep 1
+
+echo issue 1 1 $DIRB
+sleep 1
+
+echo issue 1 1 pickup 4
+echo watch $DRAW_INFO
+sleep 1
+
+echo issue 1 1 $DIRF
+
+while :;
+do
+ unset REPLY
+ sleep 0.1
+ read -t 1
+ _log "_count_item_stack:$REPLY"
+ _debug "$REPLY"
+
+# [ "$LOGGING" ] && echo "_count_item_stack:$REPLY" >>"$LOG_REPLY_FILE"
+# [ "$DEBUG" ] && echo draw 3 "'$REPLY'"
+
+ case $REPLY in '') break;;
+ *You*pickup*$lITEM*) ITEM_CNT=$((ITEM_CNT+1));;
+ esac
+
+done
+
+echo unwatch $DRAW_INFO
+
+echo draw 5 "Counted '$ITEM_CNT' '$lITEM' stacks."
+echo $ITEM_CNT >/tmp/cf_script_item_count.txt
+
+echo issue 1 1 pickup 0
+sleep 1
+}
 
 _handle_spell_errors(){
 local RV=0
@@ -499,7 +546,7 @@ _open_chest(){
 
 _draw 6 "apply and get .."
 
-CHESTS_ALL=0
+PICKUP_CNT_MAX=0
 NUM=${NUMBER:-90} # 90 * 50kg -> 4500@Str 30, should be enough
 CNT=0  # _handle_trap_event() uses CNT and NUM
 
@@ -513,12 +560,12 @@ _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
 _verbose "apply"
-echo issue 9 1 apply  # handle trap release, being killed
+echo issue 1 1 apply  # handle trap release, being killed
 sleep 0.5
 
 _verbose "get all"
 echo issue 0 0 get all
-CHESTS=0
+PICKUP_CNT=0
 sleep 0.5
 
 
@@ -541,7 +588,7 @@ echo issue 0 0 drop chest # Nothing to drop.
 
    *'You find '*) :;;
 
-   *'You pick up '*chest*) CHESTS=$((CHESTS+1));;
+   *'You pick up '*chest*) PICKUP_CNT=$((PICKUP_CNT+1));;
    *'You pick up '*)              :;;
    *'You were unable to take '*)  :;; # one of the items.
    *'too heavy'*)                 :;;
@@ -560,7 +607,7 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 sleep 1
 
-test $CHESTS_ALL -gt ${CHESTS:-0} || CHESTS_ALL=${CHESTS:-0}
+test $PICKUP_CNT_MAX -gt ${PICKUP_CNT:-0} || PICKUP_CNT_MAX=${PICKUP_CNT:-0}
 
 _verbose "$DIRB"
 echo issue 1 1 $DIRB
@@ -643,7 +690,7 @@ _compute_minutes_seconds $TIMEZ $TIMEA && \
 
 _count_time
 
-test "$CHESTS_ALL" && _draw 5 "You opened $((CHESTS_ALL+1)) chest(s)."
+test "$PICKUP_CNT_MAX" && _draw 5 "You operated on $((PICKUP_CNT_MAX+1)) chest(s)."
 
 
 # *** Here ends program *** #

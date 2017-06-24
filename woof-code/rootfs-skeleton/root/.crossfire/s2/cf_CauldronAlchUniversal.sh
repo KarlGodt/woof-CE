@@ -320,7 +320,7 @@ PARAM_1="$1"
 case "$PARAM_1" in
 -h|*help|*usage) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
+-L|*log*)    LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 -F|*fast)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
 -S|*slow)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
@@ -432,7 +432,7 @@ echo request items inv
 while :; do
  INVTRY=""
  read -t 1 INVTRY || break
- echo "$INVTRY" >>"$LOG_INV_FILE" # grep ingred further down, not otional
+ echo "$INVTRY" >>"$LOG_INV_FILE" # grep ingred further down, not optional
  _debugx "$INVTRY"
  case "$INVTRY" in "")    break;;
  "request items inv end") break;;
