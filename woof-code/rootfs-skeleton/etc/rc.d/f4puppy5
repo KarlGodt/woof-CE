@@ -4066,10 +4066,11 @@ test "$*" || return 3  #$RX_BYTES_ALL $TX_BYTES_ALL
 
  mkdir $VERB -p /var/local/networking
  DATE=`date +%F-%T`
+ SUM=$(( ${1:-0} + ${2:-0} ))
 (
  echo "$DATE:RX  SES:$1"
  echo "$DATE:TX  SES:$2"
- echo "$DATE:RTX SUM:$(( $1 + $2 ))"
+ echo "$DATE:RTX SUM:${SUM:-unknown}"
  echo
  ) >> /var/local/networking/bandwidth_usage.log
 
@@ -4083,8 +4084,20 @@ test -e /var/run/_watch_and_log_rx_tx_bytes.run && return 0
 
 test "$*" || set - "${NET_IFACE_DEF:-eth0}"
 
-
 touch /var/run/_watch_and_log_rx_tx_bytes.run
+
+test -s /var/local/networking/bandwidth_rx.tmp && {
+    read RX_BYTES </var/local/networking/bandwidth_rx.tmp
+}
+
+test -s /var/local/networking/bandwidth_tx.tmp && {
+    read TX_BYTES </var/local/networking/bandwidth_tx.tmp
+}
+
+rm -f /var/local/networking/bandwidth_rx.tmp /var/local/networking/bandwidth_tx.tmp
+
+_write_rx_tx_bytes_log $RX_BYTES $TX_BYTES
+
 
 while :; do
 sleep 1
@@ -4094,10 +4107,12 @@ STATS_FILES=`find /sys -xdev -type f \( -path "*/${*}/*rx_bytes" -o -path "*/${*
 test "$STATS_FILES" || {
 
  _write_rx_tx_bytes_log $RX_BYTES_ALL $TX_BYTES_ALL || :
+    _disconnect_tethering_phone ${*%[0-9]*};
+    #return $?
+    break
+  }
 
- }
-
-unset RX_BYTES RX_BYTES_ALL TX_BYTES TX_BYTES_ALL
+unset BYTES RX_BYTES RX_BYTES_ALL TX_BYTES TX_BYTES_ALL
 
  for aFILE in $STATS_FILES
  do
@@ -4117,6 +4132,10 @@ unset RX_BYTES RX_BYTES_ALL TX_BYTES TX_BYTES_ALL
  */tx_bytes) TX_BYTES=$BYTES; TX_BYTES_ALL=$((TX_BYTES_ALL+TX_BYTES)) ;;
  esac
 
+ echo "$RX_BYTES" >/var/local/networking/bandwidth_rx.tmp
+ echo "$TX_BYTES" >/var/local/networking/bandwidth_tx.tmp
+
+ sleep 0.1
  done
 
 done
@@ -4189,7 +4208,7 @@ unset WATCHDOG_DHCPCD_PID WATCHDOG_RXTX_BYTES_PID
 
 _keep_dhcpcd_alive $*         & WATCHDOG_DHCPCD_PID=$!
 sleep 5
-_watch_and_log_rx_tx_bytes $* & WATCHDOG_RXTX_BYTES=$!
+_watch_and_log_rx_tx_bytes $* & WATCHDOG_RXTX_BYTES_PID=$!
 
 echo $WATCHDOG_DHCPCD_PID     >/var/run/_keep_dhcpcd_alive.pid
 echo $WATCHDOG_RXTX_BYTES_PID >/var/run/_watch_and_log_rx_tx_bytes.pid
