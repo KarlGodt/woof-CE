@@ -9,7 +9,7 @@ fi
 
 #v4.01 BK daemon to handle kernel uevents...
 /sbin/clean_desk_icons #v4.02 tidy up drive icons first.
-/sbin/pup_event_frontend_d & #v403
+#/sbin/pup_event_frontend_d & #v403
 
 #w482 reshape background image if widescreen...
 [ $PUPMODE -eq 5 ] && /usr/sbin/background_reshape
@@ -38,9 +38,6 @@ if [ -f $usermodmap ]; then
 fi
 
 CURRENTWM="`cat /etc/windowmanager`"
-if [ "$CURRENTWM" = "startkde" ];then
- exec startkde
-fi
 
 #100501 if full nvidia pkg installed, it has a gui config app...
 [ -f /root/.nvidia-settings-rc ] && nvidia-settings --load-config-only
@@ -98,15 +95,15 @@ fi
 #[ "$CURRENTWM" = "xfwm4" ] && xfce-mcs-manager
 #...no need to start it here, fvwm4 below will start it automatically.
 
-#relocates right-side icons to actual right-side of screen...
-/usr/sbin/fixPuppyPin /root/Choices/ROX-Filer/PuppyPin #v1.0.7
+##relocates right-side icons to actual right-side of screen...
+#/usr/sbin/fixPuppyPin /root/Choices/ROX-Filer/PuppyPin #v1.0.7
 
-#w468 on old PCs this sometimes does not start, see further down...
-if [ -f /root/Choices/ROX-Filer/PuppyPan1 ];then
- rox -p /root/Choices/ROX-Filer/PuppyPin -r /root/Choices/ROX-Filer/PuppyPan1
-else
- rox -p /root/Choices/ROX-Filer/PuppyPin
-fi
+##w468 on old PCs this sometimes does not start, see further down...
+#if [ -f /root/Choices/ROX-Filer/PuppyPan1 ];then
+# rox -p /root/Choices/ROX-Filer/PuppyPin -r /root/Choices/ROX-Filer/PuppyPan1
+#else
+# rox -p /root/Choices/ROX-Filer/PuppyPin
+#fi
 
 #v2.0.0
 /usr/sbin/delayedrun &
@@ -163,6 +160,27 @@ fi
 # sleep 0.2
 # rox -p /root/Choices/ROX-Filer/PuppyPin
 #fi
+
+if [ "$CURRENTWM" = "startkde" ];then
+ exec startkde
+fi
+
+/sbin/pup_event_frontend_d &
+
+#relocates right-side icons to actual right-side of screen...
+/usr/sbin/fixPuppyPin /root/Choices/ROX-Filer/PuppyPin #v1.0.7
+
+while :; do
+#w468 on old PCs this sometimes does not start, see further down...
+if [ -f /root/Choices/ROX-Filer/PuppyPan1 ];then
+ rox -p /root/Choices/ROX-Filer/PuppyPin -r /root/Choices/ROX-Filer/PuppyPan1
+else
+ rox -p /root/Choices/ROX-Filer/PuppyPin
+fi
+sleep 2
+pidof ROX-Filer >>/dev/null && break
+done
+
 setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 #exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
