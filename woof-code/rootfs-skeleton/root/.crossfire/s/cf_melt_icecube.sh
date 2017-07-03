@@ -63,7 +63,7 @@ case "$PARAM_1" in -h|*help)
 
 echo draw $COL_BLUE "Script to melt icecube."
 echo draw $COL_BLUE "Syntax:"
-echo draw $COL_BLUE "script $0 [number]"
+echo draw $COL_BLUE "script $0 <<number>>"
 echo draw $COL_BLUE "For example: 'script $0 5'"
 echo draw $COL_BLUE "will issue 5 times mark icecube and apply flint and steel."
 

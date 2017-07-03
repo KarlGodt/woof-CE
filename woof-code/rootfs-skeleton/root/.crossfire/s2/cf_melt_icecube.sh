@@ -67,7 +67,7 @@ case "$PARAM_1" in -h|*help)
 
 echo draw 5 "Script to melt icecube."
 echo draw 5 "Syntax:"
-echo draw 5 "script $0 [number]"
+echo draw 5 "script $0 <number>"
 echo draw 5 "For example: 'script $0 5'"
 echo draw 5 "will issue 5 times mark icecube and apply flint and steel."
 echo draw 5 "Options:"

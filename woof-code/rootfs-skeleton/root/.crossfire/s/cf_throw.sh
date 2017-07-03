@@ -338,7 +338,7 @@ _usage() {
 
 echo draw 5 "Script to use_skill oratory."
 echo draw 5 "Syntax:"
-echo draw 5 "script $0 <direction> [number]"
+echo draw 5 "script $0 <direction> <number>"
 echo draw 5 "For example: 'script $0 5 west'"
 echo draw 5 "will issue 5 use_skill throwing in west."
 echo draw 6 "Abbr. for north:n, northeast:ne .."
@@ -354,10 +354,10 @@ do
 PARAM_1="$1"
 case $PARAM_1 in
 [0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   echo draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
-	   readonly NUMBER
+           echo draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
+           readonly NUMBER
        #echo draw 2 "NUMBER=$NUMBER"
-	   ;;
+           ;;
  n|north)       DIR=north;     DIRN=1;; #readonly DIR DIRN;;
 ne|norteast)    DIR=northeast; DIRN=2;; #readonly DIR DIRN;;
  e|east)        DIR=east;      DIRN=3;; #readonly DIR DIRN;;

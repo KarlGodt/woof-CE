@@ -1,6 +1,6 @@
 #!/bin/ash
 
-#exec 2>/tmp/cf_script.err
+exec 2>/tmp/cf_script.err
 
 # Now count the whole script time
 TIMEA=`date +%s`
@@ -10,6 +10,9 @@ DRAW_INFO=drawinfo # drawextinfo
 MAX_SEARCH=9
 MAX_DISARM=9
 MAX_LOCKPICK=9
+
+INF_THRESH=10
+INF_TOGGLE=4
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
@@ -89,10 +92,10 @@ _usage() {
 
 _draw 5 "Script to lockpick doors."
 _draw 5 "Syntax:"
-_draw 5 "script $0 <direction> [number]"
+_draw 5 "script $0 <direction> <<number>>"
 _draw 5 "For example: 'script $0 5 west'"
 _draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
-_draw 4 "Options:"
+_draw 2 "Options:"
 _draw 4 "-c cast detect curse to turn to DIR"
 _draw 4 "-C cast constitution"
 _draw 4 "-t cast disarm"
@@ -103,6 +106,7 @@ _draw 4 "-i cast show invisible"
 _draw 4 "-m cast detect magic"
 _draw 4 "-M cast detect monster"
 _draw 4 "-p cast probe"
+_draw 2 "-I inifinite attempts at lockpicking"
 _draw 5 "-d set debug"
 _draw 5 "-L log to $LOG_REPLY_FILE"
 _draw 5 "-v set verbosity"
@@ -236,6 +240,7 @@ fi
 -M|*monster) TURN_SPELL="detect monster";;
 -p|*probe)   TURN_SPELL="probe";;
 
+-I|*infinite) FOREVER=$((FOREVER+1));;
 -h|*help)    _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
@@ -259,11 +264,13 @@ esac
      M)  TURN_SPELL="detect monster";;
      p)  TURN_SPELL="probe";;
      h)  _usage;;
+     I)  FOREVER=$((FOREVER+1));;
      d)  DEBUG=$((DEBUG+1));;
      L)  LOGGING=$((LOGGING+1));;
      v)  VERBOSE=$((VERBOSE+1));;
      *)  _draw 3 "Ignoring unhandled option '$oneOP'";;
      esac
+    done
 ;;
 
 '')     :;;
@@ -681,11 +688,10 @@ if test "$FOREVER"; then
        TOGGLE=0;
   else TOGGLE=$((TOGGLE+1));
   fi
- }
   $CAST_DEX
   $CAST_PROBE
   _draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
-
+  }
 elif test "$NUMBER"; then
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 else

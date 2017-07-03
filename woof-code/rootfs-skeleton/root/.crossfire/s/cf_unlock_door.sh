@@ -68,7 +68,7 @@ _usage() {
 
 echo draw 5 "Script to lockpick doors."
 echo draw 5 "Syntax:"
-echo draw 5 "script $0 <direction> [number]"
+echo draw 5 "script $0 <direction> <<number>>"
 echo draw 5 "For example: 'script $0 5 west'"
 echo draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
 echo draw 4 "Options:"
@@ -658,12 +658,11 @@ if test "$FOREVER"; then
        TOGGLE=0;
   else TOGGLE=$((TOGGLE+1));
   fi
- }
   #_cast_dexterity
   $CAST_DEX
   $CAST_PROBE
   echo draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
-
+ }
 elif test "$NUMBER"; then
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 else

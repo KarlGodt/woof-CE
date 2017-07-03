@@ -90,7 +90,7 @@ _usage() {
 
 _draw 5 "Script to open chests."
 _draw 5 "Syntax:"
-_draw 5 "script $0 [number]"
+_draw 5 "script $0 <number>"
 _draw 5 "For example: 'script $0 5'"
 _draw 5 "will issue 5 times search, disarm, apply and get."
 _draw 4 "Options:"
@@ -115,10 +115,10 @@ do
 PARAM_1="$1"
 case $PARAM_1 in
 [0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[0-9]/}" && {
-	   _draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
-	   readonly NUMBER
+           _draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
+           readonly NUMBER
            _debug "NUMBER=$NUMBER"
-	   ;;
+           ;;
 *help|*usage)  _usage;;
 
 --*) case $PARAM_1 in
@@ -445,8 +445,8 @@ _is 1 1 apply  # handle trap release, being killed
 sleep 1
 
 
-_is 1 1 get all
-
+#_is 1 1 get all
+_is 0 0 get all
 sleep 1
 
 _debug "watch $DRAW_INFO"
@@ -493,6 +493,9 @@ _find_traps $NUMBER
 case $? in 112) :;;
 *)    _open_chest;;
 esac
+
+_is 0 0 get all
+
 
 # *** Here ends program *** #
 _debug "unwatch $DRAW_INFO"
