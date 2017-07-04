@@ -1,11 +1,8 @@
 #!/bin/bash
 # uses arrays, ((c++))
 
-exec 2>>/tmp/cf_script.err
+exec 2>/tmp/cf_script.err
 
-# *** Here begins program *** #
-echo draw 2 "$0 is started.."
-echo draw 5 " with '$*' parameter."
 
 # *** Setting defaults *** #
 
@@ -91,6 +88,10 @@ _is(){
     echo issue "$*"
     sleep 0.2
 }
+
+# *** Here begins program *** #
+echo draw 2 "$0 is started.."
+echo draw 5 " with '$*' parameter."
 
 # *** Check for parameters *** #
 [ "$*" ] && {
@@ -296,7 +297,7 @@ esac
 
 test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 
-# *** Actual script to alch the desired water of gem *** #
+# *** Actual script to alch the desired outcome produce             *** #
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -309,9 +310,9 @@ test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 # *** Now get the number of desired water of the wise and           *** #
 # *** three times the number of the desired gem.                    *** #
 
-# *** Now walk onto the $CAULDRON and make sure there are 4 tiles    *** #
-# *** west of the $CAULDRON.                                         *** #
-# *** Do not open the $CAULDRON - this script does it.               *** #
+# *** Now walk onto the $CAULDRON and make sure there are 4 tiles   *** #
+# *** $DIRB of the $CAULDRON.                                       *** #
+# *** Do not open the $CAULDRON - this script does it.              *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
 
@@ -324,16 +325,13 @@ _is "1 1 $DIRF"
 _is "1 1 $DIRF"
 sleep 1s
 _draw 3 "Exiting $0."
-#echo unmonitor
-#echo unwatch monitor
-#echo unwatch monitor issue
+
 echo unwatch
 echo unwatch $DRAW_INFO
 _beep
 exit $1
 }
 
-#_is "1 1 pickup 0"  # precaution
 
 rm -f "$LOG_REPLY_FILE"
 
@@ -387,32 +385,15 @@ esac
  _log "$REPLY"
  case "$REPLY" in
  $OLD_REPLY) break;;
- *"Nothing to drop.") f_exit 1;;
- *"There are only"*)  f_exit 1;;
- *"There is only"*)   f_exit 1;;
+ *"Nothing to drop.") break 3;; #f_exit 1;;
+ *"There are only"*)  break 3;; #f_exit 1;;
+ *"There is only"*)   break 3;; #f_exit 1;;
  '') break;;
  esac
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
- sleep 0.1s
- done
 
- __old_loop(){
- while [ 1 ]; do
- read -t 1 REPLY
- _log "$REPLY"
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
- }
 
  done
 
@@ -426,7 +407,7 @@ _is "1 1 $DIRF"
 sleep 1s
 
 _is "1 1 use_skill $SKILL"
-
+#one=$((one+1))
 # *** TODO: The $CAULDRON burps and then pours forth monsters!
 
 echo watch $DRAW_INFO
@@ -438,12 +419,14 @@ while :; do
 _ping
 read -t 1 REPLY
 _log "$REPLY"
+_debug "$REPLY"
+
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
-test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && break 2 #exit 1
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done

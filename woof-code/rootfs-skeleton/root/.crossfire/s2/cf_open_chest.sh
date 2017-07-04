@@ -2,8 +2,9 @@
 
 exec 2>/tmp/cf_script.err
 
-#DEBUG=1   # unset to disable, set to anything to enable
-#LOGGING=1 # unset to disable, set to anything to enable
+# Now count the whole script time
+TIMEA=`date +%s`
+
 
 DRAW_INFO=drawinfo # drawextinfo
 
@@ -226,6 +227,117 @@ echo unwatch $DRAW_INFO
 CAST_DEX=_cast_dexterity
 $CAST_DEX
 
+_cure(){
+test "$*" || return 3
+_is 1 1 invoke cure $*
+}
+
+_handle_trap_trigger_event(){
+ read -t 1
+      _log "_handle_trap_trigger_event:$REPLY"
+      _debug "REPLY='$REPLY'"
+      case $REPLY in
+      *'In fact, you set it off!'*)
+        read -t 1
+        _log "_handle_trap_trigger_event:$REPLY"
+        _debug "REPLY='$REPLY'"
+      _handle_trap_detonation_event || return 112;;
+      esac
+return 0
+}
+
+_handle_trap_detonation_event(){
+
+local SECONDLINE=''
+
+#read -t 1
+#        _log "_handle_trap_detonation_event:$REPLY"
+#        _debug "REPLY='$REPLY'"
+
+    case $REPLY in
+
+     *feel*very*ill*) _cure poison;;
+     *feel*ill*)      _cure disease;;
+     *feel*confused*) _cure confusion;;
+
+     *"RUN!  The timer's ticking!"*) # rune_bomb.arc
+         read -t 1 SECONDLINE  #
+         if [ "$FORCE" ]; then
+          break  # at low level better exit with beep
+         else _draw 3 "Quitting - triggered bomb."
+          _draw 3 "Use -f option to go on."
+          return 113 # save chests from being destroyed
+         fi;;
+
+        #You detonate a Rune of Mass Confusion!
+     *of*Confusion*|*'of Paralysis'*) # these multiplify
+         read -t 1 SECONDLINE  #
+         if [ "$FORCE" ]; then
+          break  # at low level better exit with beep
+         else _draw 3 "Quitting - multiplifying trap."
+          _draw 3 "Use -f option to go on."
+          return 112
+         fi;;
+
+        #You detonate a Rune of Large Icestorm!
+        #You detonate a Rune of Icestorm
+     *of*Icestorm*)  # wrapps chests in icecube container
+         read -t 1 SECONDLINE  #
+         _draw 3 "Quitting - icecube."
+         return 112;;
+
+        #You detonate a Rune of Fireball!
+     *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
+         read -t 1 SECONDLINE  #
+         _draw 3 "Quitting - Fireball."
+         return 112;;  # enable to pick up chests before they get burned
+
+        #You set off a fireball!
+     *of*fireball*)  ## rune_fireball.arc
+         read -t 1 SECONDLINE  #
+         _draw 3 "Quitting - fireball."
+         return 112;;
+
+     *of*Ball*Lightning*) ## rune_blightning.arc
+         read -t 1 SECONDLINE
+         _draw 3 "Quitting - Ball Lightning."
+         return 112;;
+
+     *'You detonate '*)
+         read -t 1 SECONDLINE  #
+         if [ "$FORCE" ]; then
+          break  # at low level better exit with beep
+         else _draw 3 "Quitting - triggered trap."
+          _draw 3 "Use -f option to go on."
+          return 112
+         fi;;
+
+     *'A portal opens up, and screaming hordes pour'*)
+         read -t 1 SECONDLINE  # through
+         if [ "$FORCE" ]; then
+          break # always better to exit with beep
+         else _draw "Quitting - surrounded by monsters."
+          _draw 3 "Use -f option to go on."
+          return 112
+         fi;;
+
+     *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
+         read -t 1 SECONDLINE  #
+         break ;; # poisoned / diseased needle, spikes, blades
+                  # TODO: You suddenly feel ill.
+
+     *'You feel depleted of psychic energy!'*)
+         read -t 1 SECONDLINE  #
+         break ;; # ^harmless^
+
+     *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
+         break;;
+
+    esac
+
+return 0
+}
+
 _disarm_traps(){
 # ** disarm by use_skill disarm traps ** #
 [ "$SKILL_DISARM" = no ] && return 1
@@ -434,6 +546,9 @@ sleep 1
 _open_chest(){
 # ** open chest, apply, get ** #
 
+PICKUP_CNT_MAX=0
+TIMEB=`/bin/date +%s`
+
 _draw 6 "apply and get .."
 
 #local c=0
@@ -468,6 +583,11 @@ _is 0 0 drop chest # Nothing to drop.
 
   case $REPLY in
    *'Nothing to drop.'*) break 2;;
+   *'Nothing to take'*)  :;;
+   *'You open chest'*)   :;;    #
+   *'You close chest'*)  :;;    # (open) (active).
+   *'was empty'*)        :;;
+
    *'Your '*)        :;;  # Your monster beats monster
    *'You killed '*)  :;;
    *'You find '*)    :;;
@@ -504,6 +624,40 @@ _is 0 0 get all
 # *** Here ends program *** #
 _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
+
+_test_integer(){
+test "$*" || return 3
+test ! "${*//[0-9]/}"
+}
+
+_count_time(){
+
+test "$*" || return 3
+_test_integer "$*" || return 4
+
+TIMEE=`/bin/date +%s` || return 5
+
+TIMEX=$((TIMEE - $*)) || return 6
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
+_count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
+_count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
+
+if test "${APPLY_CNT:-0}"; then
+ _draw 5 "You applied (opened) ${APPLY_CNT:-0} (chest(s))."
+elif test "$PICKUP_CNT_MAX" -a "$PICKUP_CNT"; then
+ _draw 5 "You likely opened $(( ( PICKUP_CNT_MAX + 1 ) - PICKUP_CNT )) chest(s)."
+elif test "$PICKUP_CNT_MAX"; then
+ _draw 5 "You had apparently $((PICKUP_CNT_MAX+1)) chest(s)."
+else
+ _draw 3 "FIXME: Could not count (opened) chests .."
+fi
 
 _draw 2 "$0 is finished."
 _beep

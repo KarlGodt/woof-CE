@@ -3,11 +3,7 @@
 
 rm -f /tmp/cf_*
 
-exec 2>>/tmp/cf_script.err
-
-# *** Here begins program *** #
-echo draw 2 "$0 is started.."
-echo draw 5 " with '$*' parameter."
+exec 2>/tmp/cf_script.err
 
 # *** Setting defaults *** #
 # SKILL and CAULDRON now set as passed parameter to script
@@ -86,6 +82,10 @@ _is(){
     echo issue "$*"
     sleep 0.2
 }
+
+# *** Here begins program *** #
+echo draw 2 "$0 is started.."
+echo draw 5 " with '$*' parameter."
 
 # *** Check for parameters *** #
 
@@ -220,28 +220,15 @@ UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case "$UNDER_ME" in
 "request items on end") break;;
-"scripttell break") break;;
-"scripttell exit") exit 1;;
+"scripttell break")     break;;
+"scripttell exit")      exit 1;;
 esac
 done
-
-__old_loop(){
-while [ 1 ]; do
-read -t 1 UNDER_ME
-sleep 0.1s
-#echo "$UNDER_ME" >>"$LOG_ISON_FILE"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
-done
-}
 
 test "`echo "$UNDER_ME_LIST" | grep "${CAULDRON}$"`" || {
 _draw 3 "Need to stand upon a '$CAULDRON' to do '$SKILL' !"
 _beep
-exit 1
+f_exit 1
 }
 
 # *** Check if is in inventory *** #
@@ -256,27 +243,14 @@ INVTRY=""
 read -t 1 INVTRY || break
 echo "$INVTRY" >>"$LOG_INV_FILE"
 _debug "$INVTRY"
-case "$INVTRY" in "") break;;
+case "$INVTRY" in "")    break;;
 "request items inv end") break;;
-"scripttell break") break;;
-"scripttell exit") exit 1;;
+"scripttell break")      break;;
+"scripttell exit")      exit 1;;
 esac
 sleep 0.01s
 done
 
-__old_loop(){
-while [ 1 ]; do
-INVTRY=""
-read -t 1 INVTRY || break
-echo "$INVTRY" >>"$LOG_INV_FILE"
-_debug "$INVTRY"
-test "$INVTRY" = "" && break
-test "$INVTRY" = "request items inv end" && break
-test "$INVTRY" = "scripttell break" && break
-test "$INVTRY" = "scripttell exit" && exit 1
-sleep 0.01s
-done
-}
 
 rm -f /tmp/cf_script.grep
 
@@ -348,9 +322,9 @@ test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 # *** Now get the number of desired water of the wise and           *** #
 # *** three times the number of the desired gem.                    *** #
 
-# *** Now walk onto the $CAULDRON and make sure there are 4 tiles    *** #
-# *** west of the $CAULDRON.                                         *** #
-# *** Do not open the $CAULDRON - this script does it.               *** #
+# *** Now walk onto the $CAULDRON and make sure there are 4 tiles   *** #
+# *** $DIRB of the $CAULDRON.                                       *** #
+# *** Do not open the $CAULDRON - this script does it.              *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
 
@@ -363,16 +337,12 @@ _is "1 1 $DIRF"
 _is "1 1 $DIRF"
 sleep 1s
 _draw 3 "Exiting $0."
-#echo unmonitor
-#echo unwatch monitor
-#echo unwatch monitor issue
+
 echo unwatch
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 _beep
 exit $1
 }
-
-#_is "1 1 pickup 0"  # precaution
 
 rm -f "$LOG_REPLY_FILE"
 
@@ -388,7 +358,7 @@ REPLY="";
 
 _is "1 1 apply"
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 sleep 1s
 
@@ -424,38 +394,23 @@ esac
  while :; do
  read -t 1 REPLY
  _log "$REPLY"
+ _debug "$REPLY"
+
  case "$REPLY" in
  $OLD_REPLY) break;;
- *"Nothing to drop.") f_exit 1;;
- *"There are only"*)  f_exit 1;;
- *"There is only"*)   f_exit 1;;
+ *"Nothing to drop.") break 3;; #f_exit 1;;
+ *"There are only"*)  break 3;; #f_exit 1;;
+ *"There is only"*)   break 3;; #f_exit 1;;
  '') break;;
  esac
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
+
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
 
- __old_loop(){
- while [ 1 ]; do
- read -t 1 REPLY
- _log "$REPLY"
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
- sleep 0.1s
- done
- }
-
  done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 sleep 1s
 
 _is "1 1 $DIRB"
@@ -465,9 +420,10 @@ _is "1 1 $DIRF"
 sleep 1s
 
 _is "1 1 use_skill $SKILL"
+#one=$((one+1))
 
 # *** TODO: The $CAULDRON burps and then pours forth monsters!
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -476,17 +432,19 @@ while :; do
 _ping
 read -t 1 REPLY
 _log "$REPLY"
+_debug "$REPLY"
+
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
-test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && break 2 #exit 1
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
 _is "1 1 apply"
 _is "7 1 take"

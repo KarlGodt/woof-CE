@@ -1,5 +1,7 @@
 #!/bin/ash
 
+exec 2>/tmp/cf_script.err
+
 TIMEA=`date +%s`
 
 # *** Here begins program *** #

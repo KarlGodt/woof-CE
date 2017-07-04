@@ -25,6 +25,8 @@
 # * While the script is running, the character can level up, while you are multi-tasking or taking a shower :)
 # * This script applies PROBE_ITEM if PROBE_DO is set
 
+exec 2>/tmp/cf_script.err
+
 export PATH=/bin:/usr/bin
 
 TIMEA=`date +%s`
@@ -68,7 +70,6 @@ test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 _get_player_name && {
 test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 }
-
 
 
 _draw(){

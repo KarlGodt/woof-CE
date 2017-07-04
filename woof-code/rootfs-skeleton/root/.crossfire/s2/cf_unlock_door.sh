@@ -618,17 +618,7 @@ echo unwatch $DRAW_INFO
 sleep 1
 }
 
-if test "$TURN_SPELL"; then
- _turn_direction $TURN_SPELL
-else
- _turn_direction_all
-fi
-
-$CAST_DEX
-_find_traps
-_disarm_traps
-
-
+_lockpick_door(){
 # ** open door with use_skill lockpicking ** #
 
 _debug "watch $DRAW_INFO"
@@ -656,11 +646,11 @@ _is 1 1 use_skill lockpicking
   *' no door'*)                break 2;;
   *'You unlock'*)              break 2;;
   *'You pick the lock.'*)      break 2;;
-  *'Your '*)       :;;  # Your monster beats monster
-  *'You killed '*) :;;
-  *'You find '*)   :;;
-  *'You pickup '*) :;;
-  *' tasted '*)    :;;  # food tasted good
+  *'Your '*)        :;;  # Your monster beats monster
+  *'You killed '*)  :;;
+  *'You find '*)    :;;
+  *'You pick up '*) :;;
+  *' tasted '*)     :;;  # food tasted good
   *) break;;
   esac
  done
@@ -689,10 +679,39 @@ done
 
 _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
+}
 
+if test "$TURN_SPELL"; then
+ _turn_direction $TURN_SPELL
+else
+ _turn_direction_all
+fi
 
+$CAST_DEX
+_find_traps
+_disarm_traps
+_lockpick_door
 
 # *** Here ends program *** #
+
+_count_time(){
+
+test "$*" || return 3
+
+TIMEE=`/bin/date +%s` || return 4
+
+TIMEX=$((TIMEE - $*)) || return 5
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
+_count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
+_count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
+
 
 _draw 2 "$0 is finished."
 _beep
