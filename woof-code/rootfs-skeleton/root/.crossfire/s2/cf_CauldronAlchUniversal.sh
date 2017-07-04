@@ -15,8 +15,6 @@ SKILL=woodsman
 CAULDRON=stove
 #CAULDRON=cauldron
 
-DEBUG=
-
 DIRB=west  # direction back to go
 
 case $DIRB in
@@ -24,6 +22,10 @@ west)  DIRF=east;;
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+southwest) DIRF=northeast;;
+northeast) DIRF=southwest;;
+southeast) DIRF=northwest;;
 esac
 
 DELAY_DRAWINFO=4  #seconds 4=speed 0.32
@@ -58,6 +60,38 @@ BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
 beep -l $BEEP_LENGTH -f $BEEP_FREQ
 }
 
+_draw(){
+    local lCOLOUR="$1"
+    lCOLOUR=${lCOLOUR:-1} #set default
+    shift
+    local MSG="$*"
+    echo draw $lCOLOUR "$MSG"
+}
+
+_log(){
+    test "$LOGGING" || return 0
+    local lFILE
+    test "$2" && {
+    lFILE="$1"; shift; } || lFILE="$LOG_FILE"
+   echo "$*" >>"${lFILE:-/tmp/cf_script.log}"
+}
+
+_debug(){
+test "$DEBUG" || return 0
+    _draw ${COL_DEB:-3} "DEBUG:$*"
+}
+
+_verbose(){
+test "$VERBOSE" || return 0
+_draw ${COL_VERB:-12} "VERBOSE:$*"
+}
+
+_is(){
+    _verbose "$*"
+    echo issue "$*"
+    sleep 0.2
+}
+
 # *** Check for parameters *** #
 [ "$*" ] && {
 PARAM_1="$1"
@@ -66,14 +100,14 @@ PARAM_1="$1"
 #test "$PARAM_1" = "help" && {
 case "$PARAM_1" in -h|*"help")
 
-echo draw 5 "Script to produce alchemy objects."
-echo draw 7 "Syntax:"
-echo draw 7 "$0 ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
-echo draw 5 "Allowed NUMBER will loop for"
-echo draw 5 "NUMBER times to produce"
-echo draw 5 "ARTIFACT alch with"
-echo draw 5 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
-echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
+_draw 5 "Script to produce alchemy objects."
+_draw 7 "Syntax:"
+_draw 7 "$0 ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
+_draw 5 "Allowed NUMBER will loop for"
+_draw 5 "NUMBER times to produce"
+_draw 5 "ARTIFACT alch with"
+_draw 5 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
+_draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
 
         exit 0
 #        }
@@ -133,13 +167,13 @@ done
 
 
 } || {
-echo draw 3 "Script needs goal_item_name, numberofalchemyattempts, ingredient and numberofingredient as arguments."
+_draw 3 "Script needs goal_item_name, numberofalchemyattempts, ingredient and numberofingredient as arguments."
         exit 1
 }
 
 test "$1" -a "$2" -a "$3" -a "$4" || {
-echo draw 3 "Need <artifact> <number> <ingredient> <numberof> ie: script $0 water_of_the_wise 10 water 7 ."
-echo draw 3 "or script $0 balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
+_draw 3 "Need <artifact> <number> <ingredient> <numberof> ie: script $0 water_of_the_wise 10 water 7 ."
+_draw 3 "or script $0 balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
         exit 1
 }
 
@@ -174,7 +208,7 @@ done
 }
 
 test "`echo "$UNDER_ME_LIST" | grep "${CAULDRON}$"`" || {
-echo draw 3 "Need to stand upon a $CAULDRON!"
+_draw 3 "Need to stand upon a $CAULDRON!"
 _beep
 exit 1
 }
@@ -190,7 +224,7 @@ while :; do
 INVTRY=""
 read -t 1 INVTRY || break
 echo "$INVTRY" >>"$LOG_INV_FILE"
-#echo draw 3 "$INVTRY"
+_debug "$INVTRY"
 case "$INVTRY" in "") break;;
 "request items inv end") break;;
 "scripttell break") break;;
@@ -204,7 +238,7 @@ while [ 1 ]; do
 INVTRY=""
 read -t 1 INVTRY || break
 echo "$INVTRY" >>"$LOG_INV_FILE"
-#echo draw 3 "$INVTRY"
+_debug "$INVTRY"
 test "$INVTRY" = "" && break
 test "$INVTRY" = "request items inv end" && break
 test "$INVTRY" = "scripttell break" && break
@@ -224,9 +258,9 @@ echo "GREP_INGRED[$C2]='${GREP_INGRED[$C2]}'" >>"$LOG_TEST2_FILE"
 grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE" >>/tmp/cf_script.grep
 
 if [[ "`grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE"`" ]]; then
-echo draw 7 "${INGRED[$C2]} in inventory."
+_draw 7 "${INGRED[$C2]} in inventory."
 else
-echo draw 3 "No ${INGRED[$C2]} in inventory."
+_draw 3 "No ${INGRED[$C2]} in inventory."
 exit 1
 fi
 
@@ -281,15 +315,15 @@ test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 # *** HAPPY ALCHING !!!                                             *** #
 
 
-echo "issue 1 1 pickup 0"  # precaution
+_is "1 1 pickup 0"  # precaution
 
 f_exit(){
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 sleep 1s
-echo draw 3 "Exiting $0."
+_draw 3 "Exiting $0."
 #echo unmonitor
 #echo unwatch monitor
 #echo unwatch monitor issue
@@ -299,7 +333,7 @@ _beep
 exit $1
 }
 
-#echo "issue 1 1 pickup 0"  # precaution
+#_is "1 1 pickup 0"  # precaution
 
 rm -f "$LOG_REPLY_FILE"
 
@@ -313,7 +347,7 @@ tBEG=${tEND:-`date +%s`}
 OLD_REPLY="";
 REPLY="";
 
-echo "issue 1 1 apply"
+_is "1 1 apply"
 
 echo watch $DRAW_INFO
 
@@ -344,13 +378,13 @@ sleep 1s
  twenty)    NUMBER[$FOR]=20;;
 esac
 
- echo draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
+ _draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
- echo "issue 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
+ _is "1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _log "$REPLY"
  case "$REPLY" in
  $OLD_REPLY) break;;
  *"Nothing to drop.") f_exit 1;;
@@ -367,7 +401,7 @@ esac
  __old_loop(){
  while [ 1 ]; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _log "$REPLY"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
@@ -385,13 +419,13 @@ esac
 echo unwatch $DRAW_INFO
 sleep 1s
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 sleep 1s
 
-echo "issue 1 1 use_skill $SKILL"
+_is "1 1 use_skill $SKILL"
 
 # *** TODO: The $CAULDRON burps and then pours forth monsters!
 
@@ -403,7 +437,7 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+_log "$REPLY"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
@@ -416,45 +450,45 @@ done
 
 echo unwatch $DRAW_INFO
 
-echo "issue 1 1 apply"
-echo "issue 7 1 take"
+_is "1 1 apply"
+_is "7 1 take"
 sleep 1s
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
 sleep 1s
 
-echo "issue 1 1 use_skill sense curse"
-echo "issue 1 1 use_skill sense magic"
-echo "issue 1 1 use_skill $SKILL"
+_is "1 1 use_skill sense curse"
+_is "1 1 use_skill sense magic"
+_is "1 1 use_skill $SKILL"
 sleep 6s
 
-echo draw 7 "drop $GOAL"
-echo "issue 0 1 drop $GOAL"
+_draw 7 "drop $GOAL"
+_is "0 1 drop $GOAL"
 
 for FOR in `seq 2 1 $C`; do
 
- echo draw 7 "drop ${INGRED[$FOR]} (magic)"
- echo "issue 0 1 drop ${INGRED[$FOR]} (magic)"
- echo draw 7 "drop ${INGRED[$FOR]}s (magic)"
- echo "issue 0 1 drop ${INGRED[$FOR]}s (magic)"
+ _draw 7 "drop ${INGRED[$FOR]} (magic)"
+ _is "0 1 drop ${INGRED[$FOR]} (magic)"
+ _draw 7 "drop ${INGRED[$FOR]}s (magic)"
+ _is "0 1 drop ${INGRED[$FOR]}s (magic)"
  sleep 2s
- echo draw 7 "drop ${INGRED[$FOR]} (cursed)"
- echo "issue 0 1 drop ${INGRED[$FOR]} (cursed)"
- echo draw 7 "drop ${INGRED[$FOR]}s (cursed)"
- echo "issue 0 1 drop ${INGRED[$FOR]}s (cursed)"
+ _draw 7 "drop ${INGRED[$FOR]} (cursed)"
+ _is "0 1 drop ${INGRED[$FOR]} (cursed)"
+ _draw 7 "drop ${INGRED[$FOR]}s (cursed)"
+ _is "0 1 drop ${INGRED[$FOR]}s (cursed)"
  sleep 2s
 
 done
 
-#echo "issue 0 1 drop (magic)"
-#echo "issue 0 1 drop (cursed)"
+#_is "0 1 drop (magic)"
+#_is "0 1 drop (cursed)"
 
-echo draw 7 "drop slag"
-echo "issue 0 1 drop slag"
-#echo "issue 0 1 drop slags"
+_draw 7 "drop slag"
+_is "0 1 drop slag"
+#_is "0 1 drop slags"
 
 #DELAY_DRAWINFO=4  #speed 0.32
 sleep ${DELAY_DRAWINFO}s
@@ -462,16 +496,16 @@ sleep ${DELAY_DRAWINFO}s
 toGO=$((NUMBER_ALCH-one))
 tEND=`date +%s`
 tLAP=$((tEND-tBEG))
-echo draw 5 "time ${tLAP}s used, still $toGO laps.."
+_draw 5 "time ${tLAP}s used, still $toGO laps.."
 
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 sleep 2s         #speed 0.32
 
 done
 
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
+_draw 2 "$0 is finished."
 _beep

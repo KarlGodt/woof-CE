@@ -26,7 +26,38 @@ LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
 #LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
 mkdir -p "$TMP_DIR"
 
-#DEBUG=
+_draw(){
+    local lCOLOUR="$1"
+    lCOLOUR=${lCOLOUR:-1} #set default
+    shift
+    local MSG="$*"
+    echo draw $lCOLOUR "$MSG"
+}
+
+_log(){
+    test "$LOGGING" || return 0
+    local lFILE
+    test "$2" && {
+    lFILE="$1"; shift; } || lFILE="$LOG_FILE"
+   echo "$*" >>"${lFILE:-/tmp/cf_script.log}"
+}
+
+__debug(){
+test "$DEBUG" || return 0
+    _draw ${COL_DEB:-3} "DEBUG:$*"
+}
+
+_verbose(){
+test "$VERBOSE" || return 0
+_draw ${COL_VERB:-12} "VERBOSE:$*"
+}
+
+_is(){
+    _verbose "$*"
+    echo issue "$*"
+    sleep 0.2
+}
+
 _debug(){
 [ "$DEBUG" ] || return 0
 [ "$*" ] || return 0
@@ -35,7 +66,7 @@ do
 test "$line" || continue
 echo draw 3 "Debug:$line"
 done<<EoI
-`echo "$@"`
+`echo "$*"`
 EoI
 }
 
@@ -78,7 +109,7 @@ echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
 ;;
 
 -d|*debug)     DEBUG=$((DEBUG+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
+-L|*log*) LOGGING=$((LOGGING+1));;
 '') :;;
 
 *)

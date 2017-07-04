@@ -22,6 +22,38 @@ BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
 beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
+_draw(){
+    local lCOLOUR="$1"
+    lCOLOUR=${lCOLOUR:-1} #set default
+    shift
+    local MSG="$*"
+    echo draw $lCOLOUR "$MSG"
+}
+
+_log(){
+    test "$LOGGING" || return 0
+    local lFILE
+    test "$2" && {
+    lFILE="$1"; shift; } || lFILE="$LOG_FILE"
+   echo "$*" >>"${lFILE:-/tmp/cf_script.log}"
+}
+
+_debug(){
+test "$DEBUG" || return 0
+    _draw ${COL_DEB:-3} "DEBUG:$*"
+}
+
+_verbose(){
+test "$VERBOSE" || return 0
+_draw ${COL_VERB:-12} "VERBOSE:$*"
+}
+
+_is(){
+    _verbose "$*"
+    echo issue "$*"
+    sleep 0.2
+}
+
 # *** Check for parameters *** #
 test "$*" || {
 echo draw 3 "Need <number> ie: script $0 50 ."
@@ -47,7 +79,7 @@ echo draw 4 "-H to use heavy rod of cancellation"
 
 #-d|*debug)     DEBUG=$((DEBUG+1));;
 -H|*heavy)   ITEM_CANCEL="heavy rod of cancellation";;
-#-L|*logging) LOGGING=$((LOGGING+1));;
+#-L|*log*) LOGGING=$((LOGGING+1));;
 '') :;;
 
 *)
@@ -77,6 +109,7 @@ done
 # *** Actual script to pray multiple times *** #
 test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
+echo "issue 1 1 apply -u $ITEM_CANCEL"
 echo "issue 1 1 apply -a $ITEM_CANCEL"
 
 c_loop(){

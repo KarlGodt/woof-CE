@@ -12,8 +12,8 @@ DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/u
 SLEEP=4           # sleep seconds after codeblocks
 DELAY_DRAWINFO=8  # sleep seconds to sync msgs from script with msgs from server
                   # the slower the player's speed, the more sleep delay needed;
-		  # also 2G Quality connections delays up to one second;
-		  # if the connection drops for 1-2 seconds once a while, a high value could buffer it
+                  # also 2G Quality connections delays up to one second;
+                  # if the connection drops for 1-2 seconds once a while, a high value could buffer it
 
 # When putting ingredients into cauldron, player needs to leave cauldron
 # to close it. Also needs to pickup to empty the cauldron for next attempt
@@ -27,6 +27,10 @@ west)  DIRF=east;;
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+southwest) DIRF=northeast;;
+northeast) DIRF=southwest;;
+southeast) DIRF=northwest;;
 esac
 
 #logging
@@ -63,19 +67,50 @@ sleep 1
 done >/dev/null
 }
 
+_draw(){
+    local lCOLOUR="$1"
+    lCOLOUR=${lCOLOUR:-1} #set default
+    shift
+    local MSG="$*"
+    echo draw $lCOLOUR "$MSG"
+}
+
+_log(){
+    test "$LOGGING" || return 0
+    local lFILE
+    test "$2" && {
+    lFILE="$1"; shift; } || lFILE="$LOG_FILE"
+   echo "$*" >>"${lFILE:-/tmp/cf_script.log}"
+}
+
+_debug(){
+test "$DEBUG" || return 0
+    _draw ${COL_DEB:-3} "DEBUG:$*"
+}
+
+_verbose(){
+test "$VERBOSE" || return 0
+_draw ${COL_VERB:-12} "VERBOSE:$*"
+}
+
+_is(){
+    _verbose "$*"
+    echo issue "$*"
+    sleep 0.2
+}
 
 _usage(){
-echo draw 5 "Script to produce water of the wise."
-echo draw 7 "Syntax:"
-echo draw 7 "$0 <NUMBER>"
-echo draw 5 "Allowed NUMBER will loop for"
-echo draw 5 "NUMBER times to produce NUMBER of"
-echo draw 5 "Water of the Wise ."
-echo draw 4 "If no number given, loops as long"
-echo draw 4 "as ingredient could be dropped."
-echo draw 4 "Options:"
-echo draw 4 "-d  to turn on debugging."
-echo draw 4 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "Script to produce water of the wise."
+_draw 7 "Syntax:"
+_draw 7 "$0 <NUMBER>"
+_draw 5 "Allowed NUMBER will loop for"
+_draw 5 "NUMBER times to produce NUMBER of"
+_draw 5 "Water of the Wise ."
+_draw 4 "If no number given, loops as long"
+_draw 4 "as ingredient could be dropped."
+_draw 4 "Options:"
+_draw 4 "-d  to turn on debugging."
+_draw 4 "-L  to log to $LOG_REPLY_FILE ."
 
         exit 0
 }
@@ -97,7 +132,7 @@ TIMEm=$((TIMEy/60))
 TIMEs=$(( TIMEy - (TIMEm*60) ))
 case $TIMEs in [0-9]) TIMEs="0$TIMEs";; esac
 
-echo draw 5 "$* $TIMEm:$TIMEs minutes."
+_draw 5 "$* $TIMEm:$TIMEs minutes."
 }
 
 _say_success_fail(){
@@ -105,14 +140,14 @@ test "$NUMBER" -a "$FAIL" || return 3
 
 if test "$FAIL" -le 0; then
  SUCC=$((NUMBER-FAIL))
- echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+ _draw 7 "You succeeded $SUCC times of $NUMBER ." # green
 elif test "$((NUMBER/FAIL))" -lt 2;
 then
- echo draw 8 "You failed $FAIL times of $NUMBER ."    # light green
- echo draw 7 "PLEASE increase your INTELLIGENCE !!"
+ _draw 8 "You failed $FAIL times of $NUMBER ."    # light green
+ _draw 7 "PLEASE increase your INTELLIGENCE !!"
 else
  SUCC=$((NUMBER-FAIL))
- echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+ _draw 7 "You succeeded $SUCC times of $NUMBER ." # green
 fi
 }
 
@@ -130,7 +165,7 @@ _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
 
 
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
+_draw 2 "$0 is started.."
 
 # *** Check for parameters *** #
 
@@ -145,12 +180,14 @@ case "$PARAM_1" in
 -h|*help)     _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*log*)    LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
 
 --*) case $PARAM_1 in
       --help)   _usage;;
       --deb*)    DEBUG=$((DEBUG+1));;
       --log*)  LOGGING=$((LOGGING+1));;
-      *) echo draw 3 "Ignoring unhandled option '$PARAM_1'";;
+      --verb*) VERBOSE=$((VERBOSE+1));;
+      *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
      esac
 ;;
 -*) OPTS=`echo "$PARAM_1" | sed -r 's/^-*//; s/(.)/\1\n/g'`
@@ -159,7 +196,8 @@ case "$PARAM_1" in
       h)  _usage;;
       d)   DEBUG=$((DEBUG+1));;
       L) LOGGING=$((LOGGING+1));;
-      *) echo draw 3 "Ignoring unhandled option '$oneOP'";;
+      v) VERBOSE=$((VERBOSE+1));;
+      *) _draw 3 "Ignoring unhandled option '$oneOP'";;
      esac
     done
 ;;
@@ -169,13 +207,13 @@ case "$PARAM_1" in
 [0-9]*)
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
-echo draw 3 "Only :digit: numbers as option allowed."
+_draw 3 "Only :digit: numbers as option allowed."
         exit 1 #exit if other input than numbers
         }
 
 NUMBER=$PARAM_1
 ;;
-*) echo draw 3 "Ignoring unhandled option '$PARAM_1'";;
+*) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
 esac
 shift
 sleep 0.1
@@ -186,14 +224,14 @@ f_exit(){
 RV=${1:-0}
 shift
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 sleep 1s
 
-test "$*" && echo draw 5 "$*"
-echo draw 3 "Exiting $0."
+test "$*" && _draw 5 "$*"
+_draw 3 "Exiting $0."
 
 #echo unmonitor
 #echo unwatch monitor
@@ -210,16 +248,16 @@ exit $RV
 f_emergency_exit(){
 RV=${1:-0}
 shift
-
-echo "issue 1 1 apply rod of word of recall"
-echo "issue 1 1 fire center"
-echo draw 3 "Emergency Exit $0 !"
+_is "1 1 apply -u rod of word of recall"
+_is "1 1 apply -a rod of word of recall"
+_is "1 1 fire center"
+_draw 3 "Emergency Exit $0 !"
 echo unwatch $DRAW_INFO
-echo "issue 1 1 fire_stop"
+_is "1 1 fire_stop"
 
 NUMBER=$((one-1))
 _say_statistics_end
-test "$*" && echo draw 5 "$*"
+test "$*" && _draw 5 "$*"
 _beep
 _beep
 exit $RV
@@ -235,8 +273,9 @@ exit $RV
 
 f_check_on_cauldron(){
 
-echo draw 4 "Checking if on cauldron..."
-UNDER_ME='';
+_draw 4 "Checking if on cauldron..."
+UNDER_ME='';UNDER_ME_LIST='';
+
 echo request items on
 
 while :; do
@@ -252,17 +291,17 @@ esac
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "Need to stand upon cauldron!"
+_draw 3 "Need to stand upon cauldron!"
 _beep
 exit 1
         }
 
-echo draw 7 "Done."
+_draw 7 "Done."
 }
 
 # *** Getting Player's Speed *** #
 _get_player_speed(){
-echo draw 4 "Processing Player's Speed..."
+_draw 4 "Processing Player's Speed..."
 
 
 ANSWER=
@@ -272,8 +311,8 @@ echo request stat cmbt
 
 while :; do
 read -t 1 ANSWER
-[ "$LOGGING" ] && echo "$ANSWER" >>"$LOG_REQUEST_FILE"
-[ "$DEBUG" ] && echo draw 3 "'$ANSWER'"
+_log "$ANSWER" #>>"$LOG_REQUEST_FILE"
+_debug "'$ANSWER'"
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
 OLD_ANSWER="$ANSWER"
@@ -285,10 +324,10 @@ done
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
 PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
-echo draw 7 "Player speed is $PL_SPEED"  #DEBUG
+_draw 7 "Player speed is $PL_SPEED"  #DEBUG
 
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
-echo draw 7 "Player speed is $PL_SPEED"  #DEBUG
+_draw 7 "Player speed is $PL_SPEED"  #DEBUG
 
   if test "$PL_SPEED" -gt 35; then
 SLEEP=1.5; DELAY_DRAWINFO=2.0
@@ -298,12 +337,12 @@ elif test "$PL_SPEED" -gt 15; then
 SLEEP=3.0; DELAY_DRAWINFO=6.0
 fi
 
-echo draw 7 "Done."
+_draw 7 "Done."
 }
 
 # *** Readying rod of word of recall - just in case *** #
 _ready_recall(){
-echo draw 4 "Preparing for recall..."
+_draw 4 "Preparing for recall..."
 RECALL=0
 OLD_REPLY="";
 REPLY="";
@@ -312,8 +351,8 @@ echo request items actv
 
 while :; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "request items actv:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "request items actv:$REPLY"
+_debug "REPLY='$REPLY'"
 
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -325,21 +364,21 @@ sleep 0.1s
 done
 
 if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-echo "issue 1 1 apply rod of word of recall"
+_is "1 1 apply rod of word of recall"
 fi
 
 sleep ${SLEEP}s
-echo draw 7 "Done."
+_draw 7 "Done."
 }
 
 # *** Check if cauldron is empty *** #
 _check_empty_cauldron(){
-echo draw 4 "Checking if cauldron is empty..."
+_draw 4 "Checking if cauldron is empty..."
 
-echo "issue 1 1 pickup 0"  # precaution otherwise might pick up cauldron
+_is "1 1 pickup 0"  # precaution otherwise might pick up cauldron
 sleep ${SLEEP}s
 
-echo "issue 1 1 apply"
+_is "1 1 apply"
 sleep 0.5s
 
 echo watch $DRAW_INFO
@@ -348,12 +387,12 @@ OLD_REPLY="";
 REPLY_ALL='';
 REPLY="";
 
-echo "issue 1 1 get"
+_is "1 1 get"
 
 while :; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "get:$REPLY"
+_debug "REPLY='$REPLY'"
 
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -366,22 +405,22 @@ sleep 0.1s
 done
 
 test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-echo draw 3 "Cauldron NOT empty !!"
-echo draw 3 "Please empty the cauldron and try again."
+_draw 3 "Cauldron NOT empty !!"
+_draw 3 "Please empty the cauldron and try again."
 _beep
 f_exit 1
 }
 
 echo unwatch $DRAW_INFO
 
-echo draw 7 "OK ! Cauldron SEEMS empty."
+_draw 7 "OK ! Cauldron SEEMS empty."
 
 sleep ${SLEEP}s
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 sleep ${SLEEP}s
 }
 
@@ -415,7 +454,7 @@ NUMBER=${NUMBER:-infinite}
 
 # *** Now LOOPING *** #
 
-echo draw 4 "OK... Might the Might be with You!"
+_draw 4 "OK... Might the Might be with You!"
 TIMEB=`date +%s`
 
 FAIL=0
@@ -430,17 +469,17 @@ TIMEC=${TIMEE:-$TIMEB}
 OLD_REPLY="";
 REPLY="";
 
-echo "issue 1 1 apply"
+_is "1 1 apply"
 sleep 0.5s
 
 echo watch $DRAW_INFO
 
-echo "issue 1 1 drop 7 water"
+_is "1 1 drop 7 water"
 
 while :; do
  read -t 1 REPLY
-[ "$LOGGING" ] &&  echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "drop:$REPLY"
+_debug "REPLY='$REPLY'"
  case "$REPLY" in
  $OLD_REPLY) break;;
  *"Nothing to drop.") f_exit 1;;
@@ -458,17 +497,17 @@ done
 echo unwatch $DRAW_INFO
 sleep ${SLEEP}s
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 sleep ${SLEEP}s
 
 f_check_on_cauldron
 
 sleep 1
-#echo "issue 1 1 use_skill alchemy"
-echo "issue 0 0 use_skill alchemy"
+#_is "1 1 use_skill alchemy"
+_is "0 0 use_skill alchemy"
 
 # TOTO monsters
 echo watch $DRAW_INFO
@@ -479,8 +518,8 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "alchemy:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "alchemy:$REPLY"
+_debug "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 # (level < 100) {                /* WHAMMY the CAULDRON */
@@ -499,13 +538,13 @@ done
 echo unwatch $DRAW_INFO
 
 sleep 0.5s
-echo "issue 1 1 apply"
+_is "1 1 apply"
 sleep 0.5s
 
 
 echo watch $DRAW_INFO
 
-echo "issue 7 1 get"
+_is "7 1 get"
 
 OLD_REPLY="";
 REPLY="";
@@ -513,8 +552,8 @@ NOTHING=0
 
 while :; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "get:$REPLY"
+_debug "REPLY='$REPLY'"
 
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -539,38 +578,38 @@ then
  FAIL=$((FAIL+1))
 fi
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
 sleep ${SLEEP}s
 
 
 if test "$NOTHING" = 0; then
 
-echo "issue 1 1 use_skill sense curse"
-echo "issue 1 1 use_skill sense magic"
-echo "issue 1 1 use_skill alchemy"
+_is "1 1 use_skill sense curse"
+_is "1 1 use_skill sense magic"
+_is "1 1 use_skill alchemy"
 sleep ${SLEEP}s
 
 #if test $NOTHING = 0; then
 #for drop in `seq 1 1 7`; do  # unfortunately does not work without this nasty loop
-echo "issue 0 1 drop water of the wise"    # issue 1 1 drop drops only one water
-echo "issue 0 1 drop waters of the wise"
+_is "0 1 drop water of the wise"    # issue 1 1 drop drops only one water
+_is "0 1 drop waters of the wise"
 # else if (level < 40) {                 /* MAKE TAINTED ITEM */
-echo "issue 0 1 drop water (cursed)"
-echo "issue 0 1 drop waters (cursed)"
-echo "issue 0 1 drop water (magic)"
-echo "issue 0 1 drop waters (magic)"
-#echo "issue 0 1 drop water (magic) (cursed)"
-#echo "issue 0 1 drop waters (magic) (cursed)"
-echo "issue 0 1 drop water (cursed) (magic)"
-echo "issue 0 1 drop waters (cursed) (magic)"
-#echo "issue 0 1 drop water (unidentified)"
-#echo "issue 0 1 drop waters (unidentified)"
+_is "0 1 drop water (cursed)"
+_is "0 1 drop waters (cursed)"
+_is "0 1 drop water (magic)"
+_is "0 1 drop waters (magic)"
+#_is "0 1 drop water (magic) (cursed)"
+#_is "0 1 drop waters (magic) (cursed)"
+_is "0 1 drop water (cursed) (magic)"
+_is "0 1 drop waters (cursed) (magic)"
+#_is "0 1 drop water (unidentified)"
+#_is "0 1 drop waters (unidentified)"
 # if (level < 25) {         /* INGREDIENTS USED/SLAGGED */
-echo "issue 0 1 drop slag"               # many times draws 'But there is only 1 slags' ...
-#echo "issue 0 1 drop slags"
+_is "0 1 drop slag"               # many times draws 'But there is only 1 slags' ...
+#_is "0 1 drop slags"
 
 fi
 
@@ -578,10 +617,10 @@ sleep ${DELAY_DRAWINFO}s
 #done                         # to drop all water of the wise at once ...
 
 
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 sleep ${SLEEP}s
 
 
@@ -595,9 +634,9 @@ TIME=$((TIMEE-TIMEC))
 
 case $TRIES_STILL in -*) # negative
 TRIES_STILL=${TRIES_STILL#*-}
-echo draw 4 "Time $TIME sec., completed ${TRIES_STILL:-$NUMBER} laps.";;
+_draw 4 "Time $TIME sec., completed ${TRIES_STILL:-$NUMBER} laps.";;
 *)
-echo draw 4 "Time $TIME sec., still $TRIES_STILL laps to go...";;
+_draw 4 "Time $TIME sec., still $TRIES_STILL laps to go...";;
 esac
 
 test "$one" = "$NUMBER" && break
@@ -606,5 +645,5 @@ done
 _say_statistics_end
 
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
+_draw 2 "$0 is finished."
 _beep

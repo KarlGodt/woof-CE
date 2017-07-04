@@ -16,6 +16,10 @@ west)  DIRF=east;;
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+southwest) DIRF=northeast;;
+northeast) DIRF=southwest;;
+southeast) DIRF=northwest;;
 esac
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
@@ -52,15 +56,15 @@ COL_TAN=12
 
 _draw(){
 test "$*" || return
-local COLOUR=${1:-0}
+local lCOLOUR=${1:-0}
 shift
 while read -r line
 do
 test "$line" || continue
-echo draw $COLOUR "$line"
+echo draw $lCOLOUR "$line"
 sleep 0.1
 done <<EoI
-`echo "$@"`
+`echo "$*"`
 EoI
 }
 
@@ -125,7 +129,7 @@ case $PARAM_1 in
      *debug) DEBUG=$((DEBUG+1));;
      *force) FORCE=$((FORCE+1));;
      *help)  _usage;;
-     *logging) LOGGING=$((LOGGING+1));;
+     *log*) LOGGING=$((LOGGING+1));;
      *verbose) VERBOSE=$((VERBOSE+1));;
      *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
      esac

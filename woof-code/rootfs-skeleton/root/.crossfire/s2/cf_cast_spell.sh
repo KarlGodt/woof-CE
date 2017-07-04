@@ -72,11 +72,11 @@ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 
 
 _draw(){
-    local COLOUR="$1"
-    COLOUR=${COLOUR:-1} #set default
+    local lCOLOUR="$1"
+    COLOUR=${lCOLOUR:-1} #set default
     shift
-    local MSG="$@"
-    echo draw $COLOUR "$MSG"
+    local MSG="$*"
+    echo draw $lCOLOUR "$MSG"
 }
 
 _log(){
@@ -84,18 +84,12 @@ _log(){
     local lFILE
     test "$2" && {
     lFILE="$1"; shift; } || lFILE="$LOG_FILE"
-   echo "$*" >>"$lFILE"
+   echo "$*" >>"${lFILE:-/tmp/cf_script.log}"
 }
 
 _debug(){
 test "$DEBUG" || return 0
-    _draw ${COL_DEB:-3} "DEBUG:$@"
-}
-
-_is(){
-    _verbose "$*"
-    echo issue "$@"
-    sleep 0.2
+    _draw ${COL_DEB:-3} "DEBUG:$*"
 }
 
 _verbose(){
@@ -103,6 +97,11 @@ test "$VERBOSE" || return 0
 _draw ${COL_VERB:-12} "VERBOSE:$*"
 }
 
+_is(){
+    _verbose "$*"
+    echo issue "$*"
+    sleep 0.2
+}
 
 # ***
 _usage(){
@@ -291,7 +290,7 @@ _draw 5 "Checking if have '$SPELL' ..."
 _draw 5 "Please wait...."
 
 TIMEB=`date +%s`
-#echo watch request
+
 echo request spells
 while :;
 do
@@ -309,7 +308,7 @@ sleep 0.1
 done
 
 #unset oldSPELL oneSPELL
-#echo unwatch request
+
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
@@ -336,7 +335,7 @@ local oneSPELL oldSPELL SPELLSA
 _draw 5 "Checking if have '$SPELL' applied ..."
 _draw 5 "Please wait...."
 
-#echo watch request
+
 echo request spells
 while :;
 do
@@ -354,7 +353,7 @@ sleep 0.1
 done
 
 unset oldSPELL oneSPELL
-#echo unwatch request
+
 
 echo "$SPELLSA" | grep -q -i "$lSPELL"
 }
@@ -393,7 +392,7 @@ __watch_food(){
 # *** watch food and spellpoint level
 # *   apply FOOD if under threshold FOOD_STAT_MIN
 
-#echo watch request
+
 echo request stat hp
 read -t 1 statHP
  _debug "$statHP"
@@ -406,7 +405,7 @@ read -t 1 statHP
      _is 0 0 apply $FOOD
    sleep 1
  fi
-#echo unwatch request
+
 }
 
 _rotate_range_attack(){
@@ -417,7 +416,7 @@ local REPLY_RANGE oldREPLY_RANGE
 _draw 5 "Checking if have '$SPELL' ready..."
 _draw 5 "Please wait...."
 
-#echo watch request range
+ range
 while :;
 do
 #_debug "_rotate_range_attack:request range"
@@ -435,7 +434,7 @@ read -t 1 REPLY_RANGE
  oldREPLY_RANGE="$REPLY_RANGE"
 sleep 2.1
 done
-#echo unwatch request
+
 }
 
 # ***
@@ -503,7 +502,7 @@ _watch_food(){  # called by _do_loop if _conter_for_checks returns 0
 # *   Does switch to _watch_wizard_spellpoints
 # *   TODO : implement a counter to call it every Yth time, not every time
 
-#echo watch request
+
 
 local r s h HP HP_MAX FOOD_STAT
 
@@ -517,7 +516,7 @@ read -t 1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
    sleep 1
  fi
 
-#echo unwatch request
+
 
  if test $HP -lt $((HP_MAX/5)); then  #
   _do_emergency_recall

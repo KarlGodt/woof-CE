@@ -48,12 +48,12 @@ COL_TAN=12
 
 _draw(){
 test "$*" || return
-COLOUR=${1:-0}
+local lCOLOUR=${1:-0}
 shift
 while read -r line
 do
 test "$line" || continue
-echo draw $COLOUR "$line"
+echo draw $lCOLOUR "$line"
 sleep 0.1
 done <<EoI
 `echo "$@"`
@@ -77,7 +77,7 @@ echo "$*" >>"$LOG_REPLY_FILE"
 
 _is(){
 _verbose "$*"
-echo issue "$@"
+echo issue "$*"
 sleep 0.2
 }
 
@@ -100,6 +100,7 @@ _draw 4 "-i cast show invisible"
 _draw 4 "-m cast detect magic"
 _draw 4 "-M cast detect monster"
 _draw 4 "-p cast probe"
+_draw 2 "-X do not cast any spells"
 _draw 2 "-I inifinite attempts at lockpicking"
 _draw 5 "-d set debug"
 _draw 5 "-L log to $LOG_REPLY_FILE"
@@ -163,13 +164,12 @@ readonly DIR DIRN;
 return $?
 }
 
-
-#_draw 3 "'$#' Parameters: '$*'"
-_debug "'$#' Parameters: '$*'"
-
+SPELLS_DO=1
 # *** Here begins program *** #
 _draw 2 "$0 is started.."
 
+#_draw 3 "'$#' Parameters: '$*'"
+_debug "'$#' Parameters: '$*'"
 # *** Check for parameters *** #
 
 # If there is only one parameter and it is a number
@@ -240,10 +240,11 @@ fi
 -M|*monster) TURN_SPELL="detect monster";;
 -p|*probe)   TURN_SPELL="probe";;
 
+-X|*nospell*) unset SPELLS_DO;;
 -I|*infinite) FOREVER=$((FOREVER+1));;
 -h|*help|*usage)  _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
+-L|*log*) LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 *)  _draw 3 "Ignoring unhandled option '$PARAM_1'";;
 esac
@@ -263,6 +264,7 @@ esac
      M)  TURN_SPELL="detect monster";;
      p)  TURN_SPELL="probe";;
      h)  _usage;;
+     X)  unset SPELLS_DO;;
      I)  FOREVER=$((FOREVER+1));;
      d)  DEBUG=$((DEBUG+1));;
      L)  LOGGING=$((LOGGING+1));;
@@ -291,24 +293,6 @@ fi
 
 # TODO : find out if turn possible without casting/firing in DIRN
 
-__turn_direction__(){
-# use brace and DIR -- does not work since attacks in DIR; so
-# either uses key to unlock door or punches against it and triggers traps
-
-local lDIR=${1:-"$DIR"}
-
-_draw 5 "Bracing .."
-_is 1 1 brace on
-sleep 1
-
-_draw 4 "Turning $DIR .."
-_is 1 1 $lDIR
-sleep 1
-
-}
-
-#__turn_direction
-
 # we could add parameters to cast what spell:
 # should be low level with few mana/grace point need
 # non-attack to avoid triggering traps
@@ -331,6 +315,7 @@ sleep 1
 CAST_DEX=_cast_dexterity
 
 _turn_direction_all(){
+[ "$SPELLS_DO" ] || return 0
 
 local REPLY c spell
 
@@ -385,7 +370,9 @@ echo unwatch $DRAW_INFO
 }
 
 _turn_direction(){
+[ "$SPELLS_DO" ] || return 0
 test "$*" || return 3
+
 local REPLY c spell
 
 spell="$*"
@@ -440,9 +427,9 @@ else
 fi
 }
 
-
 _cast_dexterity(){
 # ** cast DEXTERITY ** #
+[ "$SPELLS_DO" ] || return 0
 
 local REPLY c
 
@@ -486,8 +473,6 @@ done
 _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
-
-#$CAST_DEX
 
 ___find_traps(){
 # ** search to find traps ** #
@@ -727,9 +712,6 @@ TRAPS_NUM=${TRAPS_NUM:-0}
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
 }
 
-#_find_traps
-
-
 __disarm_traps(){
 # ** disarm use_skill disarm traps ** #
 
@@ -890,8 +872,6 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 }
-
-#_disarm_traps
 
 __lockpick_door(){
 # ** open door with use_skill lockpicking ** #

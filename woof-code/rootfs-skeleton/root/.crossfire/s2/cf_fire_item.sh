@@ -30,6 +30,43 @@ _get_player_name && {
 test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 }
 
+_draw(){
+    local lCOLOUR="$1"
+    lCOLOUR=${lCOLOUR:-1} #set default
+    shift
+    local MSG="$*"
+    echo draw $lCOLOUR "$MSG"
+}
+
+_log(){
+    test "$LOGGING" || return 0
+    local lFILE
+    test "$2" && {
+    lFILE="$1"; shift; } || lFILE="$LOG_FILE"
+   echo "$*" >>"${lFILE:-/tmp/cf_script.log}"
+}
+
+_debugx(){
+test "$DEBUGX" || return 0
+    _draw ${COL_DEB:-3} "DEBUG:$*"
+}
+
+_debug(){
+test "$DEBUG" || return 0
+    _draw ${COL_DEB:-3} "DEBUG:$*"
+}
+
+_verbose(){
+test "$VERBOSE" || return 0
+_draw ${COL_VERB:-12} "VERBOSE:$*"
+}
+
+_is(){
+    _verbose "$*"
+    echo issue "$*"
+    sleep 0.2
+}
+
 # *** Here begins program *** #
 _draw 2 "$0 started <$*> with pid $$ $PPID"
 
@@ -183,7 +220,7 @@ _draw 6 "Checking if in inventory..."
 _draw 6 "Please wait ...."
 
 TIMEB=`date +%s`
-#echo watch request
+
 echo request items inv
 while :;
 do
@@ -202,7 +239,7 @@ sleep 0.1
 done
 
 unset oldITEM oneITEM
-#echo unwatch request
+
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
@@ -216,7 +253,7 @@ _debug "_check_have_needed_item_applied:$*"
 local oneITEM oldITEM ITEMSA
 
 _draw 6 "Checking if '$ITEM' is already applied .."
-#echo watch request
+
 echo request items actv
 while :;
 do
@@ -235,7 +272,7 @@ sleep 0.1
 done
 
 unset oldITEM oneITEM
-#echo unwatch request
+
 
 echo "$ITEMSA" | grep -q -i "$ITEM"
 }
@@ -250,7 +287,7 @@ _debug "_rotate_range_attack:$*"
 local REPLY_RANGE oldREPLY_RANGE
 
 _draw 6 "Rotate shoottype to ready '$ITEM' .."
-#echo watch request range
+ range
 while :;
 do
 echo request range
@@ -268,12 +305,12 @@ read -t 1 REPLY_RANGE
  oldREPLY_RANGE="$REPLY_RANGE"
 sleep 2.1
 done
-#echo unwatch request
+
 }
 
 __watch_food(){
 local statHP
-#echo watch request
+
 echo request stat hp
 read -t1 statHP
  _debug "_watch_food:$statHP"
@@ -284,12 +321,13 @@ read -t1 statHP
      _is 0 0 apply $FOOD
    sleep 1
  fi
-#echo unwatch request
+
 }
 
 _do_emergency_recall(){
 #_debug "issue 1 1 apply rod of word of recall"
- _is 1 1 apply rod of word of recall
+ _is 1 1 apply -u rod of word of recall
+ _is 1 1 apply -a rod of word of recall
  _is 1 1 fire 0
  _is 1 1 fire_stop
 ## apply bed of reality
@@ -300,7 +338,7 @@ exit 5
 
 _watch_food(){
 local r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_LVL
-#echo watch request
+
 echo request stat hp
 read -t1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_LVL
  _debug "_watch_food:FOOD_LVL=$FOOD_LVL HP=$HP"
@@ -313,7 +351,7 @@ read -t1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_LVL
   _do_emergency_recall
  fi
 
-#echo unwatch request
+
 }
 
 _do_loop(){
