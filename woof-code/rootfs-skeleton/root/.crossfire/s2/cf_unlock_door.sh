@@ -4,7 +4,7 @@
 # ***
 # ***
 
-#exec 2>/tmp/cf_script.err
+exec 2>/tmp/cf_script.err
 
 # Now count the whole script time
 TIMEA=`/bin/date +%s`
@@ -14,6 +14,9 @@ DRAW_INFO=drawinfo # drawextinfo
 DEF_SEARCH=9
 DEF_DISARM=9
 DEF_LOCKPICK=9
+
+INF_THRESH=10
+INF_TOGGLE=4
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
@@ -90,7 +93,7 @@ _draw 5 "Syntax:"
 _draw 5 "script $0 <direction> <<number>>"
 _draw 5 "For example: 'script $0 5 west'"
 _draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
-_draw 4 "Options:"
+_draw 2 "Options:"
 _draw 4 "-c cast detect curse to turn to DIR"
 _draw 4 "-C cast constitution"
 _draw 4 "-t cast disarm"
@@ -101,6 +104,8 @@ _draw 4 "-i cast show invisible"
 _draw 4 "-m cast detect magic"
 _draw 4 "-M cast detect monster"
 _draw 4 "-p cast probe"
+_draw 2 "-I inifinite attempts at lockpicking"
+_draw 2 "-X do not cast any spells"
 _draw 5 "-d set debug"
 _draw 5 "-L log to $LOG_REPLY_FILE"
 _draw 5 "-v set verbosity"
@@ -172,6 +177,8 @@ readonly DIR DIRN;
 return $?
 }
 
+
+SPELLS_DO=1
 # *** Here begins program *** #
 _draw 2 "$0 is started.."
 
@@ -254,6 +261,8 @@ fi
 -M|*monster) TURN_SPELL="detect monster";;
 -p|*probe)   TURN_SPELL="probe";;
 
+-X|*nospell*) unset SPELLS_DO;;
+-I|*infinite) FOREVER=$((FOREVER+1));;
 -h|*help)    _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
@@ -277,11 +286,14 @@ esac
      M)  TURN_SPELL="detect monster";;
      p)  TURN_SPELL="probe";;
      h)  _usage;;
-     d)  DEBUG=$((DEBUG+1));;
+     X)  unset SPELLS_DO;;
+     I)  FOREVER=$((FOREVER+1));;
+     d)    DEBUG=$((DEBUG+1));;
      L)  LOGGING=$((LOGGING+1));;
      v)  VERBOSE=$((VERBOSE+1));;
      *)  _draw 3 "Ignoring unhandled option '$oneOP'";;
      esac
+    done
 ;;
 
 '')     :;;
@@ -352,6 +364,7 @@ sleep 1
 CAST_DEX=_cast_dexterity
 
 _turn_direction_all(){
+[ "$SPELLS_DO" ] || return 0
 
 local REPLY c spell
 
@@ -415,7 +428,9 @@ echo unwatch $DRAW_INFO
 
 
 _turn_direction(){
+[ "$SPELLS_DO" ] || return 0
 test "$*" || return 3
+
 local REPLY c spell
 
 spell="$*"
@@ -462,14 +477,10 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
 
-if test "$TURN_SPELL"; then
- _turn_direction $TURN_SPELL
-else
- _turn_direction_all
-fi
 
 _cast_dexterity(){
 # ** cast DEXTERITY ** #
+[ "$SPELLS_DO" ] || return 0
 
 local REPLY c
 
@@ -514,16 +525,12 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
 
-$CAST_DEX
-
-
 # ***
 # ***
 # *** diff marker 10
 # *** diff marker 11
 # ***
 # ***
-
 
 _find_traps(){
 # ** search or use_skill find traps ** #
@@ -597,14 +604,12 @@ TRAPS_NUM=${TRAPS_NUM:-0}
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
 }
 
-
 # ***
 # ***
 # *** diff marker 12
 # *** diff marker 13
 # ***
 # ***
-
 
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
@@ -681,7 +686,6 @@ echo unwatch $DRAW_INFO
 sleep 1
 }
 
-
 # ***
 # ***
 # *** diff marker 14
@@ -692,9 +696,12 @@ sleep 1
 _lockpick_door(){
 # ** open door with use_skill lockpicking ** #
 
+TIMEB=`/bin/date +%s`
+
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
+LOCKPICK_ATT=0
 c=0; cc=0
 NUM=$NUMBER
 
@@ -702,6 +709,7 @@ while :;
 do
 
 _is 1 1 use_skill lockpicking
+LOCKPICK_ATT=$((LOCKPICK_ATT+1))
 
  while :; do
   sleep 0.1
@@ -721,7 +729,7 @@ _is 1 1 use_skill lockpicking
   *'Your '*)       :;;  # Your monster beats monster
   *'You killed '*) :;;
   *'You find '*)   :;;
-  *'You pickup '*) :;;
+  *'You pick up '*) :;;
   *' tasted '*)    :;;  # food tasted good
   *) break;;
   esac
@@ -735,10 +743,11 @@ if test "$FOREVER"; then
        TOGGLE=0;
   else TOGGLE=$((TOGGLE+1));
   fi
- }
+
   $CAST_DEX
   $CAST_PROBE
   _draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
+ }
 
 elif test "$NUMBER"; then
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
@@ -754,11 +763,37 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
 
+if test "$TURN_SPELL"; then
+ _turn_direction $TURN_SPELL
+else
+ _turn_direction_all
+fi
+
+$CAST_DEX
 _find_traps
 _disarm_traps
 _lockpick_door
 
 # *** Here ends program *** #
+_count_time(){
+
+test "$*" || return 3
+
+TIMEE=`/bin/date +%s` || return 4
+
+TIMEX=$((TIMEE - $*)) || return 5
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
+_count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
+_count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
+
+test "${LOCKPICK_ATT:-0}" -gt 0 && _draw 5 "You needed $LOCKPICK_ATT attempts."
 
 _draw 2 "$0 is finished."
 _beep

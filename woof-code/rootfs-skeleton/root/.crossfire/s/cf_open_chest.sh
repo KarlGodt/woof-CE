@@ -84,7 +84,7 @@ _usage() {
 
 _draw 5 "Script to open chests."
 _draw 5 "Syntax:"
-_draw 5 "script $0 [number]"
+_draw 5 "script $0 {number}"
 _draw 5 "For example: 'script $0 5'"
 _draw 5 "will issue 5 times search, disarm, apply and get."
 _draw 4 "Options:"

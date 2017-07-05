@@ -22,6 +22,8 @@
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
 
+exec 2>/tmp/cf_script.err
+
 TIMEA=`/bin/date +%s`
 
 DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
@@ -31,10 +33,8 @@ DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused comp
 #logging
 TMP_DIR=/tmp/crossfire_client
 LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
-#LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
 mkdir -p "$TMP_DIR"
 
-#DEBUG=
 _debug(){
 [ "$DEBUG" ] || return 0
 [ "$*" ] || return 0
@@ -45,6 +45,36 @@ echo draw 3 "Debug:$line"
 done<<EoI
 `echo "$@"`
 EoI
+}
+
+_draw(){
+test "$*" || return
+COLOUR=${1:-0}
+shift
+while read -r line
+do
+test "$line" || continue
+echo draw $COLOUR "$line"
+sleep 0.1
+done <<EoI
+`echo "$@"`
+EoI
+}
+
+_verbose(){
+[ "$VERBOSE" ] || return 0
+_draw ${COL_VERB:-12} "$*"
+}
+
+_log(){
+[ "$LOGGING" ] || return 0
+echo "$*" >>"$LOG_REPLY_FILE"
+}
+
+_is(){
+_verbose "$*"
+echo issue "$*"
+sleep 0.2
 }
 
 # beeping
@@ -61,8 +91,9 @@ BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
 beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
+
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
+_draw 2 "$0 is started.."
 
 # *** Check for parameters *** #
 
@@ -73,27 +104,30 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in -h|*help)
 
-echo draw 5 "Script to melt icecube."
-echo draw 5 "Syntax:"
-echo draw 5 "script $0 [number]"
-echo draw 5 "For example: 'script $0 5'"
-echo draw 5 "will issue 5 times mark icecube and apply flint and steel."
-echo draw 5 "Options:"
-echo draw 5 "-d  to turn on debugging."
-echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "Script to melt icecube."
+_draw 2 "Syntax:"
+_draw 7 "script $0 {number}"
+_draw 5 "For example: 'script $0 5'"
+_draw 5 "will issue 5 times mark icecube and apply flint and steel."
+_draw 2 "Options:"
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-v set verbosity"
 
         exit 0
 ;;
 
--d|*debug)     DEBUG=$((DEBUG+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
+-d|*debug)      DEBUG=$((DEBUG+1));;
+-L|*log*)     LOGGING=$((LOGGING+1));;
+-v|*verb*)    VERBOSE=$((VERBOSE+1));;
+
 '') :;;
 
 *)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
-echo draw 3 "Only :digit: numbers as first option allowed."
+_draw 3 "Only :digit: numbers as first option allowed."
         exit 1 #exit if other input than letters
         }
 
@@ -131,10 +165,10 @@ return 0
 
 _say_end_msg(){
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
-echo draw 1 "You failed    '$FAIL_ALL' times."
-echo draw 7 "You succeeded '$SUCCESS' times."
-_count_time && echo draw ${COL_LGREEN:-8} "Script loop took $TIMEM:$TIMES minutes."
+_draw 2 "$0 is finished."
+_draw 1 "You failed    '$FAIL_ALL' times."
+_draw 7 "You succeeded '$SUCCESS' times."
+_count_time && _draw ${COL_LGREEN:-8} "Script loop took $TIMEM:$TIMES minutes."
 _beep
 }
 
@@ -150,11 +184,11 @@ local REPLY=
 echo unwatch $DRAW_INFO
 sleep 0.5
 echo watch $DRAW_INFO
-echo "issue 1 1 mark $ITEM"
+_is "1 1 mark $ITEM"
 
  while :; do
  read -t 1 REPLY
- [ "LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _log "mark:$REPLY"
  _debug "mark:'$REPLY'"
 
  case "$REPLY" in
@@ -180,11 +214,11 @@ REPLY=
 echo unwatch $DRAW_INFO
 sleep 0.5
 echo watch $DRAW_INFO
-echo "issue 1 1 apply flint and steel"
+_is "1 1 apply flint and steel"
 
  while :; do
  read -t 1 REPLY
- [ "LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _log "apply flint and steel:$REPLY"
  _debug "apply:'$REPLY'"
 
  case $REPLY in
@@ -220,6 +254,8 @@ return 0
 # *** main *** #
 
 TIMEB=`/bin/date +%s`
+
+FAIL_ALL=0; SUCCESS=0
 
 while :;
 do

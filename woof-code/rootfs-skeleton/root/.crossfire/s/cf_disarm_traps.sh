@@ -12,8 +12,8 @@ DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused comp
                     # OR drawextinfo (new servers)
                     # used for catching msgs watch/unwatch $DRAW_INFO
 
-DEBUG=1   # unset to disable, set to anything to enable
-LOGGING=1 # unset to disable, set to anything to enable
+#DEBUG=1   # unset to disable, set to anything to enable
+#LOGGING=1 # unset to disable, set to anything to enable
 
 DEF_SEARCH=9
 DEF_DISARM=9
@@ -65,20 +65,33 @@ _log(){
 echo "$*" >>"$LOG_REPLY_FILE"
 }
 
+_is(){
+_verbose "$*"
+echo issue "$*"
+sleep 0.2
+}
+
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
+_draw 2 "$0 is started.."
 
 # *** Check for parameters *** #
 
 # *** implementing 'help' option *** #
 _usage() {
 
-echo draw 5 "Script to lockpick doors."
-echo draw 5 "Syntax:"
-echo draw 5 "script $0 <direction> <<number>>"
-echo draw 5 "For example: 'script $0 5 west'"
-echo draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
-
+_draw 5 "Script to disarm traps."
+_draw 2 "Syntax:"
+#_draw 7 "script $0 <direction> <<number>>"
+#_draw 5 "For example: 'script $0 5 west'"
+#_draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
+_draw 7 "script $0 <<number>>"
+_draw 5 "For example: 'script $0 5'"
+_draw 5 "will issue 5 times search and disarm."
+_draw 2 "Options:"
+_draw 4 "-I search infinite for traps until first spot"
+_draw 5 "-d set debug"
+_draw 5 "-L log to $LOG_REPLY_FILE"
+_draw 5 "-v set verbosity"
         exit 0
 }
 
@@ -90,21 +103,27 @@ do
 PARAM_1="$1"
 case $PARAM_1 in
 [0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[0-9]/}" && {
-           echo draw 3 "Only :digit: numbers as optional option allowed."; exit 1; }
+           _draw 3 "Only :digit: numbers as optional option allowed."; exit 1; }
            readonly NUMBER
        _debug 2 "NUMBER=$NUMBER"
            ;;
- n|north)       DIR=north;     DIRN=1; readonly DIR DIRN;;
-ne|norteast)    DIR=northeast; DIRN=2; readonly DIR DIRN;;
- e|east)        DIR=east;      DIRN=3; readonly DIR DIRN;;
-se|southeast)   DIR=southeast; DIRN=4; readonly DIR DIRN;;
- s|south)       DIR=south;     DIRN=5; readonly DIR DIRN;;
-sw|southwest)   DIR=southwest; DIRN=6; readonly DIR DIRN;;
- w|west)        DIR=west;      DIRN=7; readonly DIR DIRN;;
-nw|northwest)   DIR=northwest; DIRN=8; readonly DIR DIRN;;
+# n|north)       DIR=north;     DIRN=1; readonly DIR DIRN;;
+#ne|norteast)    DIR=northeast; DIRN=2; readonly DIR DIRN;;
+# e|east)        DIR=east;      DIRN=3; readonly DIR DIRN;;
+#se|southeast)   DIR=southeast; DIRN=4; readonly DIR DIRN;;
+# s|south)       DIR=south;     DIRN=5; readonly DIR DIRN;;
+#sw|southwest)   DIR=southwest; DIRN=6; readonly DIR DIRN;;
+# w|west)        DIR=west;      DIRN=7; readonly DIR DIRN;;
+#nw|northwest)   DIR=northwest; DIRN=8; readonly DIR DIRN;;
+
 -h|*help|*usage)  _usage;;
+-d|*debug)      DEBUG=$((DEBUG+1));;
+-L|*log*)     LOGGING=$((LOGGING+1));;
+-v|*verb*)    VERBOSE=$((VERBOSE+1));;
+-I|*infinite) FOREVER=$((FOREVER+1));;
+
 '')     :;;
-*)      echo draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
+*)      _draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
 esac
 sleep 0.1
 shift
@@ -113,17 +132,17 @@ _debug "'$#'"
 done
 
 #readonly NUMBER DIR
-echo draw 3 "NUMBER='$NUMBER' DIR='$DIR' DIRN='$DIRN'"
+_debug "NUMBER='$NUMBER'" # DIR='$DIR' DIRN='$DIRN'"
 
 
 # TODO: check for near doors and direct to them
 
-if test "$DIR"; then
- :
-else
- echo draw 3 "Need direction as parameter."
- exit 1
-fi
+#if test "$DIR"; then
+# :
+#else
+# _draw 3 "Need direction as parameter."
+# exit 1
+#fi
 
 
 # ***
@@ -141,11 +160,11 @@ local REPLY c
 
 echo watch $DRAW_INFO
 
-echo issue 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
+_is 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
-echo issue 1 1 fire ${DIRN:-0}
+_is 1 1 fire ${DIRN:-0}
 sleep 0.5
-echo issue 1 1 fire_stop
+_is 1 1 fire_stop
 sleep 0.5
 
 while :;
@@ -203,9 +222,15 @@ _find_traps(){
 # onto one tile.
 # Same is for disarming these traps.
 
+if test "$FOREVER"; then
+local NUM=FOREVER
+else
 local NUM=${NUMBER:-$DEF_SEARCH}
+fi
 
-echo draw 6 "find traps '$NUM' times.."
+SEARCH_CNT=0
+
+_draw 6 "find traps '$NUM' times.."
 
 
 echo watch $DRAW_INFO
@@ -217,7 +242,9 @@ do
 
 unset TRAPS
 
-echo issue 1 1 search
+_is 1 1 search
+SEARCH_CNT=$((SEARCH_CNT+1))
+
 #You spot a diseased needle!
 #You spot a Rune of Paralysis!
 #You spot a Rune of Fireball!
@@ -251,9 +278,17 @@ $REPLY";
  done
 
 test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
-#test "$NUMBER" && { NUM=$((NUM-1)); test "$NUM" -le 0 && break; } || { c=$((c+1)); test "$c" = $DEF_SEARCH && break; }
-NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 
+if test "$FOREVER"; then
+ if test "$TRAPS_BACKUP"; then
+ ##test "$NUMBER" && { NUM=$((NUM-1)); test "$NUM" -le 0 && break; } || { c=$((c+1)); test "$c" = $DEF_SEARCH && break; }
+ #NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
+ break
+ else :
+ fi
+else
+ NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
+fi
 
 sleep 1
 
@@ -269,8 +304,8 @@ TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 #TRAPS_NUM=`echo -n "$TRAPS" | wc -l`
 
 if test "$DEBUG"; then
-#echo draw 5 "TRAPS='$TRAPS'"
-#echo draw 6 "`echo "$TRAPS" | uniq`"
+#_draw 5 "TRAPS='$TRAPS'"
+#_draw 6 "`echo "$TRAPS" | uniq`"
 _draw 5 "TRAPS='$TRAPS'"
 #_draw 6 "`echo "$TRAPS" | uniq`"
 fi
@@ -313,10 +348,11 @@ read NUM </tmp/cf_pipe.$$
 
 NUM=${NUM:-$DEF_DISARM}
 
-echo draw 6 "disarm traps '$NUM' times.."
+_draw 6 "disarm traps '$NUM' times.."
 
 test "$NUM" -gt 0 || return 0
 
+TIMEB=`/bin/date +%s`
 
 echo watch $DRAW_INFO
 
@@ -325,7 +361,7 @@ c=0
 while :;
 do
 
-echo issue 1 1 use_skill "disarm traps"
+_is 1 1 use_skill "disarm traps"
 # You successfully disarm the Rune of Paralysis!
 #You fail to disarm the Rune of Fireball.
 #In fact, you set it off!
@@ -367,7 +403,29 @@ sleep 1
 _disarm_traps
 
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
+_count_time(){
+
+test "$*" || return 3
+
+TIMEE=`/bin/date +%s` || return 4
+
+TIMEX=$((TIMEE - $*)) || return 5
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
+_count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
+_count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
+
+if test "$FOREVER"; then
+test "${SEARCH_CNT:-0}" -gt 0 && _draw 5 "You searched $SEARCH_CNT times for traps"
+fi
+
+_draw 2 "$0 is finished."
 beep -f 700 -l 1000
 
 

@@ -54,12 +54,12 @@ mkdir -p "$TMP_DIR"
 
 _draw(){
 test "$*" || return
-local COLOUR=${1:-0}
+local lCOLOUR=${1:-0}
 shift
 while read -r line
 do
 test "$line" || continue
-echo draw $COLOUR "$line"
+echo draw $lCOLOUR "$line"
 sleep 0.1
 done <<EoI
 `echo "$@"`
@@ -79,6 +79,12 @@ _draw ${COL_DBG:-11} "$*"
 _log(){
 [ "$LOGGING" ] || return 0
 echo "$*" >>"$LOG_REPLY_FILE"
+}
+
+_is(){
+_verbose "$*"
+echo issue "$*"
+sleep 0.2
 }
 
 _usage(){
@@ -119,7 +125,7 @@ PARAM_1="$1"
 case "$PARAM_1" in
 -h|*help|*usage) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
+-L|*log*)    LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 *)
 # *** testing parameters for validity *** #
@@ -162,7 +168,7 @@ REPLY=
 OLD_REPLY=
 
 echo watch $DRAW_INFO
-echo "issue 1 1 mark icecube"
+_is "1 1 mark icecube"
 
  while :; do
  read -t 1 REPLY
@@ -187,7 +193,7 @@ REPLY=
 OLD_REPLY=
 
 echo watch $DRAW_INFO
-echo "issue 1 1 apply flint and steel"
+_is "1 1 apply flint and steel"
 
  while :; do
  read -t 1 REPLY
@@ -242,7 +248,7 @@ REPLY=
 OLD_REPLY=
 
 echo watch $DRAW_INFO
-echo "issue 1 1 mark icecube"
+_is "1 1 mark icecube"
 while :; do
  read -t 1 REPLY
  _log "mark icecube:$REPLY"
@@ -269,7 +275,7 @@ REPLY=
 OLD_REPLY=
 
 echo watch $DRAW_INFO
-echo "issue 1 1 apply flint and steel"
+_is "1 1 apply flint and steel"
  while :; do
  read -t 1 REPLY
  _log "apply flint and steel:$REPLY"

@@ -26,14 +26,57 @@
 #define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
 #                                 *   errors. Overrides NDI_ALL. */
 
+exec 2>/tmp/cf_script.err
 
+TIMEA=`/bin/date +%s`
 
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
+
+#Logging
 LOG_REPLY_FILE=/tmp/cf_script.rpl
-
 rm -f "$LOG_REPLY_FILE"
 
+_draw(){
+test "$*" || return
+COLOUR=${1:-0}
+shift
+while read -r line
+do
+test "$line" || continue
+echo draw $COLOUR "$line"
+sleep 0.1
+done <<EoI
+`echo "$@"`
+EoI
+}
+
+_verbose(){
+[ "$VERBOSE" ] || return 0
+_draw ${COL_VERB:-12} "$*"
+}
+
+_debug(){
+[ "$DEBUG" ] || return 0
+_draw ${COL_DBG:-11} "$*"
+}
+
+_log(){
+[ "$LOGGING" ] || return 0
+echo "$*" >>"$LOG_REPLY_FILE"
+}
+
+_is(){
+_verbose "$*"
+echo issue "$*"
+sleep 0.2
+}
+
+
+
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
+_draw 2 "$0 is started.."
 
 # *** Check for parameters *** #
 [ "$*" ] && {
@@ -42,11 +85,11 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 test "$PARAM_1" = "help" && {
 
-echo draw 5 "Script to melt icecube."
-echo draw 5 "Syntax:"
-echo draw 5 "script $0 [number]"
-echo draw 5 "For example: 'script $0 5'"
-echo draw 5 "will issue 5 times mark icecube and apply flint and steel."
+_draw 5 "Script to melt icecube."
+_draw 5 "Syntax:"
+_draw 5 "script $0 {number}"
+_draw 5 "For example: 'script $0 5'"
+_draw 5 "will issue 5 times mark icecube and apply flint and steel."
 
         exit 0
         }
@@ -54,7 +97,7 @@ echo draw 5 "will issue 5 times mark icecube and apply flint and steel."
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
-echo draw 3 "Only :digit: numbers as first option allowed."
+_draw 3 "Only :digit: numbers as first option allowed."
         exit 1 #exit if other input than letters
         }
 
@@ -66,8 +109,8 @@ NUMBER=$PARAM_1
 f_exit(){
 RV=${1:-0}
 shift
-test "$*" && echo draw 4 "$*"
-             echo draw 3 "Exiting $0."
+test "$*" && _draw 4 "$*"
+             _draw 3 "Exiting $0."
 echo unwatch
 #echo unwatch drawinfo
 beep
@@ -81,12 +124,13 @@ local OLD_REPLY=
 
 echo watch drawinfo
 
-echo "issue 1 1 mark icecube"
+_is "1 1 mark icecube"
 sleep 0.5
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _log "mark:$REPLY"
+ _debug "mark:'$REPLY'"
 
  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && return 3
  test "$REPLY" || break
@@ -111,11 +155,12 @@ echo watch drawinfo
 while :;
 do
 
-echo "issue 1 1 apply flint and steel"
+_is "1 1 apply flint and steel"
 sleep 0.5
 
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _log "apply flint and steel:$REPLY"
+ _debug "apply:'$REPLY'"
  case $REPLY in
  *'You light '*) DONE=$((DONE+1)); break;;
  *'You need to mark a lightable object.'*) break;;
@@ -162,7 +207,7 @@ done #true
 
 
 # *** Here ends program *** #
-echo draw 2 "You failed '$FAILS' times."
-echo draw 7 "You melted '$DONE' icubes."
-echo draw 2 "$0 is finished."
+_draw 2 "You failed '$FAILS' times."
+_draw 7 "You melted '$DONE' icubes."
+_draw 2 "$0 is finished."
 beep
