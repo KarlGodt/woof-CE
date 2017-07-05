@@ -1,203 +1,281 @@
 #!/bin/ash
 
-exec 2>/tmp/cf_script.$$.err
+# *** diff marker 1
+# ***
+# ***
 
+exec 2>/tmp/cf_script.err
 
-# *** PARAMETERS *** #
+# Now count the whole script time
+TIMEA=`/bin/date +%s`
+
+# *** VARIABLES *** #
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
+
+SLEEP=3.0           # sleep seconds after codeblocks
+DELAY_DRAWINFO=6.0  # sleep seconds to sync msgs from script with msgs from server
+
+# When putting ingredients into cauldron, player needs to leave cauldron
+# to close it. Also needs to pickup and drop the result(s) to not
+# increase carried weight and to prevent similar named ingredient
+# being dropped into cauldron another time.
+# This version does not adjust player speed after several weight losses.
 
 DIRB=west  # direction back to go
 
 case $DIRB in
-west)  DIRF=east;;
+west)  DIRF=east;;   # direction forward
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+northeast) DIRF=southwest;;
+southwest) DIRF=northeast;;
+southeast) DIRF=northwest;;
 esac
 
-PRINT=draw         # print command to msg pane - was using drawextinfo which worked too
-DRAW_INFO=drawinfo # drawextinfo
+ITEM_RECALL='rod of word of recall' # f_emergency_exit uses this ( staff, scroll, rod of word of recall )
 
+LOG_REPLY_FILE=/tmp/cf_script.rpl
+rm -f "$LOG_REPLY_FILE"
 
+_usage(){
+# *** implementing 'help' option *** #
+echo draw 5 "Script to produce balm of first aid."
+echo draw 7 "Syntax:"
+echo draw 7 "$0 < NUMBER >"
+echo draw 5 "Optional NUMBER will loop for"
+echo draw 5 "NUMBER times to produce NUMBER of"
+echo draw 5 "Balm of First Aid ."
+echo draw 4 "If no number given, loops as long"
+echo draw 4 "as ingredients could be dropped."
+echo draw 2 "Options:"
+echo draw 5 "-d  to turn on debugging."
+echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
+echo draw 5 "-v  to be more talkaktive."
+echo draw 7 "-F each --fast sleeps 0.2 s less"
+echo draw 8 "-S each --slow sleeps 0.2 s more"
+echo draw 3 "-X --nocheck do not check cauldron (faster)"
+        exit 0
+}
+
+_debug(){
+[ "$DEBUG" ]       || return 0
+echo "$*" | while read line; do echo draw 3 "$line"; done
+}
+
+_debug_two(){
+[ "$DEBUG" ]       || return 3
+[ "$DEBUG" -ge 2 ] || return 4
+}
+
+CHECK_DO=1
 # *** Here begins program *** #
-echo $PRINT 2 "$0 is started.."
+echo draw 2 "$0 is started.."
 
+
+# *** PARAMETERS *** #
 
 # *** Check for parameters *** #
-echo $PRINT 5 "Checking the parameters ($*)..."
+echo drawnifo 5 "Checking the parameters ($*)..."
 
-[ "$*" ] && {
+until [ "$#" = 0 ]
+do
 PARAM_1="$1"
 
-# *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in
 
-echo $PRINT 5 "Script to produce water of the wise."
-echo $PRINT 7 "Syntax:"
-echo $PRINT 7 "$0 NUMBER"
-echo $PRINT 5 "Allowed NUMBER will loop for"
-echo $PRINT 5 "NUMBER times to produce NUMBER of"
-echo $PRINT 5 "Balm of First Aid ."
+-h|*help|*usage) _usage;;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
+-F|*fast)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+-S|*slow)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+-X|*nocheck) unset CHECK_DO;;
 
-        exit 0
-        }
-
-PARAM_1test="${PARAM_1//[[:digit:]]/}"
+[0-9]*)
+PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
-echo $PRINT 3 "Only :digit: numbers as option allowed."
+echo draw 3 "Only :digit: numbers as option allowed."
         exit 1 #exit if other input than numbers
         }
 
 NUMBER=$PARAM_1
-
-} || {
-echo $PRINT 3 "Script needs number of alchemy attempts as argument."
-        exit 1
-}
-
-test "$1" || {
-echo $PRINT 3 "Need <number> ie: script $0 4 ."
-        exit 1
-}
-
-echo $PRINT 7 "OK."
-
-_scripttell_check(){
-local STRING="$*"
-STRING=${STRING:-"$REPLY"}
-case $STRING in
-"scripttell break") return 1;;
-"scripttell exit")  beep; exit 1;;
+;;
+*) echo draw 3 "Ignoring unhandled option '$PARAM_1'";;
 esac
-return 0
-}
+sleep 0.1
+shift
+done
+
+echo draw 7 "OK."
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
 
 # *** EXIT FUNCTIONS *** #
 f_exit(){
 RV=${1:-0}
 shift
+
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep ${SLEEP}s
-echo $PRINT 3 "Exiting $0."
-echo $PRINT 4 "$*"
-#echo unmonitor
-#echo unwatch monitor
-#echo unwatch monitor issue
+sleep ${SLEEP:-1}s
+
+test "$*" && echo draw 5 "$*"
+echo draw 3 "Exiting $0."
+
 echo unwatch
-echo unwatch drawinfo
-beep
+echo unwatch $DRAW_INFO
+beep -l 500 -f 700
 exit $RV
 }
 
 f_emergency_exit(){
-echo "issue 1 1 apply rod of word of recall"
+RV=${1:-0}
+shift
+
+echo "issue 1 1 apply -u $ITEM_RECALL"
+echo "issue 1 1 apply -a $ITEM_RECALL"
 echo "issue 1 1 fire center"
-echo $PRINT 3 "Emergency Exit $0 !"
-echo unwatch drawinfo
+echo draw 3 "Emergency Exit $0 !"
+echo unwatch $DRAW_INFO
 echo "issue 1 1 fire_stop"
-beep
-exit $1
+
+test "$*" && echo draw 5 "$*"
+beep -l 500 -f 700
+exit $RV
 }
 
 f_exit_no_space(){
-echo $PRINT 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
-echo $PRINT 3 "Remove that Item and try again."
-echo $PRINT 3 "If this is a Wall, try another place."
-beep
-exit $1
+RV=${1:-0}
+shift
+
+echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
+echo draw 3 "Remove that Item and try again."
+echo draw 3 "If this is a Wall, try another place."
+
+test "$*" && echo draw 5 "$*"
+beep -l 500 -f 700
+exit $RV
 }
 
+# *** PREREQUISITES *** #
+# 1.) _check_skill
+# 2.) _check_if_on_cauldron
+# 3.) _check_free_move
+# 4.) _prepare_recall
+# 5.) _check_empty_cauldron
+# 6.) _get_player_speed
+
+_check_skill(){
+# *** Does our player possess the skill alchemy ? *** #
+[ "$CHECK_DO" ] || return 0
+
+local lPARAM="$*"
+local lSKILL
+
+echo request skills
+
+while :;
+do
+ unset REPLY
+ sleep 0.1
+ read -t 2
+  [ "$LOGGING" ] && echo "_check_skill:$REPLY" >>"$LOG_REPLY_FILE"
+  [ "$DEBUG" ] && echo draw 6 "$REPLY"
+
+ case $REPLY in    '') break;;
+ 'request skills end') break;;
+ esac
+
+ if test "$lPARAM"; then
+  case $REPLY in *$lPARAM) return 0;; esac
+ else # print skill
+  lSKILL=`echo "$REPLY" | cut -f4- -d' '`
+  echo draw 5 "'$lSKILL'"
+ fi
+
+done
+
+test ! "$lPARAM" # returns 0 if called without parameter, else 1
+}
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
+_check_if_on_cauldron(){
 # *** Check if standing on a cauldron *** #
 
-echo $PRINT 5 "Checking if on a cauldron..."
+[ "$CHECK_DO" ] || return 0
 
-UNDER_ME='';
+echo draw 5 "Checking if on a cauldron..."
+
+local UNDER_ME_LIST='';
+local UNDER_ME='';
 echo request items on
 
-while :; do
-read -t 1 UNDER_ME
-#echo "$UNDER_ME" >>/tmp/cf_script.ion
+while [ 1 ]; do
+read -t 2 UNDER_ME
+[ "$LOGGING" ] && echo "_check_if_on_cauldron:$UNDER_ME" >>/tmp/cf_script.ion
+[ "$DEBUG" ] && echo draw 6 "$UNDER_ME"
+
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
-case "$UNDER_ME" in
-"request items on end") break;;
-#"scripttell break")     break;;
-#"scripttell exit")     exit 1;;
-esac
-_scripttell_check "$UNDER_ME"
+
+test "$UNDER_ME" = "request items on end" && break
+test "$UNDER_ME" = "scripttell break" && break
+test "$UNDER_ME" = "scripttell exit" && exit 1
 sleep 0.1s
 done
 
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo $PRINT 3 "Need to stand upon cauldron!"
-beep
-exit 1
+_debug "$UNDER_ME_LIST"
+ test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
+  echo draw 3 "Need to stand upon cauldron!"
+  beep -l 500 -f 700
+  exit 1
+ }
+
+echo draw 7 "OK."
 }
 
-echo $PRINT 7 "OK."
+_check_free_move(){
+# *** Check for 4 empty space to DIRB *** #
 
+[ "$CHECK_DO" ] || return 0
 
-_drop_item(){  #AMOUNT "STRING"
-test "$*" || return 4 # TODO error message for wrong usages
-test "$1" || return 5
-test "$2" || return 6
-
-AMOUNT=$1
-shift
-ITEM="$*"
-
-echo "issue 1 1 drop $AMOUNT $ITEM"
-
-echo watch drawinfo
-
-OLD_REPLY="";
-REPLY="";
-
-while :; do
-read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-case "$REPLY" in
-*"Nothing to drop.") f_exit 1;;
-*"There are only"*)  f_exit 1;;
-*"There is only"*)   f_exit 1;;
-'') break;;
-"$OLD_REPLY") break;;
-esac
-_scripttell_check || break
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
-
-echo unwatch drawinfo
-}
-
-rm -f /tmp/cf_script.rpl   # empty old log file
-
-# *** Check for 4 empty space to DIRB ***#
-
-echo $PRINT 5 "Checking for space to move..."
+echo draw 5 "Checking for space to move..."
 
 echo request map pos
 
-echo watch request
-
 while [ 1 ]; do
-read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+read -t 2 REPLY
+[ "$LOGGING" ] && echo "_check_free_move:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
+
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
-_scripttell_check
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
-
-echo unwatch request
 
 
 PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
 PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
+[ "$DEBUG" ] && echo draw 3 "PL_POS_X='$PL_POS_X' PL_POS_Y='$PL_POS_Y'"
 
 if test "$PL_POS_X" -a "$PL_POS_Y"; then
 
@@ -224,111 +302,229 @@ R_Y=$((PL_POS_Y+nr))
 ;;
 esac
 
+[ "$DEBUG" ] && echo draw 3 "R_X='$R_X' R_Y='$R_Y'"
 echo request map $R_X $R_Y
 
-echo watch request
-
 while [ 1 ]; do
-read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+read -t 2 REPLY
+[ "$LOGGING" ] && echo "request map $R_X $R_Y:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
 
-IS_WALL=`echo "$REPLY" | awk '{print $16}'`
-echo "$IS_WALL" >>/tmp/cf_script.rpl
-test "$IS_WALL" = 0 || f_exit_no_space 1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
-_scripttell_check
+
+IS_WALL=`echo "$REPLY" | awk '{print $16}'`
+[ "$LOGGING" ] && echo "IS_WALL='$IS_WALL'" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "IS_WALL='$IS_WALL'"
+test "$IS_WALL" = 0 || f_exit_no_space 1
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch request
-
 done
 
 else
 
-echo $PRINT 3 "Received Incorrect X Y parameters from server"
-beep
+echo draw 3 "Received Incorrect X Y parameters from server"
 exit 1
 
 fi
 
 else
 
-echo $PRINT 3 "Could not get X and Y position of player."
-beep
+echo draw 3 "Could not get X and Y position of player."
 exit 1
 
 fi
 
-echo $PRINT 7 "OK."
-
-
-# *** Monitoring function *** #
-# *** Todo ...            *** #
-f_monitor_malfunction(){
-
-while [ 1 ]; do
-read -t 1 ERRORMSGS
-
-sleep 0.1s
-done
+echo draw 7 "OK."
 }
 
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
 
+_prepare_recall(){
+# *** Readying $ITEM_RECALL - just in case *** #
+
+[ "$CHECK_DO" ]    || return 0
+[ "$ITEM_RECALL" ] || return 3
+
+echo draw 5 "Preparing for recall if monsters come forth..."
+
+RECALL=0
+OLD_REPLY="";
+REPLY="";
+
+echo request items actv
+
+while [ 1 ]; do
+read -t 2 REPLY
+[ "$LOGGING" ] && echo "_prepare_recall:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
+
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+
+test "`echo "$REPLY" | grep ".* $ITEM_RECALL"`" && RECALL=1
+
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
+echo "issue 1 1 apply $ITEM_RECALL"
+fi
+
+echo draw 6 "Done."
+}
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
+
+_check_empty_cauldron(){
+# *** Check if cauldron is empty *** #
+
+[ "$CHECK_DO" ] || return 0
+
+echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
+sleep ${SLEEP:-1}s
+
+echo draw 5 "Checking for empty cauldron..."
+
+echo "issue 1 1 apply"
+sleep ${SLEEP:-1}s
+
+OLD_REPLY="";
+REPLY_ALL='';
+REPLY="";
+
+echo watch $DRAW_INFO
+
+echo "issue 1 1 get"
+
+#echo watch $DRAW_INFO
+
+while [ 1 ]; do
+read -t 1 REPLY
+[ "$LOGGING" ] && echo "_check_empty_cauldron:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
+
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+
+REPLY_ALL="$REPLY
+$REPLY_ALL"
+
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+ test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
+  echo draw 3 "Cauldron NOT empty !!"
+  echo draw 3 "Please empty the cauldron and try again."
+  f_exit 1
+ }
+
+echo unwatch $DRAW_INFO
+
+echo draw 7 "OK ! Cauldron SEEMS empty."
+
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+}
+
+_get_player_speed(){
 # *** Getting Player's Speed *** #
 
-echo $PRINT 5 "Processing Player's speed..."
-
-SLEEP=3           # setting defaults
-DELAY_DRAWINFO=6
+echo draw 5 "Processing Player's speed..."
 
 ANSWER=
 OLD_ANSWER=
 
 echo request stat cmbt
 
-echo watch request
-
 while [ 1 ]; do
-read -t 1 ANSWER
-echo "$ANSWER" >>/tmp/cf_request.log
+read -t 2 ANSWER
+[ "$LOGGING" ] && echo "_get_player_speed:$ANSWER" >>/tmp/cf_request.log
+[ "$DEBUG" ] && echo draw 6 "$ANSWER"
+
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
-_scripttell_check
+
 OLD_ANSWER="$ANSWER"
 sleep 0.1
 done
 
-echo unwatch request
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
 #PL_SPEED="0.${PL_SPEED:0:2}"
-PL_SPEED=`echo "scale=2; $PL_SPEED / 100000" | bc -l`
-
-echo $PRINT 7 "Player speed is $PL_SPEED"
+PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
+[ "$DEBUG" ] && echo draw 7 "Player speed is $PL_SPEED"
 
 #PL_SPEED="${PL_SPEED:2:2}"
-PL_SPEED=`echo "$PL_SPEED" | sed 's/\.//g;s/^0*//'`
-test "${PL_SPEED//[0-9]/}" && PL_SPEED=50
-PL_SPEED=${PL_SPEED:-50}
+PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
+[ "$DEBUG" ] && echo draw 7 "Player speed set to $PL_SPEED"
 
-echo $PRINT 7 "Player speed is $PL_SPEED"
-
-
-
-if test $PL_SPEED -gt 35; then
-SLEEP=1.0; DELAY_DRAWINFO=2.0
-elif test $PL_SPEED -gt 25; then
+if test ! "$PL_SPEED"; then
+ echo draw 3 "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
+elif test "$PL_SPEED" -gt 65; then
+SLEEP=0.2; DELAY_DRAWINFO=1.0
+elif test "$PL_SPEED" -gt 55; then
+SLEEP=0.5; DELAY_DRAWINFO=1.2
+elif test "$PL_SPEED" -gt 45; then
+SLEEP=1.0; DELAY_DRAWINFO=1.5
+elif test "$PL_SPEED" -gt 35; then
+SLEEP=1.5; DELAY_DRAWINFO=2.0
+elif test "$PL_SPEED" -gt 25; then
 SLEEP=2.0; DELAY_DRAWINFO=4.0
+elif test "$PL_SPEED" -gt 15; then
+SLEEP=3.0; DELAY_DRAWINFO=6.0
+elif test "$PL_SPEED" -ge  0; then
+SLEEP=4.0; DELAY_DRAWINFO=9.0
+else
+ echo draw 3 "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
 
-echo $PRINT 6 "Done."
+SLEEP=${SLEEP:-1}
 
-# *** Actual script to alch the desired balm of first aid *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+_debug "SLEEP='$SLEEP'"
+test "$SLEEP_ADJ" && { SLEEP=`dc ${SLEEP:-1} ${SLEEP_ADJ:-0} \+ p`
+ case $SLEEP in -[0-9]*) SLEEP=0.1;; esac
+ _debug "SLEEP now set to '$SLEEP'" ; }
+
+SLEEP=${SLEEP:-1}
+
+echo draw 6 "Done."
+}
+
+# ***
+# ***
+# *** diff marker 10
+# *** diff marker 11
+# ***
+# ***
+
+_check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
+_check_if_on_cauldron
+_check_free_move
+_check_empty_cauldron
+_get_player_speed
+_prepare_recall
+
+
+# *** Actual script to alch the desired balm of first aid           *** #
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -346,286 +542,282 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 # *** same times the number of mandrake root .                      *** #
 
 # *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** west of the cauldron.                                         *** #
+# *** to walk on DIRB of the cauldron.                              *** #
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
-
-# *** Readying rod of word of recall - just in case *** #
-
-echo $PRINT 5 "Preparing for recall if monsters come forth..."
-
-RECALL=0
-OLD_REPLY="";
-REPLY="";
-
-echo request items actv
-
-echo watch request
-
-while [ 1 ]; do
-read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-_scripttell_check
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
-
-if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-echo "issue 1 1 apply rod of word of recall"
-fi
-
-echo unwatch request
-
-echo $PRINT 6 "Done."
-
-
-# *** Check if cauldron is empty *** #
-
-echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
-sleep ${SLEEP}s
-
-
-echo $PRINT 5 "Checking for empty cauldron..."
-
-echo "issue 1 1 apply"
-sleep ${SLEEP}s
-
-OLD_REPLY="";
-REPLY_ALL='';
-REPLY="";
-
-echo "issue 1 1 get"
-
-echo watch drawinfo
-
-while [ 1 ]; do
-read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-REPLY_ALL="$REPLY
-$REPLY_ALL"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-_scripttell_check
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
-
-test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-echo $PRINT 3 "Cauldron seems NOT empty !!"
-echo $PRINT 3 "Please empty the cauldron and try again."
-beep
-f_exit 1
-}
-
-echo unwatch drawinfo
-
-echo $PRINT 7 "OK ! Seems cauldron IS empty."
-
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-
-
 # *** Now LOOPING *** #
 
-for one in `seq 1 1 $NUMBER`
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
+NUMBER=${NUMBER:-infinite}
+
+FAIL=0; one=0
+TIMEB=`/bin/date +%s`
+
+echo draw 4 "OK... Might the Might be with You!"
+
+_debug_two && echo monitor; #DEBUG
+
+while :;
 do
 
+TIMEC=${TIMEE:-$TIMEB}
+
+echo draw 2 "Opening cauldron ..."
 echo "issue 1 1 apply"
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
-
-__old_drop_item_wotw(){
-#echo watch drawinfo
-
+#_debug_two || echo watch $DRAW_INFO
+echo draw 4 "Dropping water of the wise ..."
 echo "issue 1 1 drop 1 water of the wise"
 
-echo watch drawinfo
+_debug_two || echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
-
-while :; do
+DW=0
+while [ 2 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-case "$REPLY" in
-*"Nothing to drop.") f_exit 1;;
-*"There are only"*)  f_exit 1;;
-*"There is only"*)   f_exit 1;;
-'') break;;
-"$OLD_REPLY") break;;
-esac
+[ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
+test "$REPLY" || break
+test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
+test "$REPLY" = "$OLD_REPLY" && break
+
+test "`echo "$REPLY" | grep 'Nothing to drop'`"   && break 2 # f_exit 1 "Nothing to drop"
+test "`echo "$REPLY" | grep 'There are only'`"    && break 2 # f_exit 1 "Not enough water of the wise"
+test "`echo "$REPLY" | grep 'There is only'`"     && break 2 # f_exit 1 "Not enough water of the wise"
+test "`echo "$REPLY" | grep 'You put the water'`" && { DW=$((DW+1)); unset REPLY; } #s in cauldron (open) (active).
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
-}
 
-_drop_item 1 "water of the wise"
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing water in inventory."
+sleep ${SLEEP:-1}s
 
-sleep ${SLEEP}s
+# ***
+# ***
+# *** diff marker 12
+# *** diff marker 13
+# ***
+# ***
 
-__old_drop_item_mroot(){
+echo draw 4 "Dropping mandrake root ..."
 echo "issue 1 1 drop 1 mandrake root"
 
 OLD_REPLY="";
 REPLY="";
-
-while [ 1 ]; do
+DW=0
+while [ 2 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-case "$REPLY" in
-*"Nothing to drop".) f_exit 1;;
-*"There are only"*)  f_exit 1;;
-*"There is only"*)   f_exit 1;;
-'') break;;
-"$OLD_REPLY") break;;
-esac
+[ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
+
+test "$REPLY" || break
+test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
+test "$REPLY" = "$OLD_REPLY" && break
+
+test "`echo "$REPLY" | grep 'Nothing to drop'`" && break 2 # f_exit 1 "Nothing to drop"
+test "`echo "$REPLY" | grep 'There are only'`"  && break 2 # f_exit 1 "Not enough mandrake root"
+test "`echo "$REPLY" | grep 'There is only'`"   && break 2 # f_exit 1 "Not enough mandrake root"
+test "`echo "$REPLY" | grep 'You put the mandrake .*'`" && { DW=$((DW+1)); unset REPLY; } #s in cauldron (open) (active).
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
-}
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing mandrake root in inventory."
 
-_drop_item 1 "mandrake root"
+_debug_two || echo unwatch $DRAW_INFO
+sleep ${SLEEP:+1}s
 
-sleep ${SLEEP}s
-
+echo draw 2 "Closing cauldron .."
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
+sleep ${SLEEP:+1}s
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep ${SLEEP}s
+sleep ${SLEEP:+1}s
 
-#echo watch drawinfo
+_check_if_on_cauldron
+
+#_debug_two || echo watch $DRAW_INFO
 
 echo "issue 1 1 use_skill alchemy"
 
-echo watch drawinfo
+_debug_two || echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
 
-while :; do
+while [ 2 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-case "$REPLY" in
-*"pours forth monsters!") f_emergency_exit 1;;
-'') break;;
-"$OLD_REPLY") break;;
-esac
-_scripttell_check
+[ "$LOGGING" ] && echo "use_skill alchemy:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
+
+test "$REPLY" || break
+test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
+test "$REPLY" = "$OLD_REPLY" && break
+
+test "`echo "$REPLY" | grep 'pours forth monsters'`" && f_emergency_exit 1
+test "`echo "$REPLY" | grep 'You unwisely release potent forces'`" && break 2 # f_exit 1
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+_debug_two || echo unwatch $DRAW_INFO
 
+sleep ${SLEEP:+1}s
+echo draw 2 "Opening cauldron .."
 echo "issue 1 1 apply"
-sleep ${SLEEP}s
+sleep ${SLEEP:+1}s
 
-#echo watch drawinfo
+#_debug_two || echo watch $DRAW_INFO
 
-echo "issue 1 1 get"
+echo draw 5 "Getting content .."
+#echo "issue 1 1 get"
+echo issue 0 0 "get all"
 
-echo watch drawinfo
+_debug_two || echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
 NOTHING=0
 SLAG=0
 
-while :; do
+while [ 2 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-case "$REPLY" in
-*"Nothing to take!") NOTHING=1; break;;
-*'You pick up the slag.') SLAG=1; break;;
-'') break;;
-"$OLD_REPLY") break;;
-esac
-_scripttell_check
+[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
+
+test "$REPLY" || break
+test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
+test "$REPLY" = "$OLD_REPLY" && break
+
+test "`echo "$REPLY" | grep 'Nothing to take'`"      && NOTHING=1
+test "`echo "$REPLY" | grep 'You pick up the slag'`" && SLAG=1
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+_debug_two || echo unwatch $DRAW_INFO
 
+if test "$SLAG" = 1 -o "$NOTHING" = 1;
+then
+ FAIL=$((FAIL+1))
+fi
 
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
+# ***
+# ***
+# *** diff marker 14
+# *** diff marker 15
+# ***
+# ***
+
+echo draw 2 "Dropping balm ...."
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
-if test $NOTHING = 0; then
-        if test $SLAG = 0; then
+if test "$NOTHING" = 0; then
+        if test "$SLAG" = 0; then
+        echo draw ${g_edit_nulldigit_COLOURED:-5} "Identifying .."
         echo "issue 1 1 use_skill sense curse"
         echo "issue 1 1 use_skill sense magic"
         echo "issue 1 1 use_skill alchemy"
-        sleep ${SLEEP}s
+        sleep ${SLEEP:-1}s
 
         echo "issue 0 1 drop balm"
         else
         echo "issue 0 1 drop slag"
         fi
+sleep ${SLEEP:-1}s
+fi
+sleep ${SLEEP:-1}
+
+sleep ${DELAY_DRAWINFO:-1}s
+echo draw 2 "Returning to cauldron ...."
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+sleep ${SLEEP:-1}s
+
+sleep ${DELAY_DRAWINFO:-1}s
+_check_if_on_cauldron
+
+
+TIMEE=`/bin/date +%s`
+TIME=$((TIMEE-TIMEC))
+
+one=$((one+1))
+TRIES_STILL=$((NUMBER-one))
+case $TRIES_STILL in -*) # negative
+TRIES_STILL=${TRIES_STILL#*-}
+echo draw 4 "Time $TIME sec., completed ${TRIES_STILL:-$NUMBER} laps.";;
+*)
+echo draw 4 "Time $TIME sec., still ${TRIES_STILL:-$NUMBER} laps to go...";;
+esac
+
+
+ _debug_two && {
+ # log monitor msgs
+  while [ 2 ]
+  do
+  unset REPLY
+  read -t 1
+  echo "$REPLY" >>"$LOG_REPLY_FILE"
+  test "$REPLY" || break
+  done
+
+ echo unwatch $DRAW_INFO
+ sleep 1
+ }
+
+test "$one" = "$NUMBER" && break
+done  # *** MAIN LOOP *** #
+
+# Now count the whole loop time
+TIMELE=`/bin/date +%s`
+TIMEL=$((TIMELE-TIMEB))
+TIMELM=$((TIMEL/60))
+TIMELS=$(( TIMEL - (TIMELM*60) ))
+case $TIMELS in [0-9]) TIMELS="0$TIMELS";; esac
+echo draw 5 "Whole  loop  time : $TIMELM:$TIMELS minutes." # light blue
+
+if test "$FAIL" = 0; then
+ echo draw 7 "You succeeded $one times of $one ." # green
+else
+if test "$((one/FAIL))" -lt 2;
+then
+ echo draw 8 "You failed $FAIL times of $one ."    # light green
+ echo draw 7 "You should increase your Int stat."
+else
+ SUCC=$((one-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $one ." # green
+fi
 fi
 
-sleep ${DELAY_DRAWINFO}s
-
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-sleep ${SLEEP}s
-
-sleep 5
-#echo watch request
-
-echo request items on
-
-echo watch request
-
-UNDER_ME='';
-UNDER_ME_LIST='';
-
-while :; do
-read -t 1 UNDER_ME
-echo "$UNDER_ME" >>/tmp/cf_script.ion
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-case "$UNDER_ME" in
-"request items on end") break;;
-#"scripttell break") break;;
-#"scripttell exit") exit 1;;
-#'') break;;
-esac
-_scripttell_check
-sleep 0.1s
-done
-
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo $PRINT 3 "LOOP BOTTOM: SEEMS NOT ON CAULDRON!"
-beep
-f_exit 1
-}
-
-echo unwatch request
-
-TRIES_SILL=$((NUMBER-one))
-echo $PRINT 4 "Still $TRIES_SILL to go..."
-
-
-done  # *** MAINLOOP *** #
+# Now count the whole script time
+TIMEZ=`/bin/date +%s`
+TIMEY=$((TIMEZ-TIMEA))
+TIMEAM=$((TIMEY/60))
+TIMEAS=$(( TIMEY - (TIMEAM*60) ))
+case $TIMEAS in [0-9]) TIMEAS="0$TIMEAS";; esac
+echo draw 6 "Whole script time : $TIMEAM:$TIMEAS minutes." # dark orange
 
 
 # *** Here ends program *** #
-echo $PRINT 2 "$0 is finished."
-beep -l 400 -f 712
+echo draw 2 "$0 is finished."
+beep -l 500 -f 700
+
+# ***
+# ***
+# *** diff marker 16

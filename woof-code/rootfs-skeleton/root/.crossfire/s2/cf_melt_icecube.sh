@@ -1,8 +1,14 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
+#exec 2>/tmp/cf_icecube.err  # DEBUG
+
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
-#define NDI_WHITE       1
+#define NDI_WHITE       1    # black bold
 #define NDI_NAVY        2
 #define NDI_RED         3
 #define NDI_ORANGE      4
@@ -15,284 +21,223 @@
 #define NDI_BROWN       10      /**< Sienna. */
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
-#define NDI_MAX_COLOR   12      /**< Last value in. */
-#
-#define NDI_COLOR_MASK  0xff    /**< Gives lots of room for expansion - we are
-#                                 *   using an int anyways, so we have the
-#                                 *   space to still do all the flags.
-#                                 */
-#define NDI_UNIQUE      0x100   /**< Print immediately, don't buffer. */
-#define NDI_ALL         0x200   /**< Inform all players of this message. */
-#define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
-#                                 *   errors. Overrides NDI_ALL. */
 
+TIMEA=`/bin/date +%s`
 
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
 
-LOG_REPLY_FILE=/tmp/cf_script.rpl
+#logging
+TMP_DIR=/tmp/crossfire_client
+LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
+#LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
+mkdir -p "$TMP_DIR"
 
-rm -f "$LOG_REPLY_FILE"
+#DEBUG=
+_debug(){
+[ "$DEBUG" ] || return 0
+[ "$*" ] || return 0
+while read -r line
+do
+test "$line" || continue
+echo draw 3 "Debug:$line"
+done<<EoI
+`echo "$@"`
+EoI
+}
+
+# beeping
+BEEP_DO=1
+BEEP_LENGTH=500
+BEEP_FREQ=700
+
+_beep(){
+[ "$BEEP_DO" ] || return 0
+test "$1" && { BEEP_L=$1; shift; }
+test "$1" && { BEEP_F=$1; shift; }
+BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
+BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
+beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
+}
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
 # *** Check for parameters *** #
-[ "$*" ] && {
+
+until test $# = 0;
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*help)
 
 echo draw 5 "Script to melt icecube."
 echo draw 5 "Syntax:"
 echo draw 5 "script $0 [number]"
 echo draw 5 "For example: 'script $0 5'"
 echo draw 5 "will issue 5 times mark icecube and apply flint and steel."
+echo draw 5 "Options:"
+echo draw 5 "-d  to turn on debugging."
+echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
 
         exit 0
-        }
+;;
 
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+'') :;;
+
+*)
 # *** testing parameters for validity *** #
-PARAM_1test="${PARAM_1//[[:digit:]]/}"
+PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
 echo draw 3 "Only :digit: numbers as first option allowed."
         exit 1 #exit if other input than letters
         }
 
 NUMBER=$PARAM_1
+;;
+esac
+shift
+sleep 0.1
+done
 
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
+
+# ** functions ** #
+_count_time(){
+
+test "$TIMEB" || return 1
+
+TIMEE=`/bin/date +%s`
+
+TIMEX=$((TIMEE-TIMEB))
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
 }
-#|| {
-#echo draw 3 "Script needs number of praying attempts as argument."
-#        exit 1
-#}
 
-#test "$1" || {
-#echo draw 3 "Need <number> ie: script $0 50 ."
-#        exit 1
-#}
-
-
-f_exit(){
-echo draw 3 "Exiting $0."
-echo unwatch
-#echo unwatch drawinfo
-beep
-exit $1
+_say_end_msg(){
+# *** Here ends program *** #
+echo draw 2 "$0 is finished."
+echo draw 1 "You failed    '$FAIL_ALL' times."
+echo draw 7 "You succeeded '$SUCCESS' times."
+_count_time && echo draw ${COL_LGREEN:-8} "Script loop took $TIMEM:$TIMES minutes."
+_beep
 }
 
-_mark_icecube(){
+# *** Actual script to  melt icecube multiple times *** #
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
 
+
+_mark_item(){
+
+local ITEM=${*:-icecube}
 local REPLY=
-local OLD_REPLY=
 
-echo watch drawinfo
-echo "issue 1 1 mark icecube"
+echo unwatch $DRAW_INFO
+sleep 0.5
+echo watch $DRAW_INFO
+echo "issue 1 1 mark $ITEM"
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
+ [ "LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _debug "mark:'$REPLY'"
+
+ case "$REPLY" in
+ *'Could not find an object that matches'*) return 2;;
+ '') break;;
+ esac
+
+ unset REPLY
  sleep 0.1s
  done
 
-echo unwatch drawinfo
 }
 
-_light_icecube(){
+_apply_flint_and_steel(){
 
-local REPLY=
-local OLD_REPLY=
+local REPLY
 
-echo watch drawinfo
-
-#NO_FAIL=
 while :;
 do
 
-#local REPLY=
-#local OLD_REPLY=
+REPLY=
 
-#echo watch drawinfo
+echo unwatch $DRAW_INFO
+sleep 0.5
+echo watch $DRAW_INFO
 echo "issue 1 1 apply flint and steel"
 
- #while :; do
+ while :; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ [ "LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _debug "apply:'$REPLY'"
+
  case $REPLY in
- *"You light "*) break;;  # NO_FAIL=1;
- *"You need to mark a lightable object."*) break;;
- *"You fail "*"used up"*) f_exit 1;;
+ *"Could not find any match to the flint and steel."*) return 3;;
+ *You*need*to*mark*a*lightable*object.) break 2;;
+ *fail.) FAIL_ALL=$((FAIL_ALL+1));;
+ *You*fail*used*up*) return 3;;
+ *You*light*icecube*) SUCCESS=$((SUCCESS+1)); break 2;;
+ *Your*) :;;
  '') break;;
- #$OLD_REPLY) break;;
+ *)  :;;
  esac
- #test  "`echo "$REPLY" | grep 'You light .*'`" && { NO_FAIL=1; break; }
- #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- #OLD_REPLY="$REPLY"
- sleep 0.1s
- #break
- #done
+
  unset REPLY
-#echo unwatch drawinfo
-sleep 1
+ sleep 0.1s
+ done
+
+sleep 0.5s
 done
 
-echo unwatch drawinfo
+return 0
 }
 
-# *** Actual script to pray multiple times *** #
-test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
 
-    if test "$NUMBER"; then
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
 
-for one in `seq 1 1 $NUMBER`
+
+# *** main *** #
+
+TIMEB=`/bin/date +%s`
+
+while :;
 do
 
-__old_mark_icecube(){
-REPLY=
-OLD_REPLY=
+sleep 0.5
+_mark_item icecube || break
+sleep 0.5s
+_apply_flint_and_steel || break
 
-echo watch drawinfo
-echo "issue 1 1 mark icecube"
+one=$((one+1))
+test "$one" = "$NUMBER" && break
 
- while [ 1 ]; do
- read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
- sleep 0.1s
- done
+done
 
-echo unwatch drawinfo
-}
-
-_mark_icecube || f_exit 2
-sleep 1s
-
-__old_light_icecube(){
-NO_FAIL=
-until [ "$NO_FAIL" ]
-do
-
-REPLY=
-OLD_REPLY=
-
-echo watch drawinfo
-echo "issue 1 1 apply flint and steel"
-
- while [ 1 ]; do
- read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
- case $REPLY in
- *"You light "*) NO_FAIL=1; break 2;;
- *"You need to mark a lightable object."*) break 2;;
- esac
- #test  "`echo "$REPLY" | grep 'You light .*'`" && { NO_FAIL=1; break; }
- #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- #OLD_REPLY="$REPLY"
- sleep 0.1s
- break
- done
-
-echo unwatch drawinfo
-sleep 1s
-
-done #NO_FAIL
-}
-
-_light_icecube
-
-done #NUMBER
-
-    else #PARAM_1
+# *** END *** #
+_say_end_msg
 
 
-until [ "$NO_ICECUBE" ];
-do
-
-__old_mark_icecube(){
-REPLY=
-OLD_REPLY=
-
-echo watch drawinfo
-echo "issue 1 1 mark icecube"
-while [ 1 ]; do
- read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
- sleep 0.1s
- done
-
-echo unwatch drawinfo
-}
-
-_mark_icecube
-
-sleep 1s
-
-__old_melt_icecube(){
-NO_FAIL=
-until [ "$NO_FAIL" ]
-do
-
-
-REPLY=
-OLD_REPLY=
-
-echo watch drawinfo
-echo "issue 1 1 apply flint and steel"
- while [ 1 ]; do
- read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
- case $REPLY in
- *"You light "*) NO_FAIL=1; break 2;;
- *"You need to mark a lightable object."*) break 2;;
- esac
- #test  "`echo "$REPLY" | grep 'You light .*'`" && { NO_FAIL=1; break; }
- #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- #OLD_REPLY="$REPLY"
- sleep 0.1s
- break
- done
-
-echo unwatch drawinfo
-sleep 1s
-
-done #NO_FAIL
-}
-
-_light_icecube
-
-done #true
-
-    fi #^!PARAM_1
-
-
-# *** Here ends program *** #
-echo draw 2 "$0 is finished."
-beep
+# ***
+# ***
+# *** diff marker 6

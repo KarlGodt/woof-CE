@@ -1,118 +1,103 @@
 #!/bin/bash
-# uses <<<STREAM
+# uses <<<
 
-# Now count the whole script time
-TIMEA=`/bin/date +%s`
+export PATH=/bin:/usr/bin
+
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
+test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+_set_global_variables
+# *** Override any VARIABLES in cf_functions.sh *** #
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+_get_player_name && {
+test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
+}
 
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
-echo draw 3 "with '$*' as arguments ."
+_say_start_msg "$@"
 
-DRAW_INFO=drawinfo # drawextinfo (older clients)
+_say_help_and_exit(){
+_draw 5 "Script to kill pets except the ones"
+_draw 5 "given on parameter line."
+_draw 2 "Syntax:"
+_draw 5 "$0 pet1 pet2 .."
+_draw 2 ":space: ( ) needs to be replaced by underscore (_)"
+_draw 5 "for ex. green slime to green_slime ."
+_draw 5 "Options:"
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $REPLY_LOG ."
+_draw 5 "-v to say what is being issued to server."
 
-LOG_REPLY_FILE=/tmp/cf_pets.rpl
-rm -f "$LOG_REPLY_FILE"
-
-# beeping
-BEEP_DO=1
-BEEP_LENGTH=500
-BEEP_FREQ=700
-
-_beep(){
-[ "$BEEP_DO" ] || return 0
-test "$1" && { BEEP_L=$1; shift; }
-test "$1" && { BEEP_F=$1; shift; }
-BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
-BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
-beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
+exit 0
 }
 
 # *** Check for parameters *** #
-
-test "$*" || {
-echo draw 3 "Need <pet_name> ie: script $0 nazgul spectre ."
-        exit 1
-}
-
-
 for PARAM_1 in "$@"
 do
-
-# *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help")
-
-echo draw 5 "Script to kill pets except the ones"
-echo draw 5 "given on parameter line."
-echo draw 2 "Syntax:"
-echo draw 5 "$0 pet1 pet2 .."
-echo draw 2 ":space: ( ) needs to be replaced by underscore (_)"
-echo draw 5 "for ex. green slime to green_slime ."
-echo draw 4 "Options:"
-echo draw 5 "-d  to turn on debugging."
-echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
-
-        exit 0
-;;
-
+case $PARAM_1 in
+'')     _draw 3 "Script needs pets to keep as argument."
+        _draw 3 "Need <pet_name> ie: script $0 nazgul,spectre ."
+          _say_help_and_exit;;
+-h|*help) _say_help_and_exit;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
-'') :;;
-
-*) :
-;;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
+*) :;;
 esac
-sleep 0.1
 done
 
-
-#else
-#echo draw 3 "Script needs pets to keep as argument."
-#        exit 1
-#fi
-
-
-
-
+echo "\$*='$*'" >>"$LOGFILE"
 keepPETS="`echo "$*" | sed 's/killer_bee/killer-bee/;s/dire_wolf_sire/dire-wolf-sire/;s/dire_wolf/dire-wolf/'`"
-keepPETS="`echo "$keepPETS" | tr ' ' '|'`"
+echo "keepPETS='$keepPETS'" >>"$LOGFILE"
+keepPETS="`echo "$keepPETS" | tr '[ ,]' '|'`"
+echo "keepPETS='$keepPETS'" >>"$LOGFILE"
 keepPETS="`echo "$keepPETS" | tr '_' ' '`"
+echo "keepPETS='$keepPETS'" >>"$LOGFILE"
 keepPETS="`echo "$keepPETS" | sed 's/killer-bee/killer_bee/;s/dire-wolf-sire/dire_wolf_sire/;s/dire-wolf/dire_wolf/'`"
-
+echo "keepPETS='$keepPETS'" >>"$LOGFILE"
 PETS_KEEP=`echo "$keepPETS" | sed 's/^|*//;s/|*$//'`
-echo "PETS_KEEP='$PETS_KEEP'" >>"$LOG_REPLY_FILE"
-
+echo "PETS_KEEP='$PETS_KEEP'" >>"$LOGFILE"
 
 # *** Actual script to kill unwanted pets *** #
 
 OLD_REPLY="";
 REPLY="";
 
-echo watch $DRAW_INFO
-echo "issue 1 1 showpets"
+#echo watch $DRAWINFO
+_watch
+sleep 1
+#echo "issue 1 1 showpets"
+_is 1 1 showpets
+
 
 while :; do
 
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "REPLY='$REPLY'"
+_debug "$REPLY"
+
+case $REPLY in
+#*" - level "*) # filter in case of disturbing drawinfos ie Y times killed
+*-*level*)      # filter in case of disturbing drawinfos ie Y times killed
+PETS_HAVE="$REPLY
+$PETS_HAVE"
+;;
+esac
 
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
-
-PETS_HAVE="$REPLY
-$PETS_HAVE"
-
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 
 sleep 0.1s
 done
 
-echo unwatch $DRAW_INFO
+#echo unwatch $DRAWINFO
+_unwatch
 
+echo "PETS_HAVE='$PETS_HAVE'" >>"$LOGFILE"
+echo "PETS_KEEP='$PETS_KEEP'" >>"$LOGFILE"
 PETS_KILL=`echo "$PETS_HAVE" | grep -v -E -i -e "$PETS_KEEP"`
-echo "PETS_KILL='$PETS_KILL'" >>"$LOG_REPLY_FILE"
+echo "PETS_KILL='$PETS_KILL'" >>"$LOGFILE"
 
 
 # *** example output :watch drawinfo 0 1  vampire - level 11
@@ -144,28 +129,33 @@ PETS_KILL=`sed '/^$/d'          <<<"$PETS_KILL"`
 # *** Using while read with bash buildin <<< *** #
 
 PETS_KILL=`echo "$PETS_KILL" | sort -u`
-echo "$PETS_KILL" >>"$LOG_REPLY_FILE"
+echo "$PETS_KILL" >>"$LOGFILE"
 
+_debug "$PETS_KILL"
 
 if test "$PETS_KILL"; then
 while read onePET
 do
-test "$onePET" || continue
 
-echo draw 3 "Killing $onePET .."
-echo "issue 1 1 killpets $onePET"
+[ "$onePET" ] || continue # empty onePET would kill all pets
 
+case $onePET in
+*have*no*pet*) break;; # stop if we have no pets
+esac
+
+_draw 3 "Killing $onePET .."
+#echo "issue 1 1 killpets $onePET"
+_is 1 1 killpets "$onePET"
 sleep 1s
 
 done<<EoI
 `echo "$PETS_KILL"`
 EoI
 else
-echo draw 2 "No killable pets found."
+_draw 2 "No killable pets found."
 fi
 
 
-
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
-_beep
+#echo draw 2 "$0 is finished."
+_say_end_msg

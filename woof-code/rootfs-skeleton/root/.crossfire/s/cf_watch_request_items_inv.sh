@@ -28,37 +28,41 @@ test "$MAPPOS" = "scripttell break" && break
 test "$MAPPOS" = "scripttell exit" && exit 1
 sleep 0.1s
 done
-echo "$MAPPOS" >>/tmp/cf_script.mappos
+echo "$MAPPOS" >>/tmp/cf_script.map_pos
 
 
 UNDER_ME='';
 echo request items on
-#while test "$UNDER_ME" = ""; do
+
 while [ 1 ]; do
 read UNDER_ME || break
 sleep 0.1s
-echo "$UNDER_ME" >>/tmp/cf_script.mappos
+echo "$UNDER_ME" >>/tmp/cf_script.map_pos
 test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
+test "$UNDER_ME" = "scripttell break"     && break
+test "$UNDER_ME" = "scripttell exit"      && exit 1
 done
 
 #func(){
-rm -f /tmp/cf_script.inv || exit 1
+rm -f /tmp/cf_script.items_inv || exit 1
 INVTRY='';
 #echo watch request items inv
 echo request items inv
 while [ 1 ]; do
 INVTRY=""
 read INVTRY || break
-echo "$INVTRY" >>/tmp/cf_script.inv
+echo "$INVTRY" >>/tmp/cf_script.items_inv
 #echo draw 3 "$INVTRY"
 test "$INVTRY" = "" && break
 test "$INVTRY" = "request items inv end" && break
-test "$INVTRY" = "scripttell break" && break
-test "$INVTRY" = "scripttell exit" && exit 1
-sleep 0.1s
+test "$INVTRY" = "scripttell break"      && break
+test "$INVTRY" = "scripttell exit"       && exit 1
+sleep 0.01s
 done
 #}
 
 # for one in ???
+
+
+echo draw ${g_edit_nulldigit_COLOURED:-2} "$0 is finished."
+beep -l 500 -f 700
