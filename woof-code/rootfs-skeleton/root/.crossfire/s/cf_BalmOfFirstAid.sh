@@ -95,6 +95,46 @@ echo draw 3 "If this is a Wall, try another place."
 exit $1
 }
 
+_get_player_speed(){
+# *** Getting Player's Speed *** #
+
+echo $DRAW 5 "Processing Player's speed..."
+
+SLEEP=3           # setting defaults
+DELAY_DRAWINFO=6
+
+ANSWER=
+OLD_ANSWER=
+
+echo request stat cmbt
+
+while [ 1 ]; do
+read -t 1 ANSWER
+echo "$ANSWER" >>/tmp/cf_request.log
+test "$ANSWER" || break
+test "$ANSWER" = "$OLD_ANSWER" && break
+OLD_ANSWER="$ANSWER"
+sleep 0.1
+done
+
+#PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
+PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
+PL_SPEED="0.${PL_SPEED:0:2}"
+
+echo $DRAW 7 "Player speed is $PL_SPEED"
+
+PL_SPEED="${PL_SPEED:2:2}"
+echo $DRAW 7 "Player speed is $PL_SPEED"
+
+if test $PL_SPEED -gt 35; then
+SPEED=1; DELAY_DRAWINFO=2
+elif test $PL_SPEED -gt 25; then
+SPEED=2; DELAY_DRAWINFO=4
+fi
+
+echo $DRAW 6 "Done."
+}
+
 _probe_if_on_cauldron(){
 # *** Check if standing on a cauldron *** #
 
@@ -200,71 +240,6 @@ fi
 echo $DRAW 7 "OK."
 }
 
-_probe_if_on_cauldron
-_probe_free_move
-
-# *** Monitoring function *** #
-# *** Todo ...            *** #
-f_monitor_malfunction(){
-
-while [ 1 ]; do
-read -t 1 ERRORMSGS
-
-sleep 0.1s
-done
-}
-
-# *** Actual script to alch the desired balm of first aid           *** #
-
-# *** Lets loop - hope you have the needed amount of ingredients    *** #
-# *** in the inventory of the character and unlocked !              *** #
-# *** Make sure similar items are not in the inventory --           *** #
-# *** eg. staff of summon water elemental and such ...              *** #
-# *** So do a 'drop water' and                                      *** #
-# *** drop mandrake root   before beginning to alch.                *** #
-
-# *** Then if some items are locked, unlock these and drop again.   *** #
-# *** Now get the number of desired water and mandrake root --      *** #
-# *** only one inventory line with water(s) and                     *** #
-# *** mandrake root are allowed !!                                  *** #
-
-# *** Now get the number of desired water of the wise and           *** #
-# *** same times the number of mandrake root .                      *** #
-
-# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** DIRB of the cauldron.                                         *** #
-# *** Do not open the cauldron - this script does it.               *** #
-# *** HAPPY ALCHING !!!                                             *** #
-
-
-_prepare_recall(){
-# *** Readying rod of word of recall - just in case *** #
-
-echo $DRAW 5 "Preparing for recall if monsters come forth..."
-
-RECALL=0
-OLD_REPLY="";
-REPLY="";
-
-echo request items actv
-
-while [ 1 ]; do
-read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
-test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
-
-if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-echo "issue 1 1 apply rod of word of recall"
-fi
-
-echo $DRAW 6 "Done."
-}
-
 _probe_empty_cauldron(){
 # *** Check if cauldron is empty *** #
 
@@ -312,49 +287,63 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 }
 
-_get_player_speed(){
-# *** Getting Player's Speed *** #
+_prepare_recall(){
+# *** Readying rod of word of recall - just in case *** #
 
-echo $DRAW 5 "Processing Player's speed..."
+echo $DRAW 5 "Preparing for recall if monsters come forth..."
 
-SLEEP=3           # setting defaults
-DELAY_DRAWINFO=6
+RECALL=0
+OLD_REPLY="";
+REPLY="";
 
-ANSWER=
-OLD_ANSWER=
-
-echo request stat cmbt
+echo request items actv
 
 while [ 1 ]; do
-read -t 1 ANSWER
-echo "$ANSWER" >>/tmp/cf_request.log
-test "$ANSWER" || break
-test "$ANSWER" = "$OLD_ANSWER" && break
-OLD_ANSWER="$ANSWER"
-sleep 0.1
+read -t 1 REPLY
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
 done
 
-#PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
-PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
-PL_SPEED="0.${PL_SPEED:0:2}"
-
-echo $DRAW 7 "Player speed is $PL_SPEED"
-
-PL_SPEED="${PL_SPEED:2:2}"
-echo $DRAW 7 "Player speed is $PL_SPEED"
-
-if test $PL_SPEED -gt 35; then
-SPEED=1; DELAY_DRAWINFO=2
-elif test $PL_SPEED -gt 25; then
-SPEED=2; DELAY_DRAWINFO=4
+if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
+echo "issue 1 1 apply rod of word of recall"
 fi
 
 echo $DRAW 6 "Done."
 }
 
 _get_player_speed
+_probe_if_on_cauldron
+_probe_free_move
 _probe_empty_cauldron
 _prepare_recall
+
+# *** Actual script to alch the desired balm of first aid           *** #
+
+# *** Lets loop - hope you have the needed amount of ingredients    *** #
+# *** in the inventory of the character and unlocked !              *** #
+# *** Make sure similar items are not in the inventory --           *** #
+# *** eg. staff of summon water elemental and such ...              *** #
+# *** So do a 'drop water' and                                      *** #
+# *** drop mandrake root   before beginning to alch.                *** #
+
+# *** Then if some items are locked, unlock these and drop again.   *** #
+# *** Now get the number of desired water and mandrake root --      *** #
+# *** only one inventory line with water(s) and                     *** #
+# *** mandrake root are allowed !!                                  *** #
+
+# *** Now get the number of desired water of the wise and           *** #
+# *** same times the number of mandrake root .                      *** #
+
+# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
+# *** DIRB of the cauldron.                                         *** #
+# *** Do not open the cauldron - this script does it.               *** #
+# *** HAPPY ALCHING !!!                                             *** #
+
+echo "issue 1 1 pickup 0"  # precaution
 
 # *** Now LOOPING *** #
 TIMEB=`date +%s`

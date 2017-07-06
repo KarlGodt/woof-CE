@@ -34,6 +34,15 @@ DRAW_INFO=drawextinfo # drawinfo OR drawextinfo
 GEM='';  #set empty default
 NUMBER=0 #set zero as default
 
+DIRB=west  # direction back to go
+
+case $DIRB in
+west)  DIRF=east;;
+east)  DIRF=west;;
+north) DIRF=south;;
+south) DIRF=north;;
+esac
+
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
 
@@ -113,6 +122,78 @@ echo draw 3 "'$GEM' : Not a recognized kind of gem."
 exit 1
 }
 
+# *** EXIT FUNCTIONS *** #
+f_exit(){
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+sleep 1s
+echo draw 3 "Exiting $0."
+#echo unmonitor
+#echo unwatch monitor
+#echo unwatch monitor issue
+echo unwatch
+echo unwatch $DRAW_INFO
+exit $1
+}
+
+f_emergency_exit(){
+echo "issue 1 1 apply -u rod of word of recall"
+echo "issue 1 1 apply -a rod of word of recall"
+echo "issue 1 1 fire center"
+echo draw 3 "Emergency Exit $0 !"
+echo unwatch $DRAW_INFO
+echo "issue 1 1 fire_stop"
+exit $1
+}
+
+f_exit_no_space(){
+echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
+echo draw 3 "Remove that Item and try again."
+echo draw 3 "If this is a Wall, try another place."
+exit $1
+}
+
+_get_player_speed(){
+# *** Getting Player's Speed *** #
+
+echo $DRAW 5 "Processing Player's speed..."
+
+SLEEP=3           # setting defaults
+DELAY_DRAWINFO=6
+
+ANSWER=
+OLD_ANSWER=
+
+echo request stat cmbt
+
+while [ 1 ]; do
+read -t 1 ANSWER
+echo "$ANSWER" >>/tmp/cf_request.log
+test "$ANSWER" || break
+test "$ANSWER" = "$OLD_ANSWER" && break
+OLD_ANSWER="$ANSWER"
+sleep 0.1
+done
+
+#PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
+PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
+PL_SPEED="0.${PL_SPEED:0:2}"
+
+echo $DRAW 7 "Player speed is $PL_SPEED"
+
+PL_SPEED="${PL_SPEED:2:2}"
+echo $DRAW 7 "Player speed is $PL_SPEED"
+
+if test $PL_SPEED -gt 35; then
+SPEED=1; DELAY_DRAWINFO=2
+elif test $PL_SPEED -gt 25; then
+SPEED=2; DELAY_DRAWINFO=4
+fi
+
+echo $DRAW 6 "Done."
+}
 
 _probe_if_on_cauldron(){
 # *** Check if standing on a cauldron *** #
@@ -135,7 +216,165 @@ done
  exit 1
  }
 }
+
+_probe_free_move(){
+# *** Check for 4 empty space to DIRB ***#
+
+echo $DRAW 5 "Checking for space to move..."
+
+echo request map pos
+
+while [ 1 ]; do
+read -t 1 REPLY
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
+PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
+
+if test "$PL_POS_X" -a "$PL_POS_Y"; then
+
+if test ! "${PL_POS_X//[[:digit:]]/}" -a ! "${PL_POS_Y//[[:digit:]]/}"; then
+
+for nr in `seq 1 1 4`; do
+
+case $DIRB in
+west)
+R_X=$((PL_POS_X-nr))
+R_Y=$PL_POS_Y
+;;
+east)
+R_X=$((PL_POS_X+nr))
+R_Y=$PL_POS_Y
+;;
+north)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y-nr))
+;;
+south)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y+nr))
+;;
+esac
+
+echo request map $R_X $R_Y
+
+while [ 1 ]; do
+read -t 1 REPLY
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+
+IS_WALL=`echo "$REPLY" | awk '{print $16}'`
+echo "$IS_WALL" >>"$LOG_REPLY_FILE"
+test "$IS_WALL" = 0 || f_exit_no_space 1
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+done
+
+else
+
+echo $DRAW 3 "Received Incorrect X Y parameters from server"
+exit 1
+
+fi
+
+else
+
+echo $DRAW 3 "Could not get X and Y position of player."
+exit 1
+
+fi
+
+echo $DRAW 7 "OK."
+}
+
+_probe_empty_cauldron(){
+# *** Check if cauldron is empty *** #
+
+echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
+sleep ${SLEEP}s
+
+
+echo $DRAW 5 "Checking for empty cauldron..."
+
+echo "issue 1 1 apply"
+sleep ${SLEEP}s
+
+OLD_REPLY="";
+REPLY_ALL='';
+REPLY="";
+
+echo "issue 1 1 get"
+
+echo watch $DRAW_INFO
+
+while [ 1 ]; do
+read -t 1 REPLY
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+REPLY_ALL="$REPLY
+$REPLY_ALL"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
+echo $DRAW 3 "Cauldron NOT empty !!"
+echo $DRAW 3 "Please empty the cauldron and try again."
+f_exit 1
+}
+
+echo unwatch $DRAW_INFO
+
+echo $DRAW 7 "OK ! Cauldron IS empty."
+
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+}
+
+_prepare_recall(){
+# *** Readying rod of word of recall - just in case *** #
+
+echo $DRAW 5 "Preparing for recall if monsters come forth..."
+
+RECALL=0
+OLD_REPLY="";
+REPLY="";
+
+echo request items actv
+
+while [ 1 ]; do
+read -t 1 REPLY
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
+echo "issue 1 1 apply rod of word of recall"
+fi
+
+echo $DRAW 6 "Done."
+}
+
+_get_player_speed
 _probe_if_on_cauldron
+_probe_free_move
+_probe_empty_cauldron
+_prepare_recall
 
 # *** Actual script to alch the desired water of gem                *** #
 
@@ -151,27 +390,12 @@ _probe_if_on_cauldron
 # *** three times the number of the desired gem.                    *** #
 
 # *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** west of the cauldron.                                         *** #
+# *** DIRB of the cauldron.                                         *** #
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
 
 echo "issue 1 1 pickup 0"  # precaution
-
-f_exit(){
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-sleep 1s
-echo draw 3 "Exiting $0."
-#echo unmonitor
-#echo unwatch monitor
-#echo unwatch monitor issue
-echo unwatch
-echo unwatch $DRAW_INFO
-exit $1
-}
 
 # *** Now LOOPING *** #
 TIMEB=`date +%s`
@@ -227,10 +451,10 @@ echo unwatch $DRAW_INFO
 
 sleep 1s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep 1s
 
 echo "issue 1 1 use_skill alchemy"
@@ -258,10 +482,10 @@ echo unwatch $DRAW_INFO
 
 sleep 1s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
 sleep 1s
 
 echo draw 2 "NOTHING is '$NOTHING'"
@@ -281,10 +505,10 @@ fi
 DELAY_DRAWINFO=2
 sleep ${DELAY_DRAWINFO}s
 
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep 1s
 
 TRIES_STILL=$((NUMBER-one))

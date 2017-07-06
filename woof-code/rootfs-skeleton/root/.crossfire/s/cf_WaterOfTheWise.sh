@@ -2,6 +2,15 @@
 
 TIMEA=`/bin/date +%s`
 
+DIRB=west  # direction back to go
+
+case $DIRB in
+west)  DIRF=east;;
+east)  DIRF=west;;
+north) DIRF=south;;
+south) DIRF=north;;
+esac
+
 DRAW=drawextinfo      # draw
 DRAW_INFO=drawextinfo # drawinfo OR drawextinfo
 
@@ -46,86 +55,12 @@ echo $DRAW 0x03 0x1 0x1 "Need <number> ie: script $0 3 ."
         exit 1
 }
 
-_probe_if_on_cauldron(){
-# *** Check if standing on a cauldron *** #
-
-echo $DRAW 4 1 1 "Checking if on cauldron..."
-UNDER_ME='';
-echo request items on
-
-while [ 1 ]; do
-read UNDER_ME
-sleep 0.1s
-#echo "$UNDER_ME" >>/tmp/cf_script.ion
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
-done
-
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo $DRAW 0x03 0x1 0x1 "Need to stand upon cauldron!"
-exit 1
-}
-
-echo $DRAW 0xd61417 0x01 0x01 "Done."
-}
-_probe_if_on_cauldron
-
-# *** Actual script to alch the desired water of the wise           *** #
-
-# *** Lets loop - hope you have the needed amount of ingredients    *** #
-# *** in the inventory of the character and unlocked !              *** #
-# *** Make sure similar items are not in the inventory --           *** #
-# *** eg. staff of summon water elemental and such ...              *** #
-# *** So do a 'drop water' before beginning to alch.                *** #
-
-# *** Then if some items are locked, unlock these and drop again.   *** #
-# *** Now get the number of desired water --                        *** #
-# *** only one inventory line with water(s) allowed !!              *** #
-
-# *** Now get the number of desired water of                        *** #
-# *** seven times the number of the desired water of the wise.      *** #
-
-# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** west of the cauldron.                                         *** #
-# *** Do not open the cauldron - this script does it.               *** #
-# *** HAPPY ALCHING !!!                                             *** #
-
-_prepare_recall(){
-# *** Readying rod of word of recall - just in case *** #
-
-echo $DRAW 0x04 0x1 0x1 "Preparing for recall..."
-RECALL=0
-OLD_REPLY="";
-REPLY="";
-
-echo request items actv
-
-while [ 1 ]; do
-read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
-test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
-
-if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-echo "issue 1 1 apply rod of word of recall"
-fi
-
-echo $DRAW 7 "Done."
-}
-
 # *** EXIT FUNCTIONS *** #
 f_exit(){
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep 1s
 echo $DRAW 0x3 1 1 "Exiting $0."
 #echo unmonitor
@@ -188,6 +123,110 @@ fi
 echo $DRAW 0x7 0x02 0x002 "Done."
 }
 
+_probe_if_on_cauldron(){
+# *** Check if standing on a cauldron *** #
+
+echo $DRAW 4 1 1 "Checking if on cauldron..."
+UNDER_ME='';
+echo request items on
+
+while [ 1 ]; do
+read UNDER_ME
+sleep 0.1s
+#echo "$UNDER_ME" >>/tmp/cf_script.ion
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+test "$UNDER_ME" = "request items on end" && break
+test "$UNDER_ME" = "scripttell break" && break
+test "$UNDER_ME" = "scripttell exit" && exit 1
+done
+
+test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
+echo $DRAW 0x03 0x1 0x1 "Need to stand upon cauldron!"
+exit 1
+}
+
+echo $DRAW 0xd61417 0x01 0x01 "Done."
+}
+
+_probe_free_move(){
+# *** Check for 4 empty space to DIRB ***#
+
+echo $DRAW 5 "Checking for space to move..."
+
+echo request map pos
+
+while [ 1 ]; do
+read -t 1 REPLY
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
+PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
+
+if test "$PL_POS_X" -a "$PL_POS_Y"; then
+
+if test ! "${PL_POS_X//[[:digit:]]/}" -a ! "${PL_POS_Y//[[:digit:]]/}"; then
+
+for nr in `seq 1 1 4`; do
+
+case $DIRB in
+west)
+R_X=$((PL_POS_X-nr))
+R_Y=$PL_POS_Y
+;;
+east)
+R_X=$((PL_POS_X+nr))
+R_Y=$PL_POS_Y
+;;
+north)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y-nr))
+;;
+south)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y+nr))
+;;
+esac
+
+echo request map $R_X $R_Y
+
+while [ 1 ]; do
+read -t 1 REPLY
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+
+IS_WALL=`echo "$REPLY" | awk '{print $16}'`
+echo "$IS_WALL" >>"$LOG_REPLY_FILE"
+test "$IS_WALL" = 0 || f_exit_no_space 1
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+done
+
+else
+
+echo $DRAW 3 "Received Incorrect X Y parameters from server"
+exit 1
+
+fi
+
+else
+
+echo $DRAW 3 "Could not get X and Y position of player."
+exit 1
+
+fi
+
+echo $DRAW 7 "OK."
+}
+
 _probe_empty_cauldron(){
 # *** Check if cauldron is empty *** #
 
@@ -233,17 +272,67 @@ echo $DRAW 7 1 2 "OK ! Cauldron IS empty."
 
 sleep ${SLEEP}s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
 }
 
+_prepare_recall(){
+# *** Readying rod of word of recall - just in case *** #
+
+echo $DRAW 0x04 0x1 0x1 "Preparing for recall..."
+RECALL=0
+OLD_REPLY="";
+REPLY="";
+
+echo request items actv
+
+while [ 1 ]; do
+read -t 1 REPLY
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
+echo "issue 1 1 apply rod of word of recall"
+fi
+
+echo $DRAW 7 "Done."
+}
+
 _get_player_speed
+_probe_if_on_cauldron
+_probe_free_move
 _probe_empty_cauldron
 _prepare_recall
 
+# *** Actual script to alch the desired water of the wise           *** #
+
+# *** Lets loop - hope you have the needed amount of ingredients    *** #
+# *** in the inventory of the character and unlocked !              *** #
+# *** Make sure similar items are not in the inventory --           *** #
+# *** eg. staff of summon water elemental and such ...              *** #
+# *** So do a 'drop water' before beginning to alch.                *** #
+
+# *** Then if some items are locked, unlock these and drop again.   *** #
+# *** Now get the number of desired water --                        *** #
+# *** only one inventory line with water(s) allowed !!              *** #
+
+# *** Now get the number of desired water of                        *** #
+# *** seven times the number of the desired water of the wise.      *** #
+
+# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
+# *** DIRB of the cauldron.                                         *** #
+# *** Do not open the cauldron - this script does it.               *** #
+# *** HAPPY ALCHING !!!                                             *** #
+
+echo "issue 1 1 pickup 0"  # precaution
 
 # *** Now LOOPING *** #
 TIMEB=`date +%s`
@@ -284,10 +373,10 @@ done
 echo unwatch $DRAW_INFO
 sleep ${SLEEP}s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
 
 
@@ -339,10 +428,10 @@ echo unwatch $DRAW_INFO
 
 sleep ${SLEEP}s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
 sleep ${SLEEP}s
 
 if test $NOTHING = 0; then
@@ -375,10 +464,10 @@ fi
 sleep ${DELAY_DRAWINFO}s
 #done                         # to drop all water of the wise at once ...
 
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
 
 echo request items on
