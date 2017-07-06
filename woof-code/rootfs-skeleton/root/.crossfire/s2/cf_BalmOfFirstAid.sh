@@ -120,7 +120,7 @@ echo drawinfo 5 "Checking for space to move..."
 
 echo request map pos
 
-echo watch request
+
 
 while [ 1 ]; do
 read -t 1 REPLY
@@ -131,7 +131,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch request
+
 
 
 PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
@@ -164,7 +164,7 @@ esac
 
 echo request map $R_X $R_Y
 
-echo watch request
+
 
 while [ 1 ]; do
 read -t 1 REPLY
@@ -179,7 +179,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch request
+
 
 done
 
@@ -247,7 +247,7 @@ REPLY="";
 
 echo request items actv
 
-echo watch request
+
 
 while [ 1 ]; do
 read -t 1 REPLY
@@ -263,7 +263,7 @@ if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
 echo "issue 1 1 apply rod of word of recall"
 fi
 
-echo unwatch request
+
 
 echo drawinfo 6 "Done."
 
@@ -330,7 +330,7 @@ OLD_ANSWER=
 
 echo request stat cmbt
 
-echo watch request
+
 
 while [ 1 ]; do
 read -t 1 ANSWER
@@ -341,7 +341,7 @@ OLD_ANSWER="$ANSWER"
 sleep 0.1
 done
 
-echo unwatch request
+
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
@@ -503,7 +503,7 @@ sleep 1 #2015-05-24
 
 echo request items on
 
-echo watch request
+
 
 UNDER_ME='';
 UNDER_ME_LIST='';
@@ -526,7 +526,7 @@ echo drawinfo 3 "LOOP BOTTOM: NOT ON CAULDRON!"
 f_exit 1
 }
 
-echo unwatch request
+
 
 TRIES_SILL=$((NUMBER-one))
 echo drawinfo 4 "Still $TRIES_SILL to go..."

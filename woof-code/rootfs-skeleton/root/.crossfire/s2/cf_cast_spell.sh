@@ -76,6 +76,40 @@ esac
 
 }
 
+_assign_long_options(){
+test "$*" || return 3
+
+until $# = 0; do
+ case $1 in
+ *debug) DEBUG=$((DEBUG+1));;
+ *help)  _usage;;
+ *log*)  LOGGING=$((LOGGING+1));;
+ *verb*) VERBOSE=$((VERBOSE+1));;
+
+ *) _draw 3 "Ignoring unrecognized option '$1'";;
+#*) _error "Wrong option '$1'";;
+ esac
+shift
+done
+}
+
+_assign_short_options(){
+test "$*" || return 3
+
+OPTS=`printf '%s' $* | sed -r 's/^-*//;s/(.)/\1\n/g'`
+    for oneOP in $OPTS; do
+     case $oneOP in
+      d) DEBUG=$((DEBUG+1));;
+     #f) FORCE=$((FORCE+1));;
+      h) _usage;;
+      L) LOGGING=$((LOGGING+1));;
+      v) VERBOSE=$((VERBOSE+1));;
+      *) _draw 3 "Ignoring unhandled option '$oneOP'";;
+     #*) _error "Wrong option '$oneOP'";;
+     esac
+   done
+}
+
 # ***
 _parse_parameters(){
 # *** parameters to script: "spell name" "directiontocastto" "pausing_between_casts"
@@ -91,16 +125,28 @@ PARAMS=`echo $* | rev`
 set - $PARAMS
 _debug "_parse_parameters:$*"
 local c=0
-while test $# != 0; do
-c=$((c+1))
-case $c in
-1) readonly COMMAND_PAUSE=`echo $1 | rev`;;
-2) readonly DIRECTION=`echo $1 | rev`;;
-3) readonly SPELL=`echo $@ | rev`;;
-4) :;;
-5) :;;
-6) :;;
+
+until test $# = 0; do
+
+case $1 in
+
+--)  :;;
+--*) _assign_long_options  $1;;
+-*)  _assign_short_options $1;;
+
+*)
+ c=$((c+1))
+ case $c in
+ 1) readonly COMMAND_PAUSE=`echo $1 | rev`;;
+ 2) readonly DIRECTION=`echo $1 | rev`;;
+ 3) readonly SPELL=`echo $@ | rev`;;
+ 4) :;;
+ 5) :;;
+ 6) :;;
+ esac
+;;
 esac
+
 shift
 done
 
@@ -108,43 +154,66 @@ _debug "_parse_parameters:SPELL=$SPELL DIR=$DIRECTION COMMAND_PAUSE=$COMMAND_PAU
 test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _error 1 "Missing SPELL -o DIRECTION -o COMMAND_PAUSE"
 }
 
+_draw(){
+	test "$*" || return 3
+case $1 in [0-9]|1[0-2])
+lCOLOR=$1; shift;;
+esac
+	test "$*" || return 4
+local lCOLOR=${COLOR:-$lCOLOR}
+	  lCOLOR=${lCOLOR:-1}
+
+while read -r line
+do
+	echo draw $lCOLOR "$line"
+done <<EoI
+`echo "$*"`
+EoI
+}
+
 # ***
 _log(){
 # *** echo passed parameters to logfile if LOGGING is set to anything
 
-test "$LOGGING" || return
-echo "$*" >>"$LOG_FILE"
+test "$LOGGING" || return 0
+echo "$*" >>"${LOG_FILE:-/tmp/cf_script.log}"
 }
 
 # ***
 _verbose(){
 # ***
-test "$VERBOSE" || return
-echo draw 7 "$*"
-sleep 0.5
+test "$VERBOSE" || return 0
+echo draw ${COL_VERB:-7} "$*"
+sleep 0.1
 }
 
 # ***
 _debug(){
 # *** print passed parameters to window if DEBUG is set to anything
 
-test "$DEBUG" || return
-echo draw 3 "$*"
-sleep 0.5
+test "$DEBUG" || return 0
+echo draw ${COL_DBG:-3} "$*"
+sleep 0.1
+}
+
+_is(){
+	_verbose "$*"
+  echo issue "$*"
+sleep 0.2
 }
 
 # ***
 _usage(){
 # *** print usage message to client window and exit
 
-echo draw 5 "Script to $COMMAND SPELL DIRECTION COMMAND_PAUSE ."
-echo draw 5 "Syntax:"
-echo draw 5 "script $0 <spell> <dir> <pause>"
-echo draw 5 "For example: 'script $0 firebolt east 10'"
-echo draw 5 "will issue cast firebolt"
-echo draw 5 "and will issue the $COMMAND east command with a pause of 10 seconds in between."
-echo draw 3 "WARNING:"
-echo draw 4 "Loops forever - use scriptkill command to terminate :P ."
+_draw 5 "Script to $COMMAND SPELL DIRECTION COMMAND_PAUSE ."
+_draw 2 "Syntax:"
+_draw 7 "script $0 <spell> <dir> <pause>"
+_draw 5 "For example: 'script $0 firebolt east 10'"
+_draw 5 "will issue cast firebolt"
+_draw 5 "and will issue the $COMMAND east command with a pause of 10 seconds in between."
+_draw 3 "WARNING:"
+_draw 4 "Loops forever - use scriptkill command to terminate :P ."
 exit 0
 }
 
@@ -154,7 +223,7 @@ _check_have_needed_spell_in_inventory(){
 
 _debug "_check_have_needed_spell_in_inventory:$*"
 TIMEB=`date +%s`
-echo watch request
+#echo watch request
 echo request spells
 while :;
 do
@@ -168,11 +237,11 @@ $oneSPELL"
 sleep 0.1
 done
 unset oldSPELL oneSPELL
-echo unwatch request
+#echo unwatch request
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-echo draw 4 "Elapsed $TIME s"
+_draw 4 "Elapsed $TIME s"
 SPELL_LINE=`echo "$PELLS" | grep -i "$PELL"`
 
 read r s ATTYPE LVL SP_NEEDED rest <<EoI
@@ -188,7 +257,7 @@ _check_have_needed_spell_applied(){
 # ***
 
 _debug "_check_have_needed_spell_applied:$*"
-echo watch request
+
 echo request spells
 while :;
 do
@@ -202,7 +271,7 @@ $oneSPELL"
 sleep 0.1
 done
 unset oldSPELL oneSPELL
-echo unwatch request
+
 echo "$SPELLSA" | grep -q -i "$SPELL"
 }
 
@@ -212,10 +281,10 @@ _probe_enemy(){
 _debug "_probe_enemy:$*"
 if test ! "$HAVE_APPLIED_PROBE"; then
 _debug "issue 1 1 apply rod of probe"
-   echo issue 1 1 apply rod of probe
+   _is 1 1 apply rod of probe
 fi
-echo issue 1 1 fire $DIRECTION_NUMBER
-echo issue 1 1 fire_stop
+_is 1 1 fire $DIRECTION_NUMBER
+_is 1 1 fire_stop
 HAVE_APPLIED_PROBE=1
 }
 
@@ -224,7 +293,7 @@ _apply_needed_spell(){
 # *** apply the spell that was given as parameter
 # *   does not cast - actual casting is done by 'fire'
 _debug "_apply_needed_spell:issue 1 1 cast $SPELL"
-                        echo issue 1 1 cast $SPELL
+                        _is 1 1 cast $SPELL
 }
 
 # *** unused
@@ -232,7 +301,7 @@ __watch_food(){
 # *** watch food and spellpoint level
 # *   apply FOOD if under threshold FOOD_STAT_MIN
 
-echo watch request
+
 echo request stat hp
 read -t1 statHP
  _debug "_watch_food:$statHP"
@@ -240,16 +309,16 @@ read -t1 statHP
  _debug "_watch_food:FOOD_STAT=$FOOD_STAT"
  if test "$FOOD_STAT" -lt $FOOD_STAT_MIN; then
   _debug "issue 0 0 apply $FOOD"
-     echo issue 0 0 apply $FOOD
+     _is 0 0 apply $FOOD
    sleep 1
  fi
-echo unwatch request
+
 }
 
 _rotate_range_attack(){
 _debug "_rotate_range_attack:$*"
 local REPLY_RANGE oldREPLY_RANGE
-echo watch request range
+ range
 while :;
 do
 _debug "_rotate_range_attack:request range"
@@ -261,11 +330,11 @@ read -t1 REPLY_RANGE
  test "$oldREPLY_RANGE" = "$REPLY_RANGE" && break
  test "$REPLY_RANGE" || break
  _debug "issue 1 1 rotateshoottype"
-    echo issue 1 1 rotateshoottype
+    _is 1 1 rotateshoottype
  oldREPLY_RANGE="$REPLY_RANGE"
 sleep 2.1
 done
-echo unwatch request
+
 }
 
 # ***
@@ -275,13 +344,13 @@ _do_emergency_recall(){
 # *   alternatively one could apply rod of heal, scroll of restoration
 # *   and ommit exit ( comment 'exit 5' line by setting a '#' before it)
 # *   - something like that
-_debug "issue 1 1 apply rod of word of recall"
-  echo "issue 1 1 apply rod of word of recall"
+_debug "issue 1 1 apply -u rod of word of recall"
+  echo "issue 1 1 apply -a rod of word of recall"
   echo "issue 1 1 fire 0"
   echo "issue 1 1 fire_stop"
 ## apply bed of reality
 # sleep 10
-# echo issue 1 1 apply
+# _is 1 1 apply
 exit 5
 }
 
@@ -335,7 +404,7 @@ while :;
 do
 c=$((c+1))
 _debug "issue 1 1 use_skill praying"
-   echo issue 1 1 use_skill praying
+   _is 1 1 use_skill praying
 sleep 1
 test $c = $PRAYS && break
 done
@@ -353,17 +422,17 @@ _watch_food(){
 # *   Does switch to _watch_wizard_spellpoints
 # *   TODO : implement a counter to call it every Yth time, not every time
 
-echo watch request
+
 echo request stat hp
 read -t1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
  _debug "_watch_food:FOOD_STAT=$FOOD_STAT HP=$HP SP=$SP"
  if test "$FOOD_STAT" -lt $FOOD_STAT_MIN; then
   _debug "issue 0 0 apply $FOOD"
-     echo issue 0 0 apply $FOOD
+     _is 0 0 apply $FOOD
    sleep 1
  fi
 
-echo unwatch request
+
 
  if test $HP -lt $((HP_MAX/10)); then
   _do_emergency_recall
@@ -379,7 +448,7 @@ echo unwatch request
  #elif [ "$SP" -eq $SP_MAX ]; then
  #  return 0
  #fi
-#echo unwatch request
+#
  #test "$SP" = $SP_MAX || return 3
  #test "$SP" -ge $((SP_MAX/2)) || return 3
 
@@ -391,7 +460,7 @@ return $?
 _regenerate_spell_points(){
 # ***
 
-echo draw 4 "Regenerating spell points.."
+_draw 4 "Regenerating spell points.."
 while :;
 do
 
@@ -454,8 +523,8 @@ do
 #  <must_send> tells whether or not the command must sent at all cost (1 or 0).
 #  <repeat> and <must_send> are optional parameters._apply_needed_spell
  _debug "_do_loop:issue 1 1 $COMMAND $DIRECTION_NUMBER"
-               echo issue 1 1 $COMMAND $DIRECTION_NUMBER
-               echo issue 1 1 $COMMAND_STOP
+               _is 1 1 $COMMAND $DIRECTION_NUMBER
+               _is 1 1 $COMMAND_STOP
  sleep $COMMAND_PAUSE
 
  if test "$STATS"; then
@@ -476,11 +545,11 @@ do
  TIMET=$(( (TIMET/60) +1))
 
  count=$((count+1))
- echo draw 4 "Elapsed $TIME s, now being the $count lap ($TIMET m total time) ..."
+ _draw 4 "Elapsed $TIME s, now being the $count lap ($TIMET m total time) ..."
 
 done
 _debug "_do_loop:issue 0 0 $COMMAND_STOP"
-            echo issue 0 0 $COMMAND_STOP
+            _is 0 0 $COMMAND_STOP
 }
 
 # ***
@@ -488,7 +557,7 @@ _error(){
 # ***
 
 RV=$1;shift
-echo draw 3 "$*"
+_draw 3 "$*"
 exit $RV
 }
 
@@ -513,9 +582,9 @@ _do_loop $COMMAND_PAUSE
 
 case $@ in
 *help*) _usage;;
-'') echo draw 3 "Script needs spell direction and number of $COMMAND pausing as argument.";;
+'') _draw 3 "Script needs spell direction and number of $COMMAND pausing as argument.";;
 *) _do_program "$@";;
 esac
 
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
+_draw 2 "$0 is finished."
