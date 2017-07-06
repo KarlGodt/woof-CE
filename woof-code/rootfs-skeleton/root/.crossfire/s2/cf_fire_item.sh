@@ -1,7 +1,9 @@
 #!/bin/ash
 
-DEBUG=1
-LOGGING=1
+TIMEA=`/bin/date +%s`
+
+#DEBUG=1
+#LOGGING=1
 
 TMP_DIR=/tmp/crossfire_client/${0##*/}.dir
 mkdir -p "$TMP_DIR"
@@ -15,6 +17,20 @@ COMMAND_PAUSE=3  # seconds
 COMMAND_STOP=fire_stop
 FOOD_STAT_MIN=100
 FOOD=waybread
+
+# beeping
+BEEP_DO=1
+BEEP_LENGTH=500
+BEEP_FREQ=700
+
+_beep(){
+[ "$BEEP_DO" ] || return 0
+test "$1" && { BEEP_L=$1; shift; }
+test "$1" && { BEEP_F=$1; shift; }
+BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
+BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
+beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
+}
 
 _draw(){
 	test "$*" || return 3
@@ -33,12 +49,23 @@ done <<EoI
 EoI
 }
 
+_error(){
+RV=$1;shift
+_draw 3 "$*"
+exit $RV
+}
+
 # ***
 _log(){
 # *** echo passed parameters to logfile if LOGGING is set to anything
 
 test "$LOGGING" || return 0
 echo "$*" >>"${LOG_FILE:-/tmp/cf_script.log}"
+}
+
+__log(){
+test "$LOGGING" || return
+echo "$*" >>"$LOG_FILE"
 }
 
 # ***
@@ -56,6 +83,12 @@ _debug(){
 test "$DEBUG" || return 0
 echo draw ${COL_DBG:-3} "$*"
 sleep 0.1
+}
+
+__debug(){
+test "$DEBUG" || return
+echo draw 3 "$*"
+sleep 0.5
 }
 
 _is(){
@@ -94,6 +127,11 @@ until $# = 0; do
  *log*)  LOGGING=$((LOGGING+1));;
  *verb*) VERBOSE=$((VERBOSE+1));;
 
+ gubed*)  DEBUG=$((DEBUG+1));;
+ pleh*)   _usage;;
+ *gol*)   LOGGING=$((LOGGING+1));;
+ *brev*)  VERBOSE=$((VERBOSE+1));;
+
  *) _draw 3 "Ignoring unrecognized option '$1'";;
 #*) _error "Wrong option '$1'";;
  esac
@@ -104,7 +142,7 @@ done
 _assign_short_options(){
 test "$*" || return 3
 
-OPTS=`printf '%s' $* | sed -r 's/^-*//;s/(.)/\1\n/g'`
+OPTS=`printf '%s' $* | sed -r 's/^-*//;s/-*$//;s/(.)/\1\n/g'`
     for oneOP in $OPTS; do
      case $oneOP in
       d) DEBUG=$((DEBUG+1));;
@@ -119,10 +157,14 @@ OPTS=`printf '%s' $* | sed -r 's/^-*//;s/(.)/\1\n/g'`
 }
 
 _parse_parameters(){
+
 _debug "_parse_parameters:$*"
 PARAMS=`echo $* | rev`
 set - $PARAMS
+#PARAMS="$@"
+#set - $PARAMS
 _debug "_parse_parameters:$*"
+
 local c=0
 
 until test $# = 0; do
@@ -146,31 +188,26 @@ case $1 in
 ;;
 esac
 
+_debug "_parse_parameters:$*"
 shift
+_debug "_parse_parameters:$*"
 done
 
 _debug "_parse_parameters:ITEM=$ITEM DIR=$DIRECTION NUMBER=$NUMBER"
 test "$NUMBER" -a "$DIRECTION" -a "$ITEM" || _error 1 "Missing ITEM -o DIRECTION -o NUMBER"
 }
 
-_log(){
-test "$LOGGING" || return
-echo "$*" >>"$LOG_FILE"
-}
-
-_debug(){
-test "$DEBUG" || return
-echo draw 3 "$*"
-sleep 0.5
-}
-
 _usage(){
 _draw 5 "Script to $COMMAND ITEM DIRECTION NUMBER ."
 _draw 5 "Syntax:"
-_draw 5 "script $0 <item> <dir> <number>"
+_draw 5 "script $0 <item> <dir> <number> <<option>>"
 _draw 5 "For example: 'script $0 rod of firebolt east 10'"
 _draw 5 "will apply rod of firebolt"
 _draw 5 "and will issue 10 times the $COMMAND east command."
+_draw 2 "Options:"
+_draw 5 "-d set debug"
+_draw 5 "-L log to $LOG_FILE"
+_draw 5 "-v set verbosity"
 exit 0
 }
 
@@ -295,10 +332,12 @@ read -t1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD
 _do_loop(){
 NUMBER=$1
 _debug "_do_loop:$*:NUMBER=$NUMBER"
+
+TIMEB=`date +%s`
 for one in `seq 1 1 $NUMBER`
 do
 
- TIMEB=`date +%s`
+ TIMEC=${TIMEE:-$TIMEB}
 
 #issue <repeat> <must_send> <command> - send
 # <command> to server on behalf of client.
@@ -322,12 +361,6 @@ do
 done
 _debug "_do_loop:issue 0 0 $COMMAND_STOP"
             _is 0 0 $COMMAND_STOP
-}
-
-_error(){
-RV=$1;shift
-_draw 3 "$*"
-exit $RV
 }
 
 _do_program(){
@@ -360,5 +393,32 @@ case $@ in
 *) _do_program "$@";;
 esac
 
+
 # *** Here ends program *** #
+_test_integer(){
+test "$*" || return 3
+test ! "${*//[0-9]/}"
+}
+
+_count_time(){
+
+test "$*" || return 3
+_test_integer "$*" || return 4
+
+TIMEE=`/bin/date +%s` || return 5
+
+TIMEX=$((TIMEE - $*)) || return 6
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
+_count_time $TIMEB && echo draw 7 "Looped for $TIMEM:$TIMES minutes"
+_count_time $TIMEA && echo draw 7 "Script ran $TIMEM:$TIMES minutes"
+
+
 _draw 2 "$0 is finished."
+_beep

@@ -1,7 +1,11 @@
 #!/bin/ash
 
+TIMEA=`/bin/date +%s`
+
 tmpDIR=/tmp/crossfire-client-scripts
 mkdir -p "$tmpDIR"
+
+LOG_REPLY_FILE="$tmpDIR"/cf_animate_weapon.log
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started with pid $$ $PPID"
@@ -9,28 +13,43 @@ echo draw 3 "with '$*' as arguments ."
 
 # *** Check for parameters *** #
 #[ "$*" ] && {
-if test "$*"; then
-PARAM_1="$1"
-
-# *** implementing 'help' option *** #
-case "$PARAM_1" in *help)
-
-echo draw 5 "Script to animate weapon"
-echo draw 5 "given on parameter line."
-echo draw 2 "Syntax:"
-echo draw 5 "$0 Bonecrusher"
-#echo draw 2 ":space: ( ) needs to be replaced by underscore (_)"
-#echo draw 5 "for ex. sword of gnarg to sword_of_gnarg ."
-        exit 0
-;;
-esac
-
-
+if test "$*"; then :
 else
 echo draw 3 "Script needs weapon to mark as argument."
         exit 1
 
 fi
+
+until [ $# = 0 ]; do
+PARAM_1="$1"
+
+# *** implementing 'help' option *** #
+case "$PARAM_1" in -h|*help|*usage)
+
+echo draw 5 "Script to animate weapon"
+echo draw 5 "given on parameter line."
+echo draw 2 "Syntax:"
+echo draw 7 "$0 Bonecrusher"
+#echo draw 2 ":space: ( ) needs to be replaced by underscore (_)"
+#echo draw 5 "for ex. sword of gnarg to sword_of_gnarg ."
+echo draw 5 "-d set debug"
+echo draw 5 "-L log to $LOG_REPLY_FILE"
+echo draw 5 "-v set verbosity"
+        exit 0
+;;
+
+#-f|*force)     FORCE=$((FORCE+1));;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*log*)    LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
+
+-*) echo draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
+
+*) break;;
+esac
+
+shift
+done
 
 test "$1" || {
 echo draw 3 "Need <weapon> ie: script $0 club +3 ."
@@ -40,7 +59,6 @@ echo draw 3 "Need <weapon> ie: script $0 club +3 ."
 WEAPONS_TO_MARK=`echo "$*" | tr '[;,:.| ]' '|' | tr '_' ' '`
 
 
-echo watch request
 echo request items inv
 
 rm -f "$tmpDIR"/cf_inv.inv
@@ -68,14 +86,14 @@ case $number in
 [1-9]*)
           echo "$number $rest" >>"$tmpDIR"/cf_inv.new;;
 
-two)      echo "2 $rest" >>"$tmpDIR"/cf_inv.new;;
-three)    echo "3 $rest" >>"$tmpDIR"/cf_inv.new;;
-four)     echo "4 $rest" >>"$tmpDIR"/cf_inv.new;;
-five)     echo "5 $rest" >>"$tmpDIR"/cf_inv.new;;
-six)      echo "6 $rest" >>"$tmpDIR"/cf_inv.new;;
-seven)    echo "7 $rest" >>"$tmpDIR"/cf_inv.new;;
-eight)    echo "8 $rest" >>"$tmpDIR"/cf_inv.new;;
-nine)     echo "9 $rest" >>"$tmpDIR"/cf_inv.new;;
+two)      echo "2 $rest"  >>"$tmpDIR"/cf_inv.new;;
+three)    echo "3 $rest"  >>"$tmpDIR"/cf_inv.new;;
+four)     echo "4 $rest"  >>"$tmpDIR"/cf_inv.new;;
+five)     echo "5 $rest"  >>"$tmpDIR"/cf_inv.new;;
+six)      echo "6 $rest"  >>"$tmpDIR"/cf_inv.new;;
+seven)    echo "7 $rest"  >>"$tmpDIR"/cf_inv.new;;
+eight)    echo "8 $rest"  >>"$tmpDIR"/cf_inv.new;;
+nine)     echo "9 $rest"  >>"$tmpDIR"/cf_inv.new;;
 ten)      echo "10 $rest" >>"$tmpDIR"/cf_inv.new;;
 eleven)   echo "11 $rest" >>"$tmpDIR"/cf_inv.new;;
 twelve)   echo "12 $rest" >>"$tmpDIR"/cf_inv.new;;
@@ -118,6 +136,8 @@ done
 
 }
 
+TIMEB=`/bin/date +%s`
+
 while read -r aWEAPON
 do
 echo "draw 3 DBG:aWEAPON=$aWEAPON"
@@ -142,7 +162,7 @@ echo draw 3 "DBG:WEAPON="$WEAPON
     do
     #unset REQUEST_ANSWER
     #echo watch request range
-    echo watch request
+    #echo watch request
     echo watch scripttell
     sleep 1
     echo request range
@@ -158,7 +178,7 @@ echo draw 3 "DBG:WEAPON="$WEAPON
    done
 
    sleep 1
-   echo unwatch request range
+   #echo unwatch request range
    echo unwatch scripttell
    sleep 1
   done
@@ -181,5 +201,32 @@ echo draw 6 "aWEAPON=$aWEAPON"
 echo draw 5 "WEAPON="$WEAPON
 echo draw 4 "w=$w"
 echo issue 1 1 fire_stop
+
 # *** Here ends program *** #
+
+_test_integer(){
+test "$*" || return 3
+test ! "${*//[0-9]/}"
+}
+
+_count_time(){
+
+test "$*" || return 3
+_test_integer "$*" || return 4
+
+TIMEE=`/bin/date +%s` || return 5
+
+TIMEX=$((TIMEE - $*)) || return 6
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
+_count_time $TIMEB && echo draw 7 "Looped for $TIMEM:$TIMES minutes"
+_count_time $TIMEA && echo draw 7 "Script ran $TIMEM:$TIMES minutes"
+
 echo draw 2 "$0 is finished."
+beep -f 700 -l 1000

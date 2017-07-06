@@ -1,7 +1,9 @@
 #!/bin/ash
 
-DEBUG=1
-LOGGING=1
+TIMEA=`/bin/date +%s`
+
+#DEBUG=1
+#LOGGING=1
 
 TMP_DIR=/tmp/crossfire_client/${0##*/}.dir
 mkdir -p "$TMP_DIR"
@@ -15,6 +17,31 @@ COMMAND_PAUSE=0  # seconds for recharge # special item "bow" : 0 seconds
 COMMAND_STOP=fire_stop
 FOOD_STAT_MIN=495
 FOOD=waybread
+
+_usage(){
+echo draw 5 "Script to $COMMAND ITEM DIRECTION NUMBER ."
+echo draw 2 "Syntax:"
+echo draw 7 "script $0 <item> <dir> <number> <<option>>"
+echo draw 5 "For example: 'script $0 rod of firebolt east 10'"
+echo draw 5 "will apply rod of firebolt"
+echo draw 5 "and will issue 10 times the $COMMAND east command."
+echo draw 2 "Options:"
+echo draw 5 "-d set debug"
+echo draw 5 "-L log to $LOG_FILE"
+echo draw 5 "-v set verbosity"
+exit 0
+}
+
+_log(){
+test "$LOGGING" || return
+echo "$*" >>"$LOG_FILE"
+}
+
+_debug(){
+test "$DEBUG" || return
+echo draw 3 "$*"
+sleep 0.5
+}
 
 # *** Here begins program *** #
 echo draw 2 "$0 started <$*> with pid $$ $PPID"
@@ -37,52 +64,59 @@ esac
 }
 
 _parse_parameters(){
+
 _debug "_parse_parameters:$*"
 PARAMS=`echo $* | rev`
 set - $PARAMS
+#PARAMS="$@"
+#set - $PARAMS
 _debug "_parse_parameters:$*"
+
 local c=0
-while test $# != 0; do
-c=$((c+1))
-case $c in
-1) NUMBER=`echo $1 | rev`;;    #ITEM=`echo $@ | rev`;;
-2) DIRECTION=`echo $1 | rev`;;
-3) ITEM=`echo $@ | rev`;;      #NUMBER=`echo $1 | rev`;;
-4) :;;
-5) :;;
-6) :;;
+
+until test $# = 0; do
+
+case $1 in
+
+--)  :;;
+
+#-f|*force)     FORCE=$((FORCE+1));;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*log*)    LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
+
+gubed*|d-)      DEBUG=$((DEBUG+1));;
+*gol*|L-)     LOGGING=$((LOGGING+1));;
+esobrev*|v-)  VERBOSE=$((VERBOSE+1));;
+
+-*) echo draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
+
+*)
+ c=$((c+1))
+ case $c in
+ 1) NUMBER=`echo $1 | rev`;;    #ITEM=`echo $@ | rev`;;
+ 2) DIRECTION=`echo $1 | rev`;;
+ 3) ITEM=`echo $@ | rev`;;      #NUMBER=`echo $1 | rev`;;
+ 4) :;;
+ 5) :;;
+ 6) :;;
+ esac
+;;
 esac
+
+_debug "_parse_parameters:$*"
 shift
+_debug "_parse_parameters:$*"
 done
+
 _debug "_parse_parameters:ITEM=$ITEM DIR=$DIRECTION NUMBER=$NUMBER"
 test "$NUMBER" -a "$DIRECTION" -a "$ITEM" || _error 1 "Missing ITEM -o DIRECTION -o NUMBER"
-}
-
-_log(){
-test "$LOGGING" || return
-echo "$*" >>"$LOG_FILE"
-}
-
-_debug(){
-test "$DEBUG" || return
-echo draw 3 "$*"
-sleep 0.5
-}
-
-_usage(){
-echo draw 5 "Script to $COMMAND ITEM DIRECTION NUMBER ."
-echo draw 5 "Syntax:"
-echo draw 5 "script $0 <item> <dir> <number>"
-echo draw 5 "For example: 'script $0 rod of firebolt east 10'"
-echo draw 5 "will apply rod of firebolt"
-echo draw 5 "and will issue 10 times the $COMMAND east command."
-exit 0
 }
 
 _check_have_needed_item_in_inventory(){
 _debug "_check_have_needed_item_in_inventory:$*"
 TIMEB=`date +%s`
-echo watch request
+
 echo request items inv
 while :;
 do
@@ -96,7 +130,7 @@ $oneITEM"
 sleep 0.1
 done
 unset oldITEM oneITEM
-echo unwatch request
+
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
@@ -107,7 +141,7 @@ echo "$ITEMS" | grep -q -i "$ITEM"
 
 _check_have_needed_item_applied(){
 _debug "_check_have_needed_item_applied:$*"
-echo watch request
+
 echo request items actv
 while :;
 do
@@ -120,19 +154,20 @@ $oneITEM"
 sleep 0.1
 done
 unset oldITEM oneITEM
-echo unwatch request
+
 echo "$ITEMSA" | grep -q -i "$ITEM"
 }
 
 _apply_needed_item(){
 _debug "_apply_needed_item:issue 0 0 apply $ITEM"
-                        echo issue 0 0 apply $ITEM
+                        echo issue 0 0 apply -u $ITEM
+                        echo issue 0 0 apply -a $ITEM
 }
 
 _rotate_range_attack(){
 _debug "_rotate_range_attack:$*"
 local REPLY_RANGE oldREPLY_RANGE
-echo watch request range
+
 while :;
 do
 _debug "_rotate_range_attack:request range"
@@ -148,11 +183,11 @@ read -t1 REPLY_RANGE
  oldREPLY_RANGE="$REPLY_RANGE"
 sleep 2.1
 done
-echo unwatch request
+
 }
 
 _watch_food(){
-echo watch request
+
 echo request stat hp
 read -t1 statHP
  _debug "_watch_food:$statHP"
@@ -163,16 +198,18 @@ read -t1 statHP
      echo issue 0 0 apply $FOOD
    sleep 1
  fi
-echo unwatch request
+
 }
 
 _do_loop(){
 NUMBER=$1
 _debug "_do_loop:$*:NUMBER=$NUMBER"
+
+TIMEB=`date +%s`
 for one in `seq 1 1 $NUMBER`
 do
 
- TIMEB=`date +%s`
+ TIMEC=${TIMEE:-$TIMEB}
 
 #issue <repeat> <must_send> <command> - send
 # <command> to server on behalf of client.
@@ -188,7 +225,7 @@ do
 
  TRIES_STILL=$((NUMBER-one))
  TIMEE=`date +%s`
- TIME=$((TIMEE-TIMEB))
+ TIME=$((TIMEE-TIMEC))
  echo draw 4 "Elapsed $TIME s, still '$TRIES_STILL' to go..."
 
 done
@@ -233,4 +270,30 @@ case $@ in
 esac
 
 # *** Here ends program *** #
+
+_test_integer(){
+test "$*" || return 3
+test ! "${*//[0-9]/}"
+}
+
+_count_time(){
+
+test "$*" || return 3
+_test_integer "$*" || return 4
+
+TIMEE=`/bin/date +%s` || return 5
+
+TIMEX=$((TIMEE - $*)) || return 6
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
+_count_time $TIMEB && echo draw 7 "Looped for $TIMEM:$TIMES minutes"
+_count_time $TIMEA && echo draw 7 "Script ran $TIMEM:$TIMES minutes"
+
 echo draw 2 "$0 is finished."
+beep -f 700 -l 1000

@@ -1,7 +1,15 @@
 #!/bin/bash
 
+TIMEA=`/bin/date +%s`
+
+DRAW=drawextinfo      # draw
+DRAW_INFO=drawextinfo # drawinfo OR drawextinfo
+
+LOG_REPLY_FILE=/tmp/cf_script.rpl
+rm -f "$LOG_REPLY_FILE" # empty reply old log file
+
 # *** Here begins program *** #
-echo drawextinfo 2 1 1 "$0 is started - pid $$ ppid $PPID"
+echo $DRAW 2 1 1 "$0 is started - pid $$ ppid $PPID"
 
 # *** Check for parameters *** #
 [ "$*" ] && {
@@ -10,37 +18,38 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 test "$PARAM_1" = "help" && {
 
-echo drawextinfo 5 10 10 "Script to produce water of the wise."
-echo drawextinfo 7 10 10 "Syntax:"
-echo drawextinfo 7 10 10 "$0 NUMBER"
-echo drawextinfo 5 10 10 "Allowed NUMBER will loop for"
-echo drawextinfo 5 10 10 "NUMBER times to produce NUMBER of"
-echo drawextinfo 5 10 10 "Water of the Wise ."
+echo $DRAW 5 10 10 "Script to produce water of the wise."
+echo $DRAW 7 10 10 "Syntax:"
+echo $DRAW 7 10 10 "$0 NUMBER"
+echo $DRAW 5 10 10 "Allowed NUMBER will loop for"
+echo $DRAW 5 10 10 "NUMBER times to produce NUMBER of"
+echo $DRAW 5 10 10 "Water of the Wise ."
 
         exit 0
         }
 
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
-echo drawextinfo 0x3 "Only :digit: numbers as option allowed."
+echo $DRAW 0x3 "Only :digit: numbers as option allowed."
         exit 1 #exit if other input than numbers
         }
 
 NUMBER=$PARAM_1
 
 } || {
-echo drawextinfo 0x003 0x001 0x001 "Script needs number of alchemy attempts as argument."
+echo $DRAW 0x003 0x001 0x001 "Script needs number of alchemy attempts as argument."
         exit 1
 }
 
 test "$1" || {
-echo drawextinfo 0x03 0x1 0x1 "Need <number> ie: script $0 3 ."
+echo $DRAW 0x03 0x1 0x1 "Need <number> ie: script $0 3 ."
         exit 1
 }
 
+_probe_if_on_cauldron(){
 # *** Check if standing on a cauldron *** #
 
-echo drawextinfo 4 1 1 "Checking if on cauldron..."
+echo $DRAW 4 1 1 "Checking if on cauldron..."
 UNDER_ME='';
 echo request items on
 
@@ -56,14 +65,15 @@ test "$UNDER_ME" = "scripttell exit" && exit 1
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo drawextinfo 0x03 0x1 0x1 "Need to stand upon cauldron!"
+echo $DRAW 0x03 0x1 0x1 "Need to stand upon cauldron!"
 exit 1
 }
 
-echo drawextinfo 0xd61417 0x01 0x01 "Done."
+echo $DRAW 0xd61417 0x01 0x01 "Done."
+}
+_probe_if_on_cauldron
 
 # *** Actual script to alch the desired water of the wise           *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -83,12 +93,10 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
-rm -f /tmp/cf_script.rpl # empty reply old log file
-
-
+_prepare_recall(){
 # *** Readying rod of word of recall - just in case *** #
 
-echo drawextinfo 0x04 0x1 0x1 "Preparing for recall..."
+echo $DRAW 0x04 0x1 0x1 "Preparing for recall..."
 RECALL=0
 OLD_REPLY="";
 REPLY="";
@@ -97,7 +105,7 @@ echo request items actv
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -109,7 +117,8 @@ if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
 echo "issue 1 1 apply rod of word of recall"
 fi
 
-echo drawextinfo 7 "Done."
+echo $DRAW 7 "Done."
+}
 
 # *** EXIT FUNCTIONS *** #
 f_exit(){
@@ -118,28 +127,29 @@ echo "issue 1 1 west"
 echo "issue 1 1 east"
 echo "issue 1 1 east"
 sleep 1s
-echo drawextinfo 0x3 1 1 "Exiting $0."
+echo $DRAW 0x3 1 1 "Exiting $0."
 #echo unmonitor
 #echo unwatch monitor
 #echo unwatch monitor issue
 echo unwatch
-echo unwatch drawextinfo
+echo unwatch $DRAW_INFO
 exit $1
 }
 
 f_emergency_exit(){
-echo "issue 1 1 apply rod of word of recall"
+echo "issue 1 1 apply -u rod of word of recall"
+echo "issue 1 1 apply -a rod of word of recall"
 echo "issue 1 1 fire center"
-echo drawextinfo 3 1 1 "Emergency Exit $0 !"
-echo unwatch drawextinfo
+echo $DRAW 3 1 1 "Emergency Exit $0 !"
+echo unwatch $DRAW_INFO
 echo "issue 1 1 fire_stop"
 exit $1
 }
 
-
+_get_player_speed(){
 # *** Getting Player's Speed *** #
 
-echo drawextinfo 0xd61414 1 1 "Processing Player's Speed..."
+echo $DRAW 0xd61414 1 1 "Processing Player's Speed..."
 
 SLEEP=4           # setting defaults
 DELAY_DRAWINFO=8
@@ -158,16 +168,14 @@ OLD_ANSWER="$ANSWER"
 sleep 0.1
 done
 
-echo unwatch request
-
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
 PL_SPEED="0.${PL_SPEED:0:2}"
 
-echo drawextinfo 7 "" "" "Player speed is $PL_SPEED"
+echo $DRAW 7 "" "" "Player speed is $PL_SPEED"
 
 PL_SPEED="${PL_SPEED:2:2}"
-echo drawextinfo 0x07 0x01 0x01 "Player speed is $PL_SPEED"
+echo $DRAW 0x07 0x01 0x01 "Player speed is $PL_SPEED"
 
   if test $PL_SPEED -gt 35; then
 SLEEP=1; DELAY_DRAWINFO=2
@@ -177,12 +185,13 @@ elif test $PL_SPEED -gt 15; then
 SLEEP=3; DELAY_DRAWINFO=6
 fi
 
-echo drawextinfo 0x7 0x02 0x002 "Done."
+echo $DRAW 0x7 0x02 0x002 "Done."
+}
 
-
+_probe_empty_cauldron(){
 # *** Check if cauldron is empty *** #
 
-echo drawextinfo 0x4 0x3 0x3 "Checking if cauldron is empty..."
+echo $DRAW 0x4 0x3 0x3 "Checking if cauldron is empty..."
 
 echo "issue 1 1 pickup 0"  # precaution otherwise might pick up cauldron
 sleep ${SLEEP}s
@@ -190,7 +199,7 @@ sleep ${SLEEP}s
 echo "issue 1 1 apply"
 sleep 0.5s
 
-echo watch drawextinfo
+echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY_ALL='';
@@ -201,7 +210,7 @@ echo "issue 1 1 get"
 while [ 1 ]; do
 #echo "issue 1 1 get"
 read -t 5 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 REPLY_ALL="$REPLY
 $REPLY_ALL"
 test "$REPLY" || break
@@ -210,17 +219,17 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo drawextinfo 3  "REPLY_ALL='"${REPLY_ALL}"'"
+echo $DRAW 3  "REPLY_ALL='"${REPLY_ALL}"'"
 
 test "`echo "$REPLY_ALL" | grep 'Nothing to take!'`" || {
-echo drawextinfo 0x3 "" "Cauldron NOT empty !!"
-echo drawextinfo 0x3 " " "Please empty the cauldron and try again."
+echo $DRAW 0x3 "" "Cauldron NOT empty !!"
+echo $DRAW 0x3 " " "Please empty the cauldron and try again."
 f_exit 1
 }
 
-echo unwatch drawextinfo
+echo unwatch $DRAW_INFO
 
-echo drawextinfo 7 1 2 "OK ! Cauldron IS empty."
+echo $DRAW 7 1 2 "OK ! Cauldron IS empty."
 
 sleep ${SLEEP}s
 
@@ -229,16 +238,24 @@ echo "issue 1 1 west"
 echo "issue 1 1 east"
 echo "issue 1 1 east"
 sleep ${SLEEP}s
+}
 
+_get_player_speed
+_probe_empty_cauldron
+_prepare_recall
 
-echo drawextinfo 4 2 3 "OK... Might the Might be with You!"
 
 # *** Now LOOPING *** #
+TIMEB=`date +%s`
+
+echo $DRAW 4 2 3 "OK... Might the Might be with You!"
+
+test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 
 for one in `seq 1 1 $NUMBER`
 do
 
-TIMEB=`date +%s`
+TIMEC=${TIMEE:-$TIMEB}
 
 OLD_REPLY="";
 REPLY="";
@@ -246,14 +263,14 @@ REPLY="";
 echo "issue 1 1 apply"
 sleep 0.5s
 
-echo watch drawextinfo
+echo watch $DRAW_INFO
 
 echo "issue 1 1 drop 7 water"
 
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
 test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
@@ -264,7 +281,7 @@ sleep 0.1s
 done
 
 
-echo unwatch drawextinfo
+echo unwatch $DRAW_INFO
 sleep ${SLEEP}s
 
 echo "issue 1 1 west"
@@ -275,7 +292,7 @@ sleep ${SLEEP}s
 
 
 
-echo watch drawextinfo
+echo watch $DRAW_INFO
 
 echo "issue 1 1 use_skill alchemy"
 
@@ -285,7 +302,7 @@ NOTHING=0
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_exit 1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -293,14 +310,14 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawextinfo
+echo unwatch $DRAW_INFO
 
 
 
 echo "issue 1 1 apply"
 sleep 0.5s
 
-echo watch drawextinfo
+echo watch $DRAW_INFO
 
 echo "issue 7 1 get"
 
@@ -310,7 +327,7 @@ NOTHING=0
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -318,7 +335,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawextinfo
+echo unwatch $DRAW_INFO
 
 sleep ${SLEEP}s
 
@@ -383,17 +400,42 @@ sleep 0.1s
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo drawextinfo 0x3 "LOOP BOTTOM: NOT ON CAULDRON!"
+echo $DRAW 0x3 "LOOP BOTTOM: NOT ON CAULDRON!"
 f_exit 1
 }
 
 
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
-TIME=$((TIMEE-TIMEB))
-echo drawextinfo 0x4 " " " " "Elapsed $TIME s, still $TRIES_STILL to go..."
+TIME=$((TIMEE-TIMEC))
+echo $DRAW 0x4 " " " " "Elapsed $TIME s, still $TRIES_STILL to go..."
 
-done
+done  # *** MAINLOOP *** #
 
 # *** Here ends program *** #
-echo drawextinfo 2 1 1 "$0 is finished."
+_test_integer(){
+test "$*" || return 3
+test ! "${*//[0-9]/}"
+}
+
+_count_time(){
+
+test "$*" || return 3
+_test_integer "$*" || return 4
+
+TIMEE=`/bin/date +%s` || return 5
+
+TIMEX=$((TIMEE - $*)) || return 6
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
+_count_time $TIMEB && echo draw 7 "Looped for $TIMEM:$TIMES minutes"
+_count_time $TIMEA && echo draw 7 "Script ran $TIMEM:$TIMES minutes"
+
+echo $DRAW 2 1 1 "$0 is finished."
+beep -f 700 -l 1000
