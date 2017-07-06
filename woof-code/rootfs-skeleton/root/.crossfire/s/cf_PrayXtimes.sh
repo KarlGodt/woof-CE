@@ -26,7 +26,7 @@
 #define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
 #                                 *   errors. Overrides NDI_ALL. */
 
-
+TIMEA=`/bin/date +%s`
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started with pid $$ $PPID"
@@ -92,6 +92,8 @@ echo draw 11 "Sleeping $USLEEP usleep micro-seconds between praying"
 # *** Actual script to pray multiple times *** #
 test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 
+TIMEB=`/bin/date +%s`
+
 for one in `seq 1 1 $NUMBER`
 do
 
@@ -101,4 +103,22 @@ usleep $USLEEP
 done
 
 # *** Here ends program *** #
+_count_time(){
+
+test "$*" || return 3
+
+TIMEE=`/bin/date +%s` || return 4
+
+TIMEX=$((TIMEE - $*)) || return 5
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
+_count_time $TIMEB && echo draw 7 "Looped for $TIMEM:$TIMES minutes" || echo draw 3 "FIXME:Returned error code $?"
+_count_time $TIMEA && echo draw 7 "Script ran $TIMEM:$TIMES minutes" || echo draw 3 "FIXME:Returned error code $?"
+
 echo draw 2 "$0 is finished."

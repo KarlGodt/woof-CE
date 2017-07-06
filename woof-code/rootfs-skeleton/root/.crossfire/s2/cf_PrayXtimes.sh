@@ -26,7 +26,7 @@
 #define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
 #                                 *   errors. Overrides NDI_ALL. */
 
-
+TIMEA=`/bin/date +%s`
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started with pid $$ $PPID"
@@ -36,7 +36,7 @@ echo draw 2 "$0 is started with pid $$ $PPID"
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*help|*usage)
 
 echo draw 5 "Script to pray given number times."
 echo draw 5 "Syntax:"
@@ -45,7 +45,8 @@ echo draw 5 "For example: 'script $0 50'"
 echo draw 5 "will issue 50 times the use_skill praying command."
 
         exit 0
-        }
+;;
+esac
 
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
@@ -67,13 +68,17 @@ echo draw 3 "Need <number> ie: script $0 50 ."
 }
 
 
+_get_player_speed(){
+
+echo draw 5 "Getting player speed ..."
+
 echo request stat cmbt
 #read REQ_CMBT
 #snprintf(buf, sizeof(buf), "request stat cmbt %d %d %d %d %d\n", cpl.stats.wc, cpl.stats.ac, cpl.stats.dam, cpl.stats.speed, cpl.stats.weapon_sp);
 read Req Stat Cmbt WC AC DAM SPEED W_SPEED
 echo draw 11 "$WC:$AC:$DAM:$SPEED:$W_SPEED"
 case $SPEED in
-1[0-9][0-9][0-9][0-9]) USLEEP=1500000;;
+1[0-9][0-9][0-9][0-9]) USLEEP=1500000;; # five
 2[0-9][0-9][0-9][0-9]) USLEEP=1400000;;
 3[0-9][0-9][0-9][0-9]) USLEEP=1300000;;
 4[0-9][0-9][0-9][0-9]) USLEEP=1200000;;
@@ -82,15 +87,21 @@ case $SPEED in
 7[0-9][0-9][0-9][0-9]) USLEEP=900000;;
 8[0-9][0-9][0-9][0-9]) USLEEP=800000;;
 9[0-9][0-9][0-9][0-9]) USLEEP=700000;;
-*) USLEEP=600000;;
+[1-9][0-9][0-9][0-9][0-9][0-9]) USLEEP=600000;; #six
+*) USLEEP=2000000;; # four
 esac
 echo draw 10 "$USLEEP:$SPEED"
 
 USLEEP=$((USLEEP-SPEED))
 echo draw 11 "Sleeping $USLEEP usleep micro-seconds between praying"
+}
+
+_get_player_speed
 
 # *** Actual script to pray multiple times *** #
 test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+
+TIMEB=`/bin/date +%s`
 
 for one in `seq 1 1 $NUMBER`
 do
@@ -101,4 +112,23 @@ usleep $USLEEP
 done
 
 # *** Here ends program *** #
+
+_count_time(){
+
+test "$*" || return 3
+
+TIMEE=`/bin/date +%s` || return 4
+
+TIMEX=$((TIMEE - $*)) || return 5
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
+_count_time $TIMEB && echo draw 7 "Looped for $TIMEM:$TIMES minutes" || echo draw 3 "FIXME:Returned error code $?"
+_count_time $TIMEA && echo draw 7 "Script ran $TIMEM:$TIMES minutes" || echo draw 3 "FIXME:Returned error code $?"
+
 echo draw 2 "$0 is finished."

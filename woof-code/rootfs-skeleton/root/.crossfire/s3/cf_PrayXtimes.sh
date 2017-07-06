@@ -38,20 +38,25 @@ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 
 _usage(){
 _draw 5 "Script to pray given number times."
-_draw 5 "Syntax:"
-_draw 5 "script $0 <number>"
+_draw 8 "Syntax:"
+_draw 7 "script $0 <number>"
 _draw 5 "For example: 'script $0 50'"
 _draw 5 "will issue 50 times the use_skill praying command."
-_draw 5 "Options:"
+_draw 6 "Without number given as option, loops forever."
+_draw 4 "Use 'scriptkill to abort."
+_draw 2 "Options:"
 _draw 4 "-F  on fast network connection."
 _draw 4 "-S  on slow 2G network connection."
 _draw 5 "-d  to turn on debugging."
-_draw 5 "-f  do not check msgs received from server."
+_draw 6 "-f  do not check msgs received from server."
 _draw 5 "-L  to log to $REPLY_LOG ."
 _draw 5 "-v to say what is being issued to server."
+_draw 6 "-X  do not check for praying skill."
+
         exit 0
 }
 
+CHECK_DO=1
 # *** Here begins program *** #
 _say_start_msg "$@"
 
@@ -62,13 +67,45 @@ PARAM_1="$1"
 
 # *** implementing 'help' option *** #
 case "$PARAM_1" in
--h|*"help"*) _usage;;
+-h|*help) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -F|*fast)   SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -f|*force)     FORCE=$((FORCE+1));;
 -L|*log*)    LOGGING=$((LOGGING+1));;
 -S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
+-X|*nocheck*) unset CHECK_DO;;
+
+--*) case $PARAM_1 in
+ -h|*help) _usage;;
+ -d|*debug)     DEBUG=$((DEBUG+1));;
+ -F|*fast)   SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+ -f|*force)     FORCE=$((FORCE+1));;
+ -L|*log*)    LOGGING=$((LOGGING+1));;
+ -S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+ -v|*verbose) VERBOSE=$((VERBOSE+1));;
+ -X|*nocheck*) unset CHECK_DO;;
+ *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
+ esac
+;;
+
+-*)
+ OPTS=`printf '%s' $PARAM_1 | sed -r 's/^-*//;s/(.)/\1\n/g'`
+    for oneOP in $OPTS; do
+     case $oneOP in
+     h) _usage;;
+     d)     DEBUG=$((DEBUG+1));;
+     F)   SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+     f)     FORCE=$((FORCE+1));;
+     L)    LOGGING=$((LOGGING+1));;
+     S)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+     v) VERBOSE=$((VERBOSE+1));;
+     X) unset CHECK_DO;;
+     *) _draw 3 "Ignoring unhandled option '$oneOP'";;
+     esac
+    done
+;;
+
 [0-9]*)
 # *** testing parameters for validity *** #
 #PARAM_1test="${PARAM_1//[[:digit:]]/}" # does not work for ash @ BusyBox v1.21.0 (2014-01-06 20:37:23 EST) multi-call binary.
@@ -86,26 +123,28 @@ sleep 0.1
 done
 
 
-test "$NUMBER" || {
-_draw 3 "Script needs number of praying attempts as argument."
-        exit 1
-}
+#test "$NUMBER" || {
+#_draw 3 "Script needs number of praying attempts as argument."
+#        exit 1
+#}
 
 
 _check_skill_praying(){
-local YES
+[ "$CHECK_DO" ] || return 0
+_draw 5 "Checking if having praying skill..."
+local lYES
 echo request skills
 while :; do sleep 0.1
 unset REPLY
-read -t 1 <&0   # <&1 works, <&0 works, in ash
+read -t 2 <&0   # <&1 works, <&0 works, in ash
 _debug "$REPLY"
 _log "_check_skill_praying:$REPLY"
-case $REPLY in *' praying') YES=0;;
+case $REPLY in *' praying') lYES=0;;
 'request skills end') break;;
 '') break;;
 esac
 done
-return ${YES:-1}
+return ${lYES:-1}
 }
 
 __flush(){
@@ -113,7 +152,10 @@ timeout -t 1 cat 1>/dev/null <&0 2>/dev/null
 }
 
 __check_skill_praying(){
-local SKILLS
+[ "$CHECK_DO" ] || return 0
+_draw 5 "Checking if having praying skill..."
+
+local lSKILLS
 
 #rm -f /tmp/stdin.txt
 
@@ -124,20 +166,17 @@ sleep 1
 #cat >/tmp/stdin.txt </dev/stdin
 
 # these work:
-#timeout -t 1 cat >/tmp/stdin.txt <&0 2>/dev/null  # timeout sends Terminated to &2
+#timeout -t 2 cat >/tmp/stdin.txt <&0 2>/dev/null  # timeout sends Terminated to &2
 #grep -q ' praying$' /tmp/stdin.txt
 
 SKILLS=`timeout -t 1 cat >&1 <&0 2>/dev/null`
-_log "$SKILLS"  # debug
-echo "$SKILLS" | grep -q ' praying$'
-}
-
-_check_skill_praying || {
-        echo draw 3 "You do not have the abillity to pray."
-        exit 1
+_log "$lSKILLS"  # debug
+echo "$lSKILLS" | grep -q ' praying$'
 }
 
 _get_player_speed(){
+
+_draw 5 "Getting player speed ..."
 
 local Req Stat Cmbt WC AC DAM SPEED W_SPEED
 
@@ -157,41 +196,24 @@ case $SPEED in
 7[0-9][0-9][0-9][0-9]) USLEEP=900000;;
 8[0-9][0-9][0-9][0-9]) USLEEP=800000;;
 9[0-9][0-9][0-9][0-9]) USLEEP=700000;;
-*) USLEEP=600000;;
+*) USLEEP=2000000;; # four
 esac
 _debug "USLEEP=$USLEEP:SPEED=$SPEED"
 
 USLEEP=$(( USLEEP - ( (SPEED/10000) * 1000 ) ))
 
 if test "$SLEEP_MOD" -a "$SLEEP_MOD_VAL"; then
-USLEEP=$(echo "$USLEEP $SLEEP_MOD $SLEEP_MOD_VAL" | bc -l)
+USLEEP=$(echo "scale=0; $USLEEP $SLEEP_MOD $SLEEP_MOD_VAL" | bc -l)
 _debug "USLEEP='$USLEEP'"
 fi
 USLEEP=${USLEEP:-1000000}
 
 _debug "Sleeping $USLEEP usleep micro-seconds between praying"
 }
-_get_player_speed
-
-
-# *** Actual script to pray multiple times *** #
-test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
-
-TIMEB=`date +%s`
-
-_watch
-
-c=0
-for one in `seq 1 1 $NUMBER`
-do
-
-unset REPLY_OLD
-
-_is 1 1 use_skill praying
-sleep 0.5
 
 _read_reply_praying(){
 [ "$FORCE" ] && return 0
+sleep 0.5
 
 CAT_IN=`timeout -t 1 cat >&1 <&0 2>/dev/null`
 #echo "$CAT_IN" >&2
@@ -214,6 +236,8 @@ __read_reply_praying(){
 # Loop of script had run a total of 1:41 minutes.
 # with REPLY read loop:
 # Loop of script had run a total of 3:30 minutes.
+
+sleep 0.5
 
  while :; do sleep 0.1
   unset REPLY
@@ -266,6 +290,39 @@ __read_reply_praying(){
 ## This prayer is useless unless you worship an appropriate god
  done
 }
+
+_check_skill_praying || {
+        echo draw 3 "You do not have the abillity to pray."
+        exit 1
+}
+
+_get_player_speed
+
+# *** Actual script to pray multiple times *** #
+if test "$NUMBER"; then
+ test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+else NUMBER=inifinite
+fi
+
+TIMEB=`date +%s`
+
+_watch
+
+c=0
+
+_draw 5 "Starting praying..."
+
+#for one in `seq 1 1 $NUMBER`
+while :;
+do
+
+unset REPLY_OLD
+
+_is 1 1 use_skill praying
+one=$((one+1))
+#sleep 0.5
+
+
 __read_reply_praying
 
 usleep $USLEEP
@@ -277,9 +334,16 @@ _check_hp_and_return_home $COUNT_CHECK_FOOD $HP
 c=$((c+1))
 test $c -ge $COUNT_CHECK_FOOD && {
 c=0
- _draw 5 "$((NUMBER-one)) prayings left"
+ if test "$NUMBER" = inifinite; then
+   _draw 5 "$one prayings done."
+   _draw 6 "Use scriptkill to abort."
+ else
+  _draw 5 "$((NUMBER-one)) prayings left"
+ fi
 }
 
+
+test "$one" = "$NUMBER" && break
 done
 
 # *** Here ends program *** #
