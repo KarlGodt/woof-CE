@@ -30,7 +30,7 @@ echo drawnifo 5 "Checking the parameters ($*)..."
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*help|*usage)
 
 echo draw 5 "Script to produce water of the wise."
 echo draw 7 "Syntax:"
@@ -40,7 +40,9 @@ echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Balm of First Aid ."
 
         exit 0
-        }
+;;
+
+esac
 
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
@@ -472,9 +474,9 @@ if test $NOTHING = 0; then
         sleep ${SLEEP}s
 
         echo "issue 0 1 drop balm"
-        else
-        echo "issue 0 1 drop slag"
-        fi
+       else
+       echo "issue 0 1 drop slag"
+      fi
 fi
 
 sleep ${DELAY_DRAWINFO}s

@@ -12,7 +12,7 @@ south) DIRF=north;;
 esac
 
 DRAW=drawextinfo      # draw
-DRAW_INFO=drawextinfo # drawinfo OR drawextinfo
+DRAW_INFO=drawinfo    # drawinfo OR drawextinfo
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE" # empty reply old log file
@@ -25,7 +25,7 @@ echo $DRAW 2 1 1 "$0 is started - pid $$ ppid $PPID"
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*help|*usage)
 
 echo $DRAW 5 10 10 "Script to produce water of the wise."
 echo $DRAW 7 10 10 "Syntax:"
@@ -35,7 +35,9 @@ echo $DRAW 5 10 10 "NUMBER times to produce NUMBER of"
 echo $DRAW 5 10 10 "Water of the Wise ."
 
         exit 0
-        }
+;;
+
+esac
 
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
@@ -387,7 +389,6 @@ echo "issue 1 1 use_skill alchemy"
 
 OLD_REPLY="";
 REPLY="";
-NOTHING=0
 
 while [ 1 ]; do
 read -t 1 REPLY
@@ -413,11 +414,13 @@ echo "issue 7 1 get"
 OLD_REPLY="";
 REPLY="";
 NOTHING=0
+SLAG=0
 
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"

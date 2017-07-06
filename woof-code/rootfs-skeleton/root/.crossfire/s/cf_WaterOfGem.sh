@@ -28,7 +28,9 @@
 
 TIMEA=`/bin/date +%s`
 
-DRAW_INFO=drawextinfo # drawinfo OR drawextinfo
+DRAW=drawextinfo      # draw
+DRAW_INFO=drawinfo    # drawinfo OR drawextinfo
+DELAY_DRAWINFO=2
 
 # *** Setting defaults *** #
 GEM='';  #set empty default
@@ -457,7 +459,28 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep 1s
 
+
+echo watch $DRAW_INFO
+
 echo "issue 1 1 use_skill alchemy"
+
+OLD_REPLY="";
+REPLY="";
+
+while [ 1 ]; do
+read -t 1 REPLY
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_exit 1
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+echo unwatch $DRAW_INFO
+
+
+
 echo "issue 1 1 apply"
 
 echo watch $DRAW_INFO
@@ -467,11 +490,13 @@ echo "issue 1 1 get"
 OLD_REPLY="";
 REPLY="";
 NOTHING=0
+SLAG=0
 
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -490,7 +515,10 @@ sleep 1s
 
 echo draw 2 "NOTHING is '$NOTHING'"
 
-if test $NOTHING = 0; then
+if test $SLAG != 0; then
+echo "issue 0 1 drop slag"
+
+elif test $NOTHING = 0; then
 
 echo "issue 1 1 use_skill sense curse"
 echo "issue 1 1 use_skill sense magic"
@@ -498,11 +526,11 @@ echo "issue 1 1 use_skill alchemy"
 sleep 1s
 
 echo "issue 1 1 drop water of $GEM"
-echo "issue 0 1 drop slags"
+#echo "issue 0 1 drop slag"
 
 fi
+sleep 1s
 
-DELAY_DRAWINFO=2
 sleep ${DELAY_DRAWINFO}s
 
 echo "issue 1 1 $DIRF"

@@ -173,7 +173,9 @@ case $1 in
 
 --)  :;;
 --*) _assign_long_options  $1;;
+*--) _assign_long_options  $1;;
 -*)  _assign_short_options $1;;
+*-)  _assign_short_options $1;;
 
 *)
  c=$((c+1))
@@ -213,6 +215,13 @@ exit 0
 
 _check_have_needed_item_in_inventory(){
 _debug "_check_have_needed_item_in_inventory:$*"
+
+local lITEM=${*:-$ITEM}
+test "$lITEM" || return 3
+
+_draw 5 "Poking inventory for '$lITEM' ..."
+_draw 5 "Please wait ..."
+
 TIMEB=`date +%s`
 
 echo request items inv
@@ -234,11 +243,16 @@ TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
 _draw 4 "Elapsed $TIME s"
 
-echo "$ITEMS" | grep -q -i "$ITEM"
+echo "$ITEMS" | grep -q -i "$lITEM"
 }
 
 _check_have_needed_item_applied(){
 _debug "_check_have_needed_item_applied:$*"
+
+local lITEM=${*:-$ITEM}
+test "$lITEM" || return 3
+
+_draw 5 "Checking if have '$lITEM' applied ..."
 
 echo request items actv
 while :;
@@ -253,11 +267,13 @@ sleep 0.1
 done
 unset oldITEM oneITEM
 
-echo "$ITEMSA" | grep -q -i "$ITEM"
+echo "$ITEMSA" | grep -q -i "$lITEM"
 }
 
 _apply_needed_item(){
- local lITEM={$*:-$ITEM}
+_debug "_apply_needed_item:$*"
+
+ local lITEM=${*:-$ITEM}
 test "$lITEM" || return 3
 
 _debug "_apply_needed_item:issue 0 0 apply $lITEM"
@@ -267,6 +283,10 @@ _debug "_apply_needed_item:issue 0 0 apply $lITEM"
 
 _rotate_range_attack(){
 _debug "_rotate_range_attack:$*"
+
+ local lITEM=${*:-$ITEM}
+test "$lITEM" || return 3
+
 local REPLY_RANGE oldREPLY_RANGE
 #echo watch request range
 while :;
@@ -275,7 +295,7 @@ echo request range
 sleep 1
 read -t1 REPLY_RANGE
  _log "REPLY_RANGE=$REPLY_RANGE"
- test "`echo "$REPLY_RANGE" | grep -i "$ITEM"`" && break
+ test "`echo "$REPLY_RANGE" | grep -i "$lITEM"`" && break
  test "$oldREPLY_RANGE" = "$REPLY_RANGE" && break
  test "$REPLY_RANGE" || break
  _debug "issue 1 1 rotateshoottype"
