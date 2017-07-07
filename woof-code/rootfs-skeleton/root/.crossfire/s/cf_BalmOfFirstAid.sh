@@ -1,5 +1,7 @@
 #!/bin/ash
 
+LC_NUMERIC=C
+
 TIMEA=`/bin/date +%s`
 
 DRAW=drawinfo      # draw
@@ -13,6 +15,10 @@ west)  DIRF=east;;
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+northeast) DIRF=southwest;;
+southwest) DIRF=northeast;;
+southeast) DIRF=northwest;;
 esac
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
@@ -77,6 +83,7 @@ echo draw 3 "Exiting $0."
 #echo unwatch monitor issue
 echo unwatch
 echo unwatch $DRAW_INFO
+beep -f 700 -l 1000
 exit $1
 }
 
@@ -87,6 +94,7 @@ echo "issue 1 1 fire center"
 echo draw 3 "Emergency Exit $0 !"
 echo unwatch $DRAW_INFO
 echo "issue 1 1 fire_stop"
+beep -f 700 -l 1000
 exit $1
 }
 
@@ -94,6 +102,7 @@ f_exit_no_space(){
 echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
 echo draw 3 "Remove that Item and try again."
 echo draw 3 "If this is a Wall, try another place."
+beep -f 700 -l 1000
 exit $1
 }
 
@@ -121,18 +130,21 @@ done
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
-PL_SPEED="0.${PL_SPEED:0:2}"
+PL_SPEED=${PL_SPEED:-40000}
+PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
+[ "$DEBUG" ] && echo $DRAW 3 "Player speed is $PL_SPEED"  #DEBUG
 
-echo $DRAW 7 "Player speed is $PL_SPEED"
-
-PL_SPEED="${PL_SPEED:2:2}"
-echo $DRAW 7 "Player speed is $PL_SPEED"
+PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
+[ "$DEBUG" ] && echo $DRAW 3 "Player speed is $PL_SPEED"  #DEBUG
 
 if test $PL_SPEED -gt 35; then
 SPEED=1; DELAY_DRAWINFO=2
 elif test $PL_SPEED -gt 25; then
 SPEED=2; DELAY_DRAWINFO=4
 fi
+
+SLEEP=`dc ${SLEEP:-1} ${SLEEP_ADJ:-0} \+ p` || SLEEP=1
+ case $SLEEP in -[0-9]*) SLEEP=0.1;; esac
 
 echo $DRAW 6 "Done."
 }
@@ -142,7 +154,7 @@ _probe_if_on_cauldron(){
 
 echo $DRAW 5 "Checking if on a cauldron..."
 
-UNDER_ME='';
+UNDER_ME='';UNDER_ME_LIST=''
 echo request items on
 
 while [ 1 ]; do
@@ -158,6 +170,7 @@ done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo draw 3 "Need to stand upon cauldron!"
+beep -f 700 -l 1000
 exit 1
 }
 
@@ -204,6 +217,22 @@ R_Y=$((PL_POS_Y-nr))
 ;;
 south)
 R_X=$PL_POS_X
+R_Y=$((PL_POS_Y+nr))
+;;
+northwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+northeast)
+R_X=$((PL_POS_X+nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+southwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y+nr))
+;;
+southeast)
+R_X=$((PL_POS_X+nr))
 R_Y=$((PL_POS_Y+nr))
 ;;
 esac
@@ -347,6 +376,7 @@ _prepare_recall
 
 echo "issue 1 1 pickup 0"  # precaution
 
+FAIL=0
 # *** Now LOOPING *** #
 TIMEB=`date +%s`
 test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
@@ -422,6 +452,8 @@ while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release.*'`" && break 2
+test "`echo "$REPLY" | grep '.*Your cauldron .*darker'`" && break 2
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -457,6 +489,10 @@ done
 
 echo unwatch $DRAW_INFO
 
+if test "$SLAG" = 1 -o "$NOTHING" = 1;
+then
+ FAIL=$((FAIL+1))
+fi
 
 sleep ${SLEEP}s
 
@@ -487,7 +523,7 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
 
-
+__probe_if_on_cauldron__(){
 #echo watch request
 
 echo request items on
@@ -513,10 +549,12 @@ done
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo $DRAW 3 "LOOP BOTTOM: NOT ON CAULDRON!"
 f_exit 1
-}
+ }
 
 #echo unwatch request
+}
 
+_probe_if_on_cauldron
 
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
@@ -527,6 +565,22 @@ done  # *** MAINLOOP *** #
 
 
 # *** Here ends program *** #
+_say_success_fail(){
+test "${NUMBER:+$one}" -a "$FAIL" || return 3
+
+if test "$FAIL" -le 0; then
+ SUCC=$((one-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $one ." # green
+elif test "$((one/FAIL))" -lt 2;
+then
+ echo draw 8 "You failed $FAIL times of $one ."    # light green
+ echo draw 7 "PLEASE increase your INTELLIGENCE !!"
+else
+ SUCC=$((one-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $one ." # green
+fi
+}
+
 _test_integer(){
 test "$*" || return 3
 test ! "${*//[0-9]/}"
@@ -548,6 +602,7 @@ case $TIMES in [0-9]) TIMES="0$TIMES";; esac
 return 0
 }
 
+_say_success_fail
 _count_time $TIMEB && echo draw 7 "Looped for $TIMEM:$TIMES minutes"
 _count_time $TIMEA && echo draw 7 "Script ran $TIMEM:$TIMES minutes"
 

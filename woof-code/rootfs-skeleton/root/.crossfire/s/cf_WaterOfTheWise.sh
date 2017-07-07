@@ -1,5 +1,7 @@
 #!/bin/bash
 
+LC_NUMERIC=C
+
 TIMEA=`/bin/date +%s`
 
 DIRB=west  # direction back to go
@@ -9,6 +11,10 @@ west)  DIRF=east;;
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+northeast) DIRF=southwest;;
+southwest) DIRF=northeast;;
+southeast) DIRF=northwest;;
 esac
 
 DRAW=drawextinfo      # draw
@@ -63,13 +69,14 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep 1s
+sleep ${SLEEP:-1}s
 echo $DRAW 0x3 1 1 "Exiting $0."
 #echo unmonitor
 #echo unwatch monitor
 #echo unwatch monitor issue
 echo unwatch
 echo unwatch $DRAW_INFO
+beep -f 700 -l 1000
 exit $1
 }
 
@@ -80,6 +87,15 @@ echo "issue 1 1 fire center"
 echo $DRAW 3 1 1 "Emergency Exit $0 !"
 echo unwatch $DRAW_INFO
 echo "issue 1 1 fire_stop"
+beep -f 700 -l 1000
+exit $1
+}
+
+f_exit_no_space(){
+echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
+echo draw 3 "Remove that Item and try again."
+echo draw 3 "If this is a Wall, try another place."
+beep -f 700 -l 1000
 exit $1
 }
 
@@ -107,12 +123,12 @@ done
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
-PL_SPEED="0.${PL_SPEED:0:2}"
+PL_SPEED=${PL_SPEED:-40000}
+PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
+[ "$DEBUG" ] && echo $DRAW 3 "Player speed is $PL_SPEED"  #DEBUG
 
-echo $DRAW 7 "" "" "Player speed is $PL_SPEED"
-
-PL_SPEED="${PL_SPEED:2:2}"
-echo $DRAW 0x07 0x01 0x01 "Player speed is $PL_SPEED"
+PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
+[ "$DEBUG" ] && echo $DRAW 3 "Player speed is $PL_SPEED"  #DEBUG
 
   if test $PL_SPEED -gt 35; then
 SLEEP=1; DELAY_DRAWINFO=2
@@ -122,6 +138,9 @@ elif test $PL_SPEED -gt 15; then
 SLEEP=3; DELAY_DRAWINFO=6
 fi
 
+SLEEP=`dc ${SLEEP:-1} ${SLEEP_ADJ:-0} \+ p` || SLEEP=1
+ case $SLEEP in -[0-9]*) SLEEP=0.1;; esac
+
 echo $DRAW 0x7 0x02 0x002 "Done."
 }
 
@@ -129,7 +148,7 @@ _probe_if_on_cauldron(){
 # *** Check if standing on a cauldron *** #
 
 echo $DRAW 4 1 1 "Checking if on cauldron..."
-UNDER_ME='';
+UNDER_ME='';UNDER_ME_LIST=''
 echo request items on
 
 while [ 1 ]; do
@@ -145,6 +164,7 @@ done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo $DRAW 0x03 0x1 0x1 "Need to stand upon cauldron!"
+beep -f 700 -l 1000
 exit 1
 }
 
@@ -191,6 +211,22 @@ R_Y=$((PL_POS_Y-nr))
 ;;
 south)
 R_X=$PL_POS_X
+R_Y=$((PL_POS_Y+nr))
+;;
+northwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+northeast)
+R_X=$((PL_POS_X+nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+southwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y+nr))
+;;
+southeast)
+R_X=$((PL_POS_X+nr))
 R_Y=$((PL_POS_Y+nr))
 ;;
 esac
@@ -336,6 +372,7 @@ _prepare_recall
 
 echo "issue 1 1 pickup 0"  # precaution
 
+FAIL=0
 # *** Now LOOPING *** #
 TIMEB=`date +%s`
 
@@ -393,7 +430,9 @@ REPLY="";
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>"$LOG_REPLY_FILE"
-test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_exit 1
+test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release.*'`" && break 2
+test "`echo "$REPLY" | grep '.*Your cauldron .*darker'`" && break 2
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -429,6 +468,11 @@ done
 
 echo unwatch $DRAW_INFO
 
+if test "$SLAG" = 1 -o "$NOTHING" = 1;
+then
+ FAIL=$((FAIL+1))
+fi
+
 sleep ${SLEEP}s
 
 echo "issue 1 1 $DIRB"
@@ -444,35 +488,40 @@ echo "issue 1 1 use_skill sense magic"
 echo "issue 1 1 use_skill alchemy"
 sleep ${SLEEP}s
 
-#if test $NOTHING = 0; then
-#for drop in `seq 1 1 7`; do  # unfortunately does not work without this nasty loop
 echo "issue 0 1 drop water of the wise"    # issue 1 1 drop drops only one water
 echo "issue 0 1 drop waters of the wise"
+sleep ${SLEEP}s
 echo "issue 0 1 drop water (cursed)"
 echo "issue 0 1 drop waters (cursed)"
+sleep ${SLEEP}s
 echo "issue 0 1 drop water (magic)"
 echo "issue 0 1 drop waters (magic)"
+sleep ${SLEEP}s
 #echo "issue 0 1 drop water (magic) (cursed)"
 #echo "issue 0 1 drop waters (magic) (cursed)"
 echo "issue 0 1 drop water (cursed) (magic)"
 echo "issue 0 1 drop waters (cursed) (magic)"
+sleep ${SLEEP}s
 #echo "issue 0 1 drop water (unidentified)"
 #echo "issue 0 1 drop waters (unidentified)"
 
 echo "issue 0 1 drop slag"               # many times draws 'But there is only 1 slags' ...
 #echo "issue 0 1 drop slags"
-
+sleep ${SLEEP}s
 fi
 
+sleep ${SLEEP}s
 sleep ${DELAY_DRAWINFO}s
-#done                         # to drop all water of the wise at once ...
+
 
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
+sleep ${DELAY_DRAWINFO}s
 
+__probe_if_on_cauldron__(){
 echo request items on
 
 UNDER_ME='';
@@ -494,8 +543,10 @@ done
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo $DRAW 0x3 "LOOP BOTTOM: NOT ON CAULDRON!"
 f_exit 1
+ }
 }
 
+_probe_if_on_cauldron
 
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
@@ -505,6 +556,22 @@ echo $DRAW 0x4 " " " " "Elapsed $TIME s, still $TRIES_STILL to go..."
 done  # *** MAINLOOP *** #
 
 # *** Here ends program *** #
+_say_success_fail(){
+test "${NUMBER:+$one}" -a "$FAIL" || return 3
+
+if test "$FAIL" -le 0; then
+ SUCC=$((one-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $one ." # green
+elif test "$((one/FAIL))" -lt 2;
+then
+ echo draw 8 "You failed $FAIL times of $one ."    # light green
+ echo draw 7 "PLEASE increase your INTELLIGENCE !!"
+else
+ SUCC=$((one-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $one ." # green
+fi
+}
+
 _test_integer(){
 test "$*" || return 3
 test ! "${*//[0-9]/}"
@@ -526,6 +593,7 @@ case $TIMES in [0-9]) TIMES="0$TIMES";; esac
 return 0
 }
 
+_say_success_fail
 _count_time $TIMEB && echo draw 7 "Looped for $TIMEM:$TIMES minutes"
 _count_time $TIMEA && echo draw 7 "Script ran $TIMEM:$TIMES minutes"
 
