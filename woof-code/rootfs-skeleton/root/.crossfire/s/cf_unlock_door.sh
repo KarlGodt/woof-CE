@@ -72,11 +72,13 @@ echo "$*" >>"$LOG_REPLY_FILE"
 _usage() {
 
 _draw 5 "Script to lockpick doors."
-_draw 5 "Syntax:"
-_draw 5 "script $0 <direction> <<number>>"
-_draw 5 "For example: 'script $0 5 west'"
+_draw 2 "Syntax:"
+_draw 7 "script $0 <direction> <<number>>"
+#_draw 7 "script $0 <<number>> <direction>"
+_draw 5 "For example: 'script $0 west 5'"
+#_draw 5 "For example: 'script $0 5 west'"
 _draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
-_draw 4 "Options:"
+_draw 2 "Options:"
 _draw 4 "-c cast detect curse to turn to DIR"
 _draw 4 "-C cast constitution"
 _draw 4 "-t cast disarm"
@@ -210,8 +212,8 @@ case $PARAM_1 in
   done
 
 if test "$FOUND_DIR"; then :
-elif test "$DIR"; then
-
+#elif test "$DIR"; then
+else
         NUMBER=$PARAM_1; test "${NUMBER//[0-9]/}" && {
            _draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
            readonly NUMBER
@@ -221,6 +223,7 @@ fi
 
 ;;
 
+0|c|centre|center) DIR=center;   DIRN=0; readonly DIR DIRN;;
  1|n|north)       DIR=north;     DIRN=1; readonly DIR DIRN;;
 2|ne|norteast)    DIR=northeast; DIRN=2; readonly DIR DIRN;;
  3|e|east)        DIR=east;      DIRN=3; readonly DIR DIRN;;
@@ -384,18 +387,9 @@ unset REPLY
 sleep 0.1
  read -t 1
  _log "_turn_direction_all:$REPLY"
- _debug $COL_GREEN "REPLY='$REPLY'" #debug
+ _debug $COL_GREEN "REPLY='$REPLY'"
 
- case $REPLY in  # server/spell_util.c
-# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
-# *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
-# *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
-# *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
-# *'You lack the skill '*)                        unset CAST_DEX; break 2;;
-# *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
-# *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ case $REPLY in
  '') break;;
  *)  _handle_spell_errors || _handle_spell_msgs || {
  c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
@@ -410,14 +404,12 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
 
-
 # ***
 # ***
 # *** diff marker 8
 # *** diff marker 9
 # ***
 # ***
-
 
 _turn_direction(){
 test "$*" || return 3
@@ -449,16 +441,7 @@ sleep 0.1
  _log "_turn_direction:$REPLY"
  _debug $COL_GREEN "REPLY='$REPLY'"
 
- case $REPLY in  # server/spell_util.c
-# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
-# *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
-# *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
-# *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
-# *'You lack the skill '*)                        unset CAST_DEX; break 2;;
-# *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
-# *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ case $REPLY in
  '') break;;
  *)  _handle_spell_errors || _handle_spell_msgs || {
  c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
@@ -470,20 +453,12 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
 
-if test "$TURN_SPELL"; then
- _turn_direction $TURN_SPELL
-else
- _turn_direction_all
-fi
-
-
 # ***
 # ***
 # *** diff marker 10
 # *** diff marker 11
 # ***
 # ***
-
 
 _cast_dexterity(){
 # ** cast DEXTERITY ** #
@@ -512,29 +487,9 @@ unset REPLY
 sleep 0.1
  read -t 1
  _log "_cast_dexterity:$REPLY"
- _debug $COL_GREEN "REPLY='$REPLY'" #debug
+ _debug $COL_GREEN "REPLY='$REPLY'"
 
- case $REPLY in  # server/spell_util.c
-# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
-# *'Something blocks your spellcasting.'*)        unset CAST_DEX;;
-# *'This ground is unholy!'*)                     unset CAST_REST;;
-# *'You grow no more agile.'*)                    unset CAST_DEX;;
-# *'You lack the skill '*)                        unset CAST_DEX;;
-# *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
-# *'That spell path is denied to you.'*)          unset CAST_DEX;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
-
-# *'You can no longer use the skill:'*) :;;
-# *'You ready talisman '*)              :;;
-# *'You ready holy symbol'*)            :;;
-# *'You can now use the skill:'*)       :;;
-# *'You ready the spell'*)              :;;
-# *'You feel more agile.'*)             :;;
-# *'The effects of your dexterity are draining out.'*)    :;;
-# *'The effects of your dexterity are about to expire.'*) :;;
-# *'You feel clumsy!'*) :;;
-
+ case $REPLY in
  '') break;;
  *)  _handle_spell_errors || _handle_spell_msgs || {
  c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
@@ -546,8 +501,6 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
 
-$CAST_DEX
-
 _find_traps(){
 # ** search or use_skill find traps ** #
 
@@ -558,6 +511,7 @@ _draw 6 "find traps '$NUM' times.."
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
+TIME_SEARCHB=`/bin/date +%s`
 
 while :;
 do
@@ -613,10 +567,13 @@ fi
 
 test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
+SUCC_SEARCH=$TRAPS_NUM
 
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
-}
 
+TIME_SEARCHE=`/bin/date +%s`
+TIME_SEARCH=$((TIME_SEARCHE-TIME_SEARCHB))
+}
 
 # ***
 # ***
@@ -624,7 +581,6 @@ echo $TRAPS_NUM >/tmp/cf_pipe.$$
 # *** diff marker 13
 # ***
 # ***
-
 
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
@@ -649,6 +605,8 @@ NUM=${NUM:-$DEF_DISARM}
 _draw 6 "disarm traps '$NUM' times.."
 
 test "$NUM" -gt 0 || return 0
+
+TIME_DISARMB=`/bin/date +%s`
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
@@ -676,6 +634,7 @@ echo issue 1 1 use_skill "disarm traps"
    *'Unable to find skill '*)   break 2;;
 #  *'You fail to disarm '*) continue;;
    *'You successfully disarm '*)
+
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break;;
    *'In fact, you set it off!'*)
@@ -707,8 +666,9 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 
 sleep 1
+TIME_DISARME=`/bin/date +%s`
+TIME_DISARM=$((TIME_DISARME-TIME_DISARMB))
 }
-
 
 # ***
 # ***
@@ -716,7 +676,6 @@ sleep 1
 # *** diff marker 15
 # ***
 # ***
-
 
 _lockpick_door(){
 # ** open door with use_skill lockpicking ** #
@@ -727,11 +686,13 @@ echo watch $DRAW_INFO
 c=0; cc=0
 NUM=$NUMBER
 
+TIMEB=`/bin/date +%s`
 while :;
 do
 
 _verbose "$NUM:$c:$cc:use_skill lockpicking"
 echo issue 1 1 use_skill lockpicking
+LOCKPICK_ATT=$((LOCKPICK_ATT+1))
 
  while :; do
   sleep 0.1
@@ -765,10 +726,10 @@ if test "$FOREVER"; then
        TOGGLE=0;
   else TOGGLE=$((TOGGLE+1));
   fi
- }
   $CAST_DEX
   $CAST_PROBE
   _draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
+ }
 
 elif test "$NUMBER"; then
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
@@ -784,6 +745,15 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
 
+
+if test "$TURN_SPELL"; then
+ _turn_direction $TURN_SPELL
+else
+ _turn_direction_all
+fi
+
+$CAST_DEX
+
 _find_traps
 _disarm_traps && _lockpick_door
 
@@ -793,6 +763,33 @@ _disarm_traps && _lockpick_door
 #_draw 4 "Unbracing .."
 #echo issue 1 1 brace off
 #sleep 1
+
+_count_time(){
+
+test "$*" || return 3
+
+TIMEE=`/bin/date +%s` || return 4
+
+TIMEX=$((TIMEE - $*)) || return 5
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
+test "$TIME_SEARCH"       && _draw 8 "Searched '$TIME_SEARCH' second(s) for traps."
+test "$SUCC_SEARCH" -gt 0 && _draw 7 "Found '$SUCC_SEARCH' trap(s)."
+
+test "$TIME_DISARM" && _draw 5 "Disarming trap(s) took '$TIME_DISARM' second(s)."
+test "$SUCC_DISARM" && _draw 2 "Successfully disarmed '$SUCC_DISARM' trap(s)."
+
+_count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
+_count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
+
+test "${LOCKPICK_ATT:-0}" -gt 0 && _draw 5 "You did $LOCKPICK_ATT attempts."
+
 
 _draw 2 "$0 is finished."
 beep -f 700 -l 1000

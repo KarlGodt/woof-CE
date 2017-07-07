@@ -15,6 +15,7 @@ DEF_SEARCH=9
 DEF_DISARM=9
 DEF_LOCKPICK=9
 
+# FOREVER mode
 INF_THRESH=10
 INF_TOGGLE=4
 
@@ -89,9 +90,11 @@ sleep 0.2
 _usage() {
 
 _draw 5 "Script to lockpick doors."
-_draw 5 "Syntax:"
-_draw 5 "script $0 <direction> <<number>>"
-_draw 5 "For example: 'script $0 5 west'"
+_draw 2 "Syntax:"
+_draw 7 "script $0 <direction> <<number>>"
+#_draw 7 "script $0 <<number>> <direction>"
+_draw 5 "For example: 'script $0 west 5'"
+#_draw 5 "For example: 'script $0 5 west'"
 _draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
 _draw 2 "Options:"
 _draw 4 "-c cast detect curse to turn to DIR"
@@ -104,7 +107,7 @@ _draw 4 "-i cast show invisible"
 _draw 4 "-m cast detect magic"
 _draw 4 "-M cast detect monster"
 _draw 4 "-p cast probe"
-_draw 2 "-I inifinite attempts at lockpicking"
+_draw 3 "-I inifinite attempts at lockpicking"
 _draw 2 "-X do not cast any spells"
 _draw 5 "-d set debug"
 _draw 5 "-L log to $LOG_REPLY_FILE"
@@ -230,7 +233,8 @@ case $PARAM_1 in
   done
 
 if test "$FOUND_DIR"; then :
-elif test "$DIR"; then
+#elif test "$DIR"; then
+else
         NUMBER=$PARAM_1; test "${NUMBER//[0-9]/}" && {
            _draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
         readonly NUMBER
@@ -238,6 +242,7 @@ fi
 
 ;;
 
+0|c|centre|center) DIR=center;   DIRN=0; readonly DIR DIRN;;
  1|n|north)       DIR=north;     DIRN=1; readonly DIR DIRN;;
 2|ne|norteast)    DIR=northeast; DIRN=2; readonly DIR DIRN;;
  3|e|east)        DIR=east;      DIRN=3; readonly DIR DIRN;;
@@ -539,6 +544,8 @@ local NUM=${NUMBER:-$DEF_SEARCH}
 
 _draw 6 "find traps '$NUM' times.."
 
+TIME_SEARCHB=`/bin/date +%s`
+
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
@@ -600,8 +607,11 @@ fi
 
  test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
+SUCC_SEARCH=$TRAPS_NUM
 
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
+TIME_SEARCHE=`/bin/date +%s`
+TIME_SEARCH=$((TIME_SEARCHE-TIME_SEARCHB))
 }
 
 # ***
@@ -626,6 +636,8 @@ NUM=${NUM:-$DEF_DISARM}
 _draw 6 "disarm traps '$NUM' times.."
 
 test "$NUM" -gt 0 || return 0
+
+TIME_DISARMB=`/bin/date +%s`
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
@@ -652,6 +664,7 @@ _is 1 1 use_skill "disarm traps"
    *'Unable to find skill '*)   break 2;;
 #  *'You fail to disarm '*) continue;;
    *'You successfully disarm '*)
+    SUCC_DISARM=$((SUCC_DISARM+1))
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break;;
    *'In fact, you set it off!'*)
@@ -684,6 +697,8 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 
 sleep 1
+TIME_DISARME=`/bin/date +%s`
+TIME_DISARM=$((TIME_DISARME-TIME_DISARMB))
 }
 
 # ***
@@ -790,10 +805,16 @@ case $TIMES in [0-9]) TIMES="0$TIMES";; esac
 return 0
 }
 
+test "$TIME_SEARCH"       && _draw 8 "Searched '$TIME_SEARCH' second(s) for traps."
+test "$SUCC_SEARCH" -gt 0 && _draw 7 "Found '$SUCC_SEARCH' trap(s)."
+
+test "$TIME_DISARM" && _draw 5 "Disarming trap(s) took '$TIME_DISARM' second(s)."
+test "$SUCC_DISARM" && _draw 2 "Successfully disarmed '$SUCC_DISARM' trap(s)."
+
 _count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
 _count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
 
-test "${LOCKPICK_ATT:-0}" -gt 0 && _draw 5 "You needed $LOCKPICK_ATT attempts."
+test "${LOCKPICK_ATT:-0}" -gt 0 && _draw 5 "You did $LOCKPICK_ATT attempts."
 
 _draw 2 "$0 is finished."
 _beep
