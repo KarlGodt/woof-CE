@@ -368,6 +368,40 @@ sleep 1
 # $CAST_SPELL instead _cast_spell
 CAST_DEX=_cast_dexterity
 
+_handle_spell_errors(){
+local RV=0
+ case $REPLY in  # server/spell_util.c
+ '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
+ '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
+ *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
+ *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
+ *'You lack the skill '*)                        unset CAST_DEX; break 2;;
+ *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
+ *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
+ *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
+ *) RV=1;;
+esac
+return ${RV:-1}
+}
+
+_handle_spell_msgs(){
+local RV=0
+ case $REPLY in
+ *'You can no longer use the skill:'*) :;;
+ *'You ready talisman '*)              :;;
+ *'You ready holy symbol'*)            :;;
+ *'You can now use the skill:'*)       :;;
+ *'You ready the spell'*)              :;;
+ *'You feel more agile.'*)             :;;
+ *'The effects of your dexterity are draining out.'*)    :;;
+ *'The effects of your dexterity are about to expire.'*) :;;
+ *'You feel clumsy!'*) :;;
+ *) RV=1;;
+esac
+return ${RV:-1}
+}
+
 _turn_direction_all(){
 [ "$SPELLS_DO" ] || return 0
 
@@ -401,17 +435,18 @@ sleep 0.1
  _debug "REPLY='$REPLY'"
 
  case $REPLY in  # server/spell_util.c
- '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
- '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
- *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
- *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
- *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
- *'You lack the skill '*)                        unset CAST_DEX; break 2;;
- *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
- *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
- *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
+# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
+# *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
+# *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
+# *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
+# *'You lack the skill '*)                        unset CAST_DEX; break 2;;
+# *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
+# *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
+# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
  '') break;;
- *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+ *) _handle_spell_errors || _handle_spell_msgs || {
+     c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
  esac
 
 done
@@ -463,17 +498,18 @@ sleep 0.1
  _debug "REPLY='$REPLY'"
 
  case $REPLY in  # server/spell_util.c
- '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
- '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
- *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
- *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
- *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
- *'You lack the skill '*)                        unset CAST_DEX; break 2;;
- *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
- *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
- *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
+# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
+# *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
+# *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
+# *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
+# *'You lack the skill '*)                        unset CAST_DEX; break 2;;
+# *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
+# *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
+# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
  '') break;;
- *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+ *) _handle_spell_errors || _handle_spell_msgs || {
+     c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
  esac
 
 done
@@ -511,17 +547,18 @@ sleep 0.1
  _debug "REPLY='$REPLY'"
 
  case $REPLY in  # server/spell_util.c
- '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
- '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
- *'Something blocks your spellcasting.'*)        unset CAST_DEX;;
- *'This ground is unholy!'*)                     unset CAST_REST;;
- *'You grow no more agile.'*)                    unset CAST_DEX;;
- *'You lack the skill '*)                        unset CAST_DEX;;
- *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
- *'That spell path is denied to you.'*)          unset CAST_DEX;;
- *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
+# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
+# *'Something blocks your spellcasting.'*)        unset CAST_DEX;;
+# *'This ground is unholy!'*)                     unset CAST_REST;;
+# *'You grow no more agile.'*)                    unset CAST_DEX;;
+# *'You lack the skill '*)                        unset CAST_DEX;;
+# *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
+# *'That spell path is denied to you.'*)          unset CAST_DEX;;
+# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
  '') break;;
- *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+ *) _handle_spell_errors || _handle_spell_msgs || {
+     c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
  esac
 
 done
@@ -537,7 +574,7 @@ echo unwatch $DRAW_INFO
 # ***
 # ***
 
-_find_traps(){
+_find_traps_search(){
 # ** search or use_skill find traps ** #
 
 local NUM=${NUMBER:-$DEF_SEARCH}
@@ -621,7 +658,7 @@ TIME_SEARCH=$((TIME_SEARCHE-TIME_SEARCHB))
 # ***
 # ***
 
-_disarm_traps(){
+_disarm_traps_use_skill(){
 # ** disarm use_skill disarm traps ** #
 
 local NUM CNT
@@ -708,7 +745,7 @@ TIME_DISARM=$((TIME_DISARME-TIME_DISARMB))
 # ***
 # ***
 
-_lockpick_door(){
+_lockpick_door_use_skill(){
 # ** open door with use_skill lockpicking ** #
 
 TIMEB=`/bin/date +%s`
@@ -741,6 +778,7 @@ LOCKPICK_ATT=$((LOCKPICK_ATT+1))
   *' no door'*)                break 2;;
   *'You unlock'*)              break 2;;
   *'You pick the lock.'*)      break 2;;
+  *scripttell*) case $REPLY in *abort*|*break*|*exit*|*halt*|*kill*|*quit*|*stop*|*term*) break 2;; esac;;
   *'Your '*)       :;;  # Your monster beats monster
   *'You killed '*) :;;
   *'You find '*)   :;;
@@ -785,9 +823,9 @@ else
 fi
 
 $CAST_DEX
-_find_traps
-_disarm_traps
-_lockpick_door
+_find_traps_search
+_disarm_traps_use_skill
+_lockpick_door_use_skill
 
 # *** Here ends program *** #
 _count_time(){
@@ -814,7 +852,7 @@ test "$SUCC_DISARM" && _draw 2 "Successfully disarmed '$SUCC_DISARM' trap(s)."
 _count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
 _count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
 
-test "${LOCKPICK_ATT:-0}" -gt 0 && _draw 5 "You did $LOCKPICK_ATT attempts."
+test "${LOCKPICK_ATT:-0}" -gt 0 && _draw 5 "You did $LOCKPICK_ATT lockpicking attempts."
 
 _draw 2 "$0 is finished."
 _beep

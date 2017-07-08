@@ -501,7 +501,7 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
 
-_find_traps(){
+_find_traps_search(){
 # ** search or use_skill find traps ** #
 
 local NUM=${NUMBER:-$DEF_SEARCH}
@@ -582,7 +582,7 @@ TIME_SEARCH=$((TIME_SEARCHE-TIME_SEARCHB))
 # ***
 # ***
 
-_disarm_traps(){
+_disarm_traps_use_skill(){
 # ** disarm use_skill disarm traps ** #
 
 # REM: For now, it ignores handling of triggered traps.
@@ -634,7 +634,7 @@ echo issue 1 1 use_skill "disarm traps"
    *'Unable to find skill '*)   break 2;;
 #  *'You fail to disarm '*) continue;;
    *'You successfully disarm '*)
-
+   SUCC_DISARM=$((SUCC_DISARM+1))
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break;;
    *'In fact, you set it off!'*)
@@ -677,7 +677,7 @@ TIME_DISARM=$((TIME_DISARME-TIME_DISARMB))
 # ***
 # ***
 
-_lockpick_door(){
+_lockpick_door_use_skill(){
 # ** open door with use_skill lockpicking ** #
 
 _debug "watch $DRAW_INFO"
@@ -709,6 +709,7 @@ LOCKPICK_ATT=$((LOCKPICK_ATT+1))
   *' no door'*)                  break 2;;
   *'You unlock'*)                break 2;;
   *'You pick the lock.'*)        break 2;;
+  *scripttell*) case $REPLY in *abort*|*break*|*exit*|*halt*|*kill*|*quit*|*stop*|*term*) break 2;; esac;;
   *'Your '*)        :;;  # Your monster beats monster
   *'You killed '*)  :;;
   *'You find '*)    :;;
@@ -754,8 +755,8 @@ fi
 
 $CAST_DEX
 
-_find_traps
-_disarm_traps && _lockpick_door
+_find_traps_search
+_disarm_traps_use_skill && _lockpick_door_use_skill
 
 
 # *** Here ends program *** #
@@ -788,7 +789,7 @@ test "$SUCC_DISARM" && _draw 2 "Successfully disarmed '$SUCC_DISARM' trap(s)."
 _count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
 _count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
 
-test "${LOCKPICK_ATT:-0}" -gt 0 && _draw 5 "You did $LOCKPICK_ATT attempts."
+test "${LOCKPICK_ATT:-0}" -gt 0 && _draw 5 "You did $LOCKPICK_ATT lockpicking attempts."
 
 
 _draw 2 "$0 is finished."
