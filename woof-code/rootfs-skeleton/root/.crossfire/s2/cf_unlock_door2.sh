@@ -300,7 +300,7 @@ fi
 
 # TODO : find out if turn possible without casting/firing in DIRN
 
-__turn_direction__(){
+_brace_and_attack_direction(){
 # use brace and DIR -- does not work since attacks in DIR; so
 # either uses key to unlock door or punches against it and triggers traps
 
@@ -316,7 +316,7 @@ sleep 1
 
 }
 
-#__turn_direction
+
 
 # we could add parameters to cast what spell:
 # should be low level with few mana/grace point need
@@ -337,9 +337,67 @@ sleep 1
 # Handle errors like spellpath or not learned
 # set VARIABLES <- functions, to unset them if found not allowed/available
 # $CAST_SPELL instead _cast_spell
-CAST_DEX=_cast_dexterity
 
-_handle_spell_errors(){
+SPELL_DET_MONST='detect monster'
+
+SPELL_FAERYFIRE='faery fire'
+
+SPELL_CON=constitution
+SPELL_DISARM=disarm
+SPELL_DET_MAGIC='detect magic'
+SPELL_DEX=dexterity
+SPELL_PROBE=probe
+
+SPELL_DET_CURSE='detect curse'
+SPELL_DET_EVIL='detect_evil'
+SPELL_SHOW_INV='show invisible'
+
+SPELL_REST=restoration
+
+
+_write_tmp_settings_file(){
+
+local lTMP_SETTINGS_FILE=${*:-$TMP_SETTINGS_FILE}
+test "$lTMP_SETTINGS_FILE" || return 3
+
+(
+
+echo "SPELL_DET_MONST='$SPELL_DET_MONST'"
+
+echo "SPELL_FAERYFIRE='$SPELL_FAERYFIRE'"
+
+echo "SPELL_CON='$SPELL_CON'"
+echo "SPELL_DISARM='$SPELL_DISARM'"
+echo "SPELL_DET_MAGIC='$SPELL_DET_MAGIC'"
+echo "SPELL_DEX='$SPELL_DEX'"
+echo "SPELL_PROBE='$SPELL_PROBE'"
+
+echo "SPELL_DET_CURSE='$SPELL_DET_CURSE'"
+echo "SPELL_DET_EVIL='$SPELL_DET_EVIL'"
+echo "SPELL_SHOW_INV='$SPELL_SHOW_INV'"
+
+echo "SPELL_REST='$SPELL_REST'"
+
+) >>"$lTMP_SETTINGS_FILE"
+
+}
+
+_parse_tmp_settings_file(){
+
+local lTMP_SETTINGS_FILE=${*:-$TMP_SETTINGS_FILE}
+test "$lTMP_SETTINGS_FILE" || return 3
+
+if test "$REMOVE_FLAGS"; then
+rm -f "$lTMP_SETTINGS_FILE"
+fi
+if test -s "$lTMP_SETTINGS_FILE"; then
+. "$lTMP_SETTINGS_FILE"
+else
+rm -f "$lTMP_SETTINGS_FILE"
+fi
+}
+
+__handle_spell_errors(){
 local RV=0
  case $REPLY in  # server/spell_util.c
  '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
@@ -356,7 +414,83 @@ esac
 return ${RV:-1}
 }
 
-_handle_spell_msgs(){
+_handle_spell_errors(){
+local lRV=0
+ case $REPLY in  # server/spell_util.c
+ '*Something blocks the magic of your item.'*)   lRV=30;;
+ '*Something blocks the magic of your scroll.'*) lRV=30;;
+ *'Something blocks your spellcasting.'*)        lRV=10;;
+ *'Something blocks your magic.'*)               lRV=10;; # spell_effect.c: int probe( .. )
+ *'Something blocks the magic of the spell.'*)   lRV=10;; # spell_effect.c: int dimension_door( .. )
+ *'This ground is unholy!'*)                     lRV=20;;
+ *'You lack the skill evocation'*)               lRV=11;;
+ *'You lack the skill pyromancy'*)               lRV=12;;
+ *'You lack the skill sorcery'*)                 lRV=13;;
+ *'You lack the skill summoning'*)               lRV=14;;
+ *'You lack the skill praying'*)                 lRV=20;;
+ *'You lack the skill '*)                        lRV=19;;
+ *'You lack the proper attunement to cast '*)    lRV=30;;
+ *'That spell path is denied to you.'*)          lRV=40;;
+ *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ *'You are no easier to look at.'*)              lRV=111;; # spell_effect.c: static const char *const no_gain_msgs[NUM_STATS] = {
+ *"You don't feel any healthier."*)              lRV=112;;
+ *'You grow no more agile.'*)                    lRV=113;;
+ *'You grow no stronger.'*)                      lRV=114;;
+ *) lRV=1;;
+esac
+
+case $lRV in
+10) # all magic
+unset SPELL_DET_MONST
+unset SPELL_FAERYFIRE
+unset SPELL_CON SPELL_DET_MAGIC SPELL_DEX SPELL_DISARM SPELL_PROBE
+;;
+11) # evocation
+unset SPELL_DET_MONST
+;;
+12) # pyro
+unset SPELL_FAERYFIRE
+;;
+13) # sorcery
+unset SPELL_CON SPELL_DET_MAGIC SPELL_DEX SPELL_DISARM SPELL_PROBE
+;;
+14) # summon
+
+;;
+19) # unknown skill
+
+;;
+20) # all praying
+unset SPELL_DET_CURSE SPELL_DET_EVIL SPELL_REST SPELL_SHOW_INV
+;;
+30) # all magic+praying
+unset SPELL_DET_MONST
+unset SPELL_FAERYFIRE
+unset SPELL_CON SPELL_DET_MAGIC SPELL_DEX SPELL_DISARM SPELL_PROBE
+unset SPELL_DET_CURSE SPELL_DET_EVIL SPELL_REST SPELL_SHOW_INV
+;;
+111) # charisma
+unset SPELL_CHA
+;;
+112) # constitution
+unset SPELL_CON
+;;
+113) # dexterity
+unset SPELL_DEX
+;;
+114) # strength
+unset SPELL_STR
+;;
+esac
+
+case $lRV in 0|1) :;;
+*) _write_tmp_settings_file;;
+esac
+
+return ${lRV:-1}
+}
+
+__handle_spell_msgs(){
 local RV=0
  case $REPLY in
  *'You can no longer use the skill:'*) :;;
@@ -373,23 +507,93 @@ esac
 return ${RV:-1}
 }
 
+_handle_spell_msgs(){
+local lRV=0
+ case $REPLY in
+ *'You stop using the'*)               :;; #talisman of Missiles *.
+ *'You can no longer use the skill:'*) :;;
+ *'You ready talisman '*)              :;;
+ *'You ready holy symbol'*)            :;;
+ *'You can now use the skill:'*)       :;;
+ *'You ready the spell'*)              :;;
+
+ *'You seem to look better.'*) :;; # server/common/living.c
+ *'You feel healthy.'*)        :;;
+ *'You feel more agile.'*)     :;;
+ *'You feel smarter.'*)        :;;
+ *'You feel more potent.'*)    :;;
+ *'You feel stronger.'*)       :;;
+ *'You feel wiser.'*)          :;;
+
+ *'The effects of your '*' are draining out.'*)    :;;
+ *'The effects of your '*' are about to expire.'*) :;;
+
+ *'You look ugly!'*)         :;;
+ *'You feel less healthy!'*) :;;
+ *'You feel clumsy!'*)       :;;
+ *'You feel stupid!'*)       :;;
+ *'You feel less potent!'*)  :;;
+ *'You feel weaker!'*)       :;;
+ *'You lose some of your memory!'*) :;;
+
+ *'You feel your '*' return'*) :;;
+
+ *'Your face gets distorted!'*)      :;;
+ *'You feel less healthy'*)          :;;
+ *"You're feeling clumsy!"*)         :;;
+ *'Watch out, your mind is going!'*) :;;
+ *'Your spirit feels drained!'*)     :;;
+ *'Oh no! You are weakened!'*)       :;;
+ *'You suddenly begin to lose your memory!'*) :;;
+
+ *) lRV=1;;
+esac
+return ${lRV:-1}
+}
+
+_probe_spell_allowed(){
+
+test "$*" || return 3
+
+local lSPELL="$*"
+
+_parse_tmp_settings_file
+
+case $lSPELL in
+"constitution")   test "$SPELL_CON"        || return 13;;
+"detect curse")   test "$SPELL_DET_CURSE"  || return 20;;
+"detect evil")    test "$SPELL_DET_EVIL"   || return 20;;
+"detect magic")   test "$SPELL_DET_MAGIC"  || return 13;;
+"detect monster") test "$SPELL_DET_MONST"  || return 11;;
+"dexterity")      test "$SPELL_DEX"        || return 13;;
+"disarm")         test "$SPELL_DISARM"     || return 13;;
+"faery fire")     test "$SPELL_FAERYFIRE"  || return 12;;
+"probe")          test "$SPELL_PROBE"      || return 13;;
+"show invisible") test "$SPELL_SHOW_INV"   || return 20;;
+esac
+
+return 0
+}
+
 _turn_direction_all(){
 [ "$SPELLS_DO" ] || return 0
 
-local REPLY c spell
+local REPLY c lSPELL
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
 # using a bunch of spells to increase availability
 # downside if many doors - much drain of mana/grace
-for spell in "probe" "detect monster" "detect evil"
+for lSPELL in "probe" "detect monster" "detect evil"
 do
 
-_draw 2 "Casting $spell to turn to $DIR .."
+_probe_spell_allowed "$lSPELL" || continue
 
-_is 1 1 cast $spell
-sleep 0.5
+_draw 2 "Casting $lSPELL to turn to $DIR .."
+
+_is 1 1 cast $lSPELL
+sleep 0.1
 
 _is 1 1 fire ${DIRN:-0}
 sleep 0.5
@@ -406,15 +610,6 @@ sleep 0.1
  _debug "REPLY='$REPLY'"
 
  case $REPLY in  # server/spell_util.c
-# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
-# *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
-# *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
-# *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
-# *'You lack the skill '*)                        unset CAST_DEX; break 2;;
-# *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
-# *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
  '') break;;
  *) _handle_spell_errors || _handle_spell_msgs || {
     c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
@@ -432,20 +627,22 @@ echo unwatch $DRAW_INFO
 _turn_direction(){
 [ "$SPELLS_DO" ] || return 0
 test "$*" || return 3
-local REPLY c spell
+local REPLY c lSPELL
 
-spell="$*"
+lSPELL="$*"
+
+_probe_spell_allowed "$lSPELL" || return $?
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
-_draw 2 "Casting $spell to turn to $DIR .."
+_draw 2 "Casting $lSPELL to turn to $DIR .."
 
-_is 1 1 cast $spell
+_is 1 1 cast $lSPELL
 sleep 0.5
 
 _is 1 1 fire ${DIRN:-0}
-sleep 0.5
+sleep 0.1
 
 _is 1 1 fire_stop
 sleep 0.5
@@ -459,15 +656,6 @@ sleep 0.1
  _debug "REPLY='$REPLY'"
 
  case $REPLY in  # server/spell_util.c
-# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
-# *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
-# *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
-# *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
-# *'You lack the skill '*)                        unset CAST_DEX; break 2;;
-# *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
-# *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
  '') break;;
  *) _handle_spell_errors || _handle_spell_msgs || {
     c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
@@ -487,17 +675,21 @@ else
 fi
 }
 
-_cast_dexterity(){
+_cast_spell(){
 # ** cast DEXTERITY ** #
 [ "$SPELLS_DO" ] || return 0
+[ "$*" ] || return 3
 
+local lSPELL="$*"
 local REPLY c
+
+_probe_spell_allowed "$lSPELL" || return $?
 
 echo watch $DRAW_INFO
 
-_draw 5 "casting dexterity.."
+_draw 5 "casting $lSPELL.."
 
-_is 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
+_is 1 1 cast "$lSPELL" # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
 
 _is 1 1 fire ${DIRN:-0}
@@ -515,18 +707,47 @@ sleep 0.1
  _debug "REPLY='$REPLY'"
 
  case $REPLY in  # server/spell_util.c
-# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
-# *'Something blocks your spellcasting.'*)        unset CAST_DEX;;
-# *'This ground is unholy!'*)                     unset CAST_REST;;
-# *'You grow no more agile.'*)                    unset CAST_DEX;;
-# *'You lack the skill '*)                        unset CAST_DEX;;
-# *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
-# *'That spell path is denied to you.'*)          unset CAST_DEX;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
  '') break;;
  *) _handle_spell_errors || _handle_spell_msgs || {
      c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
+ esac
+
+done
+
+_debug "unwatch $DRAW_INFO"
+echo unwatch $DRAW_INFO
+}
+
+_invoke_spell(){
+# ** cast DEXTERITY ** #
+
+[ "$*" ] || return 3
+
+local lSPELL="$*"
+local REPLY c
+
+_probe_spell_allowed "$lSPELL" || return $?
+
+echo watch $DRAW_INFO
+
+_draw 5 "invoking '$lSPELL' .."
+
+_is 1 1 invoke "$lSPELL" # don't mind if mana too low, not capable or bungles for now
+sleep 0.5
+
+
+while :;
+do
+unset REPLY
+sleep 0.1
+ read -t 1
+ _log "_invoke_spell:$REPLY"
+ _debug $COL_GREEN "REPLY='$REPLY'"
+
+ case $REPLY in
+ '') break;;
+ *)  _handle_spell_errors || _handle_spell_msgs || {
+ c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
  esac
 
 done
@@ -992,12 +1213,12 @@ if test "$FOREVER"; then
  cc=$((cc+1))
  test "$cc" = $INF_THRESH && {
   if test "$TOGGLE" = $INF_TOGGLE; then
-   $CAST_REST
+   _cast_spell $SPELL_REST
        TOGGLE=0;
   else TOGGLE=$((TOGGLE+1));
   fi
-  $CAST_DEX
-  $CAST_PROBE
+  _cast_spell $SPELL_DEX
+  _cast_spell $SPELL_PROBE
   _draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
  }
 
@@ -1094,12 +1315,12 @@ if test "$FOREVER"; then
  cc=$((cc+1))
  test "$cc" = $INF_THRESH && {
   if test "$TOGGLE" = $INF_TOGGLE; then
-   $CAST_REST
+   _cast_spell $SPELL_REST
        TOGGLE=0;
   else TOGGLE=$((TOGGLE+1));
   fi
-  $CAST_DEX
-  $CAST_PROBE
+  _cast_spell $SPELL_DEX
+  _cast_spell $SPELL_PROBE
   _draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
  }
 
@@ -1118,9 +1339,13 @@ echo unwatch $DRAW_INFO
 }
 
 
+# *** MAIN *** #
+
+_parse_tmp_settings_file
 
 _turn_direction_using_spell
-$CAST_DEX
+
+_invoke_spell $SPELL_DEX
 
 _find_traps_ready_skill
 #_find_traps_use_skill
