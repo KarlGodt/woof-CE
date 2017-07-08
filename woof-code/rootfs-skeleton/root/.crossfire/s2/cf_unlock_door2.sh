@@ -15,6 +15,9 @@ DEF_LOCKPICK=9
 INF_THRESH=10
 INF_TOGGLE=4
 
+# REMEMBER spellcasting denials ...
+TMP_SETTINGS_FILE=/tmp/cf_unlock_door_conf.tmp
+
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
 
@@ -355,6 +358,48 @@ SPELL_SHOW_INV='show invisible'
 SPELL_REST=restoration
 
 
+_get_mapinfo(){
+
+#älocal c=0
+
+echo watch $DRAW_INFO
+sleep 0.5
+
+# echo issue 1 1 mapinfo
+_is 1 1 mapinfo
+
+while :; do
+sleep 0.1
+unset REPLY
+read  -t 1
+
+_log "_get_mapinfo:$REPLY"
+_debug "$REPLY"
+
+case $REPLY in '') break;;
+
+esac
+
+MAPINFOLINE=${MAPINFOLINE:-"$REPLY"}
+
+#test "$c" = 0 && echo "# $REPLY" >> "$TMP_SETTINGS_FILE"
+#c=$((c+1))  # just need the first line
+
+done
+
+echo unwatch $DRAW_INFO
+sleep 0.5
+
+if test -s "$TMP_SETTINGS_FILE"; then
+ if grep -q "$MAPINFOLINE" "$TMP_SETTINGS_FILE"; then :
+ else
+ echo "# $MAPINFOLINE" >> "$TMP_SETTINGS_FILE"
+ fi
+else true
+fi
+
+}
+
 _write_tmp_settings_file(){
 
 local lTMP_SETTINGS_FILE=${*:-$TMP_SETTINGS_FILE}
@@ -596,7 +641,7 @@ _is 1 1 cast $lSPELL
 sleep 0.1
 
 _is 1 1 fire ${DIRN:-0}
-sleep 0.5
+sleep 0.1
 
 _is 1 1 fire_stop
 sleep 0.5
@@ -693,7 +738,7 @@ _is 1 1 cast "$lSPELL" # don't mind if mana too low, not capable or bungles for 
 sleep 0.5
 
 _is 1 1 fire ${DIRN:-0}
-sleep 0.5
+sleep 0.1
 
 _is 1 1 fire_stop
 sleep 0.5
@@ -720,7 +765,7 @@ echo unwatch $DRAW_INFO
 
 _invoke_spell(){
 # ** cast DEXTERITY ** #
-
+[ "$SPELLS_DO" ] || return 0
 [ "$*" ] || return 3
 
 local lSPELL="$*"
@@ -1200,6 +1245,7 @@ LOCKPICK_ATT=$((LOCKPICK_ATT+1))
   *' no door'*)                break 2;;
   *'You unlock'*)              break 2;;
   *'You pick the lock.'*)      break 2;;
+  *scripttell*) case $REPLY in *abort*|*break*|*exit*|*halt*|*kill*|*quit*|*stop*|*term*) break 2;; esac;;
   *'Your '*)       :;;  # Your monster beats monster
   *'You killed '*) :;;
   *'You find '*)   :;;
@@ -1322,6 +1368,7 @@ if test "$FOREVER"; then
   _cast_spell $SPELL_DEX
   _cast_spell $SPELL_PROBE
   _draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
+  _is 1 1 ready_skill lockpicking
  }
 
 elif test "$NUMBER"; then
@@ -1341,6 +1388,7 @@ echo unwatch $DRAW_INFO
 
 # *** MAIN *** #
 
+_get_mapinfo
 _parse_tmp_settings_file
 
 _turn_direction_using_spell
@@ -1357,6 +1405,7 @@ _disarm_traps_ready_skill
 _lockpick_door_ready_skill
 #_lockpick_door_use_skill
 
+_is 1 1 fire_stop
 
 # *** Here ends program *** #
 _count_time(){
