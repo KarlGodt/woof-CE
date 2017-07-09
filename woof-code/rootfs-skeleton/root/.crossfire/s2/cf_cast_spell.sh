@@ -1,6 +1,6 @@
 #!/bin/ash
 # *** script to cast wizard spell - praying spells need -P option passed
-# *   written May 2015 by Karl Reimer Godt, overhauled April 2017
+# *   written May 2015 by Karl Reimer Godt, overhauled April 2017, July 2017
 # * Uses busybox almquist shell as interpreter - should work with bash
 # * busybox ash can be configured with options - and some internal functions
 # * may not be implemented by the distribution
@@ -29,6 +29,8 @@
 # ***
 # ***
 
+exec 2>/tmp/cf_script_err.log
+
 export PATH=/bin:/usr/bin
 
 TIMEA=`/bin/date +%s`
@@ -49,7 +51,7 @@ CHECK_COUNT_PROBE=2 # only run every yth time a probe of the enemy
 TMP_DIR=/tmp/crossfire_client/${0##*/}.dir
 mkdir -p "$TMP_DIR"
 #readonly
-LOG_FILE="$TMP_DIR"/cf_spells.$$.log
+LOG_FILE="$TMP_DIR"/cf_cast_spells.$$.log
 
 # *** uncommon non-editable variables *** #
 readonly DIRECTION_DEFAULT=center  # center: if fighting spell suicide ?
@@ -60,7 +62,16 @@ readonly COMMAND=fire
 readonly COMMAND_STOP=fire_stop
 readonly COMMAND_PAUSE_DEFAULT=4   # seconds between castings
 readonly FOOD_STAT_MIN=300         # at 200 starts to beep
-readonly FOOD=waybread  # make sure to have enough/amulet of Sustenance if leaving PC for several hours
+readonly FOOD=  # apple, food, haggis, waybread, etc from inventory
+# make sure to have enough/amulet of Sustenance if leaving PC for several hours
+# if FOOD unset (empty), applies topmost item on the ground
+#  you might need to leave stack of food and step upon the stack again,
+#  to ensure the apply command works
+
+# player could be low on HP ...
+ITEM_RECALL='rod of word of recall' #  [wand], staff, scroll, rod of word of recall
+
+DRAW_INFO=drawinfo # drawinfo (older servers) OR drawextinfo (newer servers)
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
@@ -71,6 +82,21 @@ _set_global_variables "$@"
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 _get_player_name && {
 test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
+}
+
+
+# beeping
+BEEP_DO=1
+BEEP_LENGTH=500
+BEEP_FREQ=700
+
+_beep(){
+[ "$BEEP_DO" ] || return 0
+test "$1" && { BEEP_L=$1; shift; }
+test "$1" && { BEEP_F=$1; shift; }
+BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
+BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
+beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
 
@@ -98,6 +124,11 @@ _draw ${COL_VERB:-12} "VERBOSE:$*"
 _debug(){
 test "$DEBUG" || return 0
 _draw ${COL_DEB:-3} "DEBUG:$@"
+}
+
+_debugx(){
+test "$DEBUGX" || return 0
+    _draw ${COL_DEB:-3} "DEBUGX:$@"
 }
 
 _is(){
@@ -130,8 +161,9 @@ _draw 8 "Defaults:"
 _draw 8 " Without any parameters would use these defaults:"
 _draw 8 " $SPELL_DEFAULT $SPELL_DEFAULT_PARAM $DIRECTION_DEFAULT $COMMAND_PAUSE_DEFAULT"
 _draw 3 "WARNING:"
-_draw 3 "Loops forever - use scriptkill command to terminate :P ."
+_draw 3 "Without -n X option, loops forever - use scriptkill command to terminate :P ."
 _draw 5 "Options:"
+_draw 6 "-n NUMBER to limit to NUMBER times casting the spell."
 _draw 2 "-P  for praying spell and to pray between casts."
 _draw 2 "-s <OPTION> to pass parameter to spell"
 _draw 2 "   ie 'spider' to summon pet monster"
@@ -249,6 +281,8 @@ nw|northwest)   DIR=northwest; DIRN=8;; # readonly DIR DIRN;;
       --fast)  SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
       --force) FORCE=$((FORCE+1));;
       --log*)  LOGGING=$((LOGGING+1));;
+      --number=*) NUMBER=`echo "$1" | cut -f2 -d'='`;;
+      --number)   NUMBER="$2"; shift;;
       --pray*) PRAY_DO=$((PRAY_DO+1));;
       --slow)  SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
       --spell*=*) SPELL_PARAM=`echo "$PARAM_1" | cut -f2- -d'='`;;
@@ -258,7 +292,7 @@ nw|northwest)   DIR=northwest; DIRN=8;; # readonly DIR DIRN;;
       *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
      esac
 ;;
--*) OPTS=`echo "$PARAM_1" | sed -r 's/^-*//; s/(.)/\1\n/g'`
+-*) OPTS=`printf '%s' "$PARAM_1" | sed -r 's/^-*//; s/(.)/\1\n/g'`
     for oneOP in $OPTS; do
     _debug "oneOP='$oneOP'"
      case $oneOP in
@@ -267,6 +301,7 @@ nw|northwest)   DIR=northwest; DIRN=8;; # readonly DIR DIRN;;
       F) SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
       f) FORCE=$((FORCE+1));;
       L) LOGGING=$((LOGGING+1));;
+      n) NUMBER="$2"; _debugx "n:$*";shift;_debugx "n:$*";;
       P) PRAY_DO=$((PRAY_DO+1));;
       s) SPELL_PARAM="$2"; shift;;
       S) SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
@@ -313,9 +348,12 @@ _check_have_needed_spell_in_inventory(){
 _debug "_check_have_needed_spell_in_inventory:$*"
 
 local lSPELL=${*:-"$SPELL"}
+_debug "_check_have_needed_spell_in_inventory:SPELL='$SPELL' lSPELL='$lSPELL'"
+test "$lSPELL" || return 3
+
 local oneSPELL oldSPELL SPELLS r s ATTYPE LVL rest
 
-_draw 5 "Checking if have '$SPELL' ..."
+_draw 5 "Checking if have '$lSPELL' ..."
 _draw 5 "Please wait...."
 
 TIMEB=`/bin/date +%s`
@@ -345,7 +383,7 @@ _debug "_check_have_needed_spell_in_inventory:Elapsed '$TIME' s."
 #SPELL_LINE=`echo "$SPELLS" | grep -i "$SPELL"`
 
 read r s ATTYPE LVL SP_NEEDED rest <<EoI
-`echo "$SPELLS" | grep -i "$SPELL"`
+`echo "$SPELLS" | grep -i "$lSPELL"`
 EoI
 _debug "_check_have_needed_spell_in_inventory:SP_NEEDED=$SP_NEEDED"
 
@@ -357,10 +395,14 @@ _check_have_needed_spell_applied(){
 # ***
 _debug "_check_have_needed_spell_applied:$*"
 
+_debug "_check_have_needed_spell_applied:SPELL='$SPELL' lSPELL='$lSPELL'"
 local lSPELL=${*:-"$SPELL"}
+_debug "_check_have_needed_spell_applied:SPELL='$SPELL' lSPELL='$lSPELL'"
+test "$lSPELL" || return 3
+
 local oneSPELL oldSPELL SPELLSA
 
-_draw 5 "Checking if have '$SPELL' applied ..."
+_draw 5 "Checking if have '$lSPELL' applied ..."
 _draw 5 "Please wait...."
 
 echo request spells
@@ -419,7 +461,17 @@ _apply_needed_spell(){  # has no params
 
 #TODO : Something blocks your magic.
 
-_is 1 1 cast $SPELL $SPELL_PARAM
+_debug "_apply_needed_spell:$*"
+
+_debug "_apply_needed_spell:SPELL='$SPELL' lSPELL='$lSPELL'"
+
+local lSPELL=${*:-"$SPELL"}
+
+_debug "_apply_needed_spell:SPELL='$SPELL' lSPELL='$lSPELL'"
+
+test "$lSPELL" || return 3
+
+_is 1 1 cast $lSPELL $SPELL_PARAM
 }
 
 # *** unused
@@ -445,9 +497,14 @@ read -t 1 statHP
 _rotate_range_attack(){
 _debug "_rotate_range_attack:$*"
 
-local REPLY_RANGE oldREPLY_RANGE
+local lSPELL=${*:-"$SPELL"}
+_debug "_rotate_range_attack:SPELL='$SPELL' lSPELL='$lSPELL'"
+test "$lSPELL" || return 3
 
-_draw 5 "Checking if have '$SPELL' ready..."
+local REPLY_RANGE oldREPLY_RANGE
+local c=0
+
+_draw 5 "Checking if have '$lSPELL' ready..."
 _draw 5 "Please wait...."
 
 while :;
@@ -459,13 +516,17 @@ read -t 1 REPLY_RANGE
  _log "_rotate_range_attack:REPLY_RANGE=$REPLY_RANGE"
  _debug "$REPLY_RANGE"
 
- test "`echo "$REPLY_RANGE" | grep -i "$SPELL"`" && break
+ test "`echo "$REPLY_RANGE" | grep -i "$lSPELL"`" && break
  test "$oldREPLY_RANGE" = "$REPLY_RANGE" && break
  test "$REPLY_RANGE" || break
 
     _is 1 1 rotateshoottype
  oldREPLY_RANGE="$REPLY_RANGE"
+
+c=$((c+1))
+test "$c" -ge 8 && return 10
 sleep 2.1
+
 done
 
 }
@@ -478,7 +539,10 @@ _do_emergency_recall(){
 # *   and ommit exit ( comment 'exit 5' line by setting a '#' before it)
 # *   - something like that
 
-  _is 1 1 apply "rod of word of recall"
+test "$ITEM_RECALL" || return 3
+
+  _is 1 1 apply -u "$ITEM_RECALL"
+  _is 1 1 apply -a "$ITEM_RECALL"
   _is 1 1 fire 0
   _is 1 1 fire_stop
 
@@ -486,6 +550,7 @@ _do_emergency_recall(){
 # sleep 10
 # echo issue 1 1 apply
 
+_beep
 exit 5
 }
 
@@ -527,7 +592,7 @@ c=$((c+1))
 #_debug "issue 1 1 use_skill praying"
    _is 1 1 use_skill praying
 sleep 1
-test $c = $PRAYS && break
+test $c = ${PRAYS:-9} && break
 done
 
 }
@@ -633,8 +698,8 @@ _do_loop(){
 # ***
 _debug "_do_loop:$*"
 
-COMMAND_PAUSE=${1:-$COMMAND_PAUSE}
-COMMAND_PAUSE=${COMMAND_PAUSE:-$COMMAND_PAUSE_DEFAULT}
+local lCOMMAND_PAUSE=${1:-$COMMAND_PAUSE}
+lCOMMAND_PAUSE=${lCOMMAND_PAUSE:-$COMMAND_PAUSE_DEFAULT}
 
 local sc=0
 
@@ -659,15 +724,16 @@ do
 
  _is 1 1 $COMMAND $DIRECTION_NUMBER
  _is 1 1 $COMMAND_STOP
+ one=$((one+1))
 
- #sleep $COMMAND_PAUSE
+ #sleep $lCOMMAND_PAUSE
  sc=0
  while :; do
   sleep 1
   _debug "PRAY_DO='$PRAY_DO'"
   test "$PRAY_DO" && _is $PRAY_DO 1 use_skill praying
   sc=$((sc+1))
-  test "$sc" -le $COMMAND_PAUSE || break
+  test "$sc" -le $lCOMMAND_PAUSE || break
  done
 
  if test "$STATS_DO"; then
@@ -681,7 +747,7 @@ do
 
  test "$PROBE_DO" && { _counter_for_checks2 && { _probe_enemy; sleep 1.5; }; }
 
- one=$((one+1))
+ #one=$((one+1))
 
  #TRIES_STILL=$((NUMBER-one))  # unused
  TIMEE=`/bin/date +%s`
@@ -691,7 +757,9 @@ do
 
 
  count=$((count+1))
- _draw 4 "Elapsed $TIME s., finished the $count lap ($TIMET m total time) ..."
+ _draw 5 "Elapsed $TIME s., finished the $count lap ($TIMET m total time) ..."
+
+ test "$one" = "$NUMBER" && break
 
 done
 #_debug "_do_loop:issue 0 0 $COMMAND_STOP"
@@ -707,6 +775,120 @@ done
 # ***
 # ***
 
+_handle_spell_errors(){
+
+local lRV=0
+ case $REPLY in  # server/spell_util.c
+ '*Something blocks the magic of your item.'*)   lRV=30;;
+ '*Something blocks the magic of your scroll.'*) lRV=30;;
+ *'Something blocks your spellcasting.'*)        lRV=10;;
+ *'Something blocks your magic.'*)               lRV=10;; # spell_effect.c: int probe( .. )
+ *'Something blocks the magic of the spell.'*)   lRV=10;; # spell_effect.c: int dimension_door( .. )
+ *'This ground is unholy!'*)                     lRV=20;;
+ *'You lack the skill evocation'*)               lRV=11;;
+ *'You lack the skill pyromancy'*)               lRV=12;;
+ *'You lack the skill sorcery'*)                 lRV=13;;
+ *'You lack the skill summoning'*)               lRV=14;;
+ *'You lack the skill praying'*)                 lRV=20;;
+ *'You lack the skill '*)                        lRV=19;;
+ *'You lack the proper attunement to cast '*)    lRV=30;;
+ *'That spell path is denied to you.'*)          lRV=40;;
+ *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ *'You are no easier to look at.'*)              lRV=111;; # spell_effect.c: static const char *const no_gain_msgs[NUM_STATS] = {
+ *"You don't feel any healthier."*)              lRV=112;;
+ *'You grow no more agile.'*)                    lRV=113;;
+ *'You grow no stronger.'*)                      lRV=114;;
+# *) lRV=1;;
+esac
+
+case $lRV in
+10) # all magic
+unset SPELL_DET_MONST
+unset SPELL_FAERYFIRE
+unset SPELL_CON SPELL_DET_MAGIC SPELL_DEX SPELL_DISARM SPELL_PROBE
+;;
+11) # evocation
+unset SPELL_DET_MONST
+;;
+12) # pyro
+unset SPELL_FAERYFIRE
+;;
+13) # sorcery
+unset SPELL_CON SPELL_DET_MAGIC SPELL_DEX SPELL_DISARM SPELL_PROBE
+;;
+14) # summon
+
+;;
+19) # unknown skill
+
+;;
+20) # all praying
+unset SPELL_DET_CURSE SPELL_DET_EVIL SPELL_REST SPELL_SHOW_INV
+;;
+30) # all magic+praying
+unset SPELL_DET_MONST
+unset SPELL_FAERYFIRE
+unset SPELL_CON SPELL_DET_MAGIC SPELL_DEX SPELL_DISARM SPELL_PROBE
+unset SPELL_DET_CURSE SPELL_DET_EVIL SPELL_REST SPELL_SHOW_INV
+;;
+111) # charisma
+unset SPELL_CHA
+;;
+112) # constitution
+unset SPELL_CON
+;;
+113) # dexterity
+unset SPELL_DEX
+;;
+114) # strength
+unset SPELL_STR
+;;
+esac
+
+case $lRV in 0|1) :;;
+*) _write_tmp_settings_file;;
+esac
+
+return ${lRV:-1}
+}
+
+_check_spell_works(){
+
+_debug "_check_spell_works:$*"
+
+local lSPELL=${*:-"$SPELL"}
+test "$lSPELL" || return 3
+
+local lRV=0
+
+_draw 5 "Checking if spell '$lSPELL' works here..."
+
+echo watch $DRAW_INFO
+
+_is 1 1 cast $lSPELL $SPELL_PARAM
+_is 1 1 $COMMAND $DIRECTION_NUMBER
+_is 1 1 $COMMAND_STOP
+
+ while :; do
+
+ unset REPLY
+ sleep 0.1
+ read -t 1
+
+ _log "_check_spell_works:$REPLY"
+ _debug "$REPLY"
+
+ case $REPLY in ''|$OLD_REPLY) break;;
+ *) _handle_spell_errors || lRV=1;;
+ esac
+
+ done
+
+echo unwatch $DRAW_INFO
+
+return ${lRV:-4}
+}
+
 
 _error(){
 # ***
@@ -716,16 +898,22 @@ _draw 3 "$*"
 exit $RV
 }
 
+_error_break(){
+RV=$1;shift
+_draw 3 "$*"
+break ${RV:-1}
+}
+
 # *** main *** #
 _do_program(){
 # ***
 
 _parse_parameters "$@" # should generate global vars SPELL DIRECTION COMMAND_PAUSE
+
 readonly SPELL=${SPELL:-"$SPELL_DEFAULT"}
-#readonly
+readonly COMMAND_PAUSE=${COMMAND_PAUSE:-"$COMMAND_PAUSE_DEFAULT"}
+
 DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
-#readonly
-COMMAND_PAUSE=${COMMAND_PAUSE:-"$COMMAND_PAUSE_DEFAULT"}
 
 if test ! "$SPELL_PARAM"; then
  if test "$SPELL" = "$SPELL_DEFAULT"; then
@@ -734,12 +922,17 @@ if test ! "$SPELL_PARAM"; then
 fi
 readonly SPELL_PARAM
 
-_check_have_needed_spell_in_inventory && { _apply_needed_spell || _error 1 "Could not apply spell."; } || _error 1 "Spell is not in inventory"
+while :; do
+_check_have_needed_spell_in_inventory && { _apply_needed_spell || _error_break 1 "Could not apply spell."; } || _error 1 "Spell is not in inventory"
 sleep 1
 _rotate_range_attack
 sleep 1
 _direction_word_to_number $DIRECTION
+readonly DIRECTION
+_check_spell_works && _draw 7 "Yup..." || _error_break 1 "Oh NOOOO ... :(" #{ _draw 3 "Oh NOOO ... :("; return 20; }
 _do_loop $COMMAND_PAUSE
+break
+done
 }
 
 # ***
@@ -750,9 +943,38 @@ case $* in
 *) _do_program "$@";;
 esac
 
-# *** Here ends program *** #
-_draw 2 "$0 is finished."
 
+# *** Here ends program *** #
+
+rm -f /tmp/cf_script_exit.flag
+
+JOBS=`jobs -p`
+test "$JOBS" && kill -15 $JOBS
+
+_count_time(){
+
+test "$*" || return 3
+
+TIMEE=`/bin/date +%s` || return 4
+
+TIMEX=$((TIMEE - $*)) || return 5
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
+_count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
+_count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
+
+test "$one" && _draw 5 "You $COMMAND '$one' time(s)."
+
+_draw 2 "$0 is finished."
+_beep
+
+exit 0
 
 # ***
 # ***

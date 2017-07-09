@@ -6,6 +6,8 @@
 
 exec 2>/tmp/cf_script.err
 
+set -m # enable job control
+
 # Now count the whole script time
 TIMEA=`/bin/date +%s`
 

@@ -6,6 +6,8 @@
 
 exec 2>/tmp/cf_script.err
 
+set -m # enable job control
+
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
 #define NDI_WHITE       1
