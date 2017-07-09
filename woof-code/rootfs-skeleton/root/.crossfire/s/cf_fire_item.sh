@@ -151,6 +151,90 @@ done
 echo unwatch $DRAW_INFO
 }
 
+_regenerate_spell_points(){
+	:
+	touch /tmp/cf_fire_item_regenerate_sp.tmp
+}
+
+_regenerate_grace_points(){
+	:
+	touch /tmp/cf_fire_item_regenerate_gp.tmp
+}
+
+_test_integer(){
+test "$*" || return 3
+test ! "${*//[0-9]/}"
+}
+
+_watchdog(){
+
+#local FOOD_LVL_FULL=999
+local FOOD_LVL=999  # dummy
+local HP_FULL=10    # dummy
+local SP_FULL=10    # dummy
+local GR_FULL=10    # dummy
+
+while :; do
+
+echo watch $DRAW_INFO
+echo watch stats hp
+echo watch stats food
+
+ while :; do
+
+  sleep 0.1
+  unset REPLY
+  read -t 1
+
+	 _log "_watchdog:$REPLY"
+   _debug "$REPLY"
+
+	case $REPLY in
+	*watch*stats*food*)  FOOD_LVL=${REPLY##* }
+	  _test_integer $FOOD_LVL || continue
+	  if test "$FOOD_LVL" -le ${FOOD_STAT_MIN:-499}; then
+      _is 0 0 apply $FOOD
+      fi
+	;;
+	*watch*stats*hp*)    HP=${REPLY##* }
+	  test _integer $HP || continue
+     test "$HP" -gt "$HP_FULL" && HP_FULL=$HP
+     if test "$HP" -le $((HP_FULL/10)); then
+      _do_emergency_recall
+     fi
+	;;
+	*watch*stats*sp*)    SP=${REPLY##* }
+	 _test_integer $SP || continue
+     test "$SP" -gt "$SP_FULL" && SP_FULL=$SP
+     if test "$SP" -le "${SP_SPELL:-1}"; then
+      _regenerate_spell_points
+     fi
+	;;
+	*watch*stats*grace*) GP=${REPLY##* }
+	 _test_integer $GP || continue
+     test "$GP" -gt "$GP_FULL" && GP_FULL=$GP
+     if test "$GP" -le "${GP_SPELL:-1}"; then
+      _regenerate_grace_points
+     fi
+	;;
+
+    *You*feel*very*ill*) _cure poison;;
+    *You*feel*ill*)      _cure disease;;
+
+	*scripttell*)
+     _draw 3 "_watch_scripttell:$REPLY"
+     case $REPLY in *abort*|*break*|*exit*|*halt*|*kill*|*quit*|*stop*|*term*)
+      _draw 4 "Stopping in $COMMAND_PAUSE seconds ..."
+      touch /tmp/cf_script_exit.flag
+      break 2;;
+     esac
+    ;;
+    esac
+
+  done
+
+echo unwatch
+}
 
 # *** Here begins program *** #
 _draw 2 "$0 started <$*> with pid $$ $PPID"

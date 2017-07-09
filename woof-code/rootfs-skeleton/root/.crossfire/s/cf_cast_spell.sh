@@ -29,7 +29,7 @@
 # ***
 # ***
 
-exec 2>/tmp/script.err
+exec 2>/tmp/cf_script.err
 
 export PATH=/bin:/usr/bin
 
@@ -153,14 +153,165 @@ _draw 5 "-v to say what is being issued to server."
 exit 0
 }
 
-
 # ***
 # ***
 # *** diff marker 2
 # *** diff marker 3
 # ***
 # ***
+_handle_pausing(){
 
+test "$*" || return 3
+
+read r s h lHP lHP_MAX lSP lSP_MAX lGR lGR_MAX lFOOD_STAT <<EoI
+`echo "$*"`
+EoI
+
+}
+
+_request_stat_hp(){
+
+#local r s h
+
+echo request stat hp
+#read -t 1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
+
+# _debug "_request_stat_hp:FOOD_STAT=$FOOD_STAT HP=$HP HP_MAX=$HP_MAX"
+# _debug "_request_stat_hp:SP=$SP SP_MAX=$SP_MAX GR=$GR GR_MAX=$GR_MAX"
+}
+
+__regenerate_spell_points(){
+	:
+	touch /tmp/cf_fire_item_regenerate_sp.tmp
+	_request_stat_hp
+}
+
+__regenerate_grace_points(){
+	:
+	touch /tmp/cf_fire_item_regenerate_gp.tmp
+	_request_stat_hp
+}
+
+_test_integer(){
+test "$*" || return 3
+test ! "${*//[0-9]/}"
+}
+
+_watchdog(){
+
+#local FOOD_LVL_FULL=999
+local FOOD_LVL=999  # dummy
+local HP_FULL=10    # dummy
+local SP_FULL=10    # dummy
+local GR_FULL=10    # dummy
+
+#echo watch $DRAW_INFO
+#echo watch stats hp
+#echo watch stats food
+echo watch stats
+
+while :; do
+
+#echo watch $DRAW_INFO
+#echo watch stats hp
+#echo watch stats food
+
+ while :; do
+
+  sleep 0.1
+  unset REPLY
+  read -t 1
+
+	 _log "_watchdog:$REPLY"
+   _debug "_watchdog:$REPLY"
+
+	case $REPLY in
+	*watch*stats*food*)  FOOD_LVL=${REPLY##* }
+	  _test_integer $FOOD_LVL || continue
+	  if test "$FOOD_LVL" -le ${FOOD_STAT_MIN:-499}; then
+      _is 0 0 apply $FOOD
+      fi
+	;;
+	*watch*stats*hp*)    HP=${REPLY##* }
+	  test _integer $HP || continue
+     test "$HP" -gt "$HP_FULL" && HP_FULL=$HP
+     if test "$HP" -le $((HP_FULL/10)); then
+      _do_emergency_recall
+     fi
+	;;
+	*watch*stats*sp*)    SP=${REPLY##* }
+	 _test_integer $SP || continue
+     test "$SP" -gt "$SP_FULL" && SP_FULL=$SP
+     #if test "$SP" -le "${SP_SPELL:-1}"; then
+     # test -e /tmp/cf_fire_item_regenerate_sp.tmp || __regenerate_spell_points
+     #fi
+     #if test "$SP" -le "${SP_SPELL:-1}"; then
+     # touch  /tmp/cf_fire_item_regenerate_sp.tmp
+     #sc=$((sc+1))
+     #test "$sc" -lt $SP_FULL && continue
+     #sc=0
+     if test "$SP_SPELL"; then
+      if test "$SP" -lt "$SP_SPELL"; then
+            touch /tmp/cf_fire_item_regenerate_sp.tmp
+      elif test "$SP" -lt "${SP_FULL}"; then :
+      else rm -f /tmp/cf_fire_item_regenerate_sp.tmp
+      fi
+     elif test "$SP" -lt "${SP_FULL}"; then
+      touch  /tmp/cf_fire_item_regenerate_sp.tmp
+     else
+      rm -f /tmp/cf_fire_item_regenerate_sp.tmp
+     fi
+	;;
+	*watch*stats*grace*) GP=${REPLY##* }
+	 _test_integer $GP || continue
+     test "$GP" -gt "$GP_FULL" && GP_FULL=$GP
+     #if test "$GP" -le "${GP_SPELL:-1}"; then
+     # test -e /tmp/cf_fire_item_regenerate_gp.tmp || __regenerate_grace_points
+     #fi
+     #if test "$GP" -le "${GP_SPELL:-1}"; then
+     # touch  /tmp/cf_fire_item_regenerate_gp.tmp
+     #gc=$((gc+1))
+     #test "$gc" -lt $GP_FULL && continue
+     #gc=0
+     if test "$SP_SPELL"; then
+      if test "$GP" -lt "$GP_SPELL"; then
+           touch /tmp/cf_fire_item_regenerate_gp.tmp
+      elif test "$GP" -lt "${SP_FULL}"; then :
+      else rm -f /tmp/cf_fire_item_regenerate_gp.tmp
+      fi
+     elif test "$GP" -lt "${SP_FULL}"; then
+      touch /tmp/cf_fire_item_regenerate_gp.tmp
+     else
+      rm -f /tmp/cf_fire_item_regenerate_gp.tmp
+     fi
+	;;
+    *request*stats*hp*)  # then we know that we need to wait
+     :
+     #if test "`jobs | grep _handle_pausing`"; then :
+     #else
+     #_handle_pausing "$REPLY" &
+     #fi
+
+    ;;
+
+    *You*feel*very*ill*) _cure poison;;
+    *You*feel*ill*)      _cure disease;;
+
+	*scripttell*)
+     _draw 3 "_watch_scripttell:$REPLY"
+     case $REPLY in *abort*|*break*|*exit*|*halt*|*kill*|*quit*|*stop*|*term*)
+      _draw 4 "Stopping in $COMMAND_PAUSE seconds ..."
+      touch /tmp/cf_script_exit.flag
+      break 2;;
+     esac
+    ;;
+    esac
+
+  done
+
+done
+echo unwatch
+}
 
 # *** Here begins program *** #
 _draw 2 "$0 started <$*> with pid:$$ (parentpid:$PPID)"
@@ -366,10 +517,10 @@ _debug "_check_have_needed_spell_in_inventory:Elapsed '$TIME' s."
 
 #SPELL_LINE=`echo "$SPELLS" | grep -i "$SPELL"`
 
-read r s ATTYPE LVL SP_NEEDED rest <<EoI
+read r s ATTYPE LVL SP_SPELL rest <<EoI
 `echo "$SPELLS" | grep -i "$SPELL"`
 EoI
-_debug "_check_have_needed_spell_in_inventory:SP_NEEDED=$SP_NEEDED"
+_debug "_check_have_needed_spell_in_inventory:SP_SPELL=$SP_SPELL"
 
 echo "$SPELLS" | grep -q -i "$lSPELL"
 }
@@ -548,7 +699,7 @@ if [ "$SP" -le 0 ]; then
 fi
 
 #test "$SP" -ge $((SP_MAX/2)) || return 3
-test "$SP" -ge $((SP_MAX/2)) || return 3
+test "$SP" -ge $((SP_MAX/2)) || return 6
 }
 
 # *** stub to switch wizard-cleric spells in future
@@ -577,7 +728,8 @@ test "$GR" -ge $((GR_MAX/2)) || return 6
 }
 
 # *** stub to issue use_skill praying
-_pray_up_gracepoints(){
+#_pray_up_gracepoints(){  # unused
+_regenerate_grace_points(){
 # ***
 
 _debug "_pray_up_gracepoints:$*:GR=$GR GR_MAX=$GR_MAX"
@@ -709,6 +861,8 @@ COMMAND_PAUSE=${COMMAND_PAUSE:-$COMMAND_PAUSE_DEFAULT}
 
 local sc=0
 
+_watchdog &
+
 TIMEB=`/bin/date +%s`
 
 while :;
@@ -740,6 +894,7 @@ do
   test "$sc" -le $COMMAND_PAUSE || break
  done
 
+ __old_check_stats__(){
  if test "$STATS_DO"; then
  if _counter_for_checks1; then
  _watch_food  # calls either _watch_cleric_gracepoints OR _watch_wizard_spellpoints
@@ -748,8 +903,27 @@ do
  esac
  fi
  fi
+ }
 
  test "$PROBE_DO" && { _counter_for_checks2 && { _probe_enemy; sleep 1.5; }; }
+
+ while test -e /tmp/cf_fire_item_regenerate_sp.tmp; do
+ test -e /tmp/cf_script_exit.flag && break
+ sleep 3; done
+ #if test -e /tmp/cf_fire_item_regenerate_sp.tmp; then
+ # _regenerate_spell_points
+ # rm -f /tmp/cf_fire_item_regenerate_sp.tmp
+ #fi
+
+ while test -e /tmp/cf_fire_item_regenerate_gp.tmp; do
+ test -e /tmp/cf_script_exit.flag && break
+ sleep 3; done
+ #if test -e /tmp/cf_fire_item_regenerate_gp.tmp; then
+ # _regenerate_grace_points
+ # rm -f /tmp/cf_fire_item_regenerate_gp.tmp
+ #fi
+
+ #test "$PROBE_DO" && { _counter_for_checks2 && { _probe_enemy; sleep 1.5; }; }
 
  #one=$((one+1))
 
@@ -764,7 +938,7 @@ do
  _draw 4 "Elapsed $TIME s., finished the $count lap ($TIMET m total time) ..."
 
  test "$one" = "$NUMBER" && break
-
+ test -e /tmp/cf_script_exit.flag && break
 done
 #_debug "_do_loop:issue 0 0 $COMMAND_STOP"
             _is 0 0 $COMMAND_STOP
@@ -920,8 +1094,13 @@ _check_spell_works && _draw 7 "Yup..." || { _draw 3 "Oh NOOO ... :("; return 20;
 _do_loop $COMMAND_PAUSE
 }
 
-# ***
 
+# *** MAIN *** #
+
+rm -f /tmp/cf_*.tmp
+rm -f /tmp/cf_script_exit.flag
+
+set -m
 
 case $* in
 #'') _draw 3 "Script needs <spell> <direction> and <number of $COMMAND pausing> as argument.";;
