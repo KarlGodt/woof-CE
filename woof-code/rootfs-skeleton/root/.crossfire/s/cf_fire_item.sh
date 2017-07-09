@@ -1,4 +1,18 @@
-#!/bin/bash
+#!/bin/ash
+
+# ash: DEFAULT set : NONE
+# interactive: smi
+# for a in a b e f i m s u v ; do set -$a; done
+# echo $-
+# ubavsmife
+#  these work too : o to show opts, x debug, n to not execute commands
+#   A C
+#  these do not work : l login,
+
+#-v      Print shell input lines as they are read.
+
+# bash: DEFAULT set : bH
+# interactive: himBH
 
 # *** diff marker 1
 # ***
@@ -24,7 +38,7 @@ COMMAND=fire
 COMMAND_PAUSE_DEFAULT=7  # seconds; horn need 7, rod 2 to recharge
 COMMAND_STOP=fire_stop
 FOOD_STAT_MIN=300
-FOOD=waybread
+FOOD=  # apple, food, haggis, waybread, etc from inventory; if unset, applies topmost item on the ground
 
 ITEM_RECALL='rod of word of recall' #  [wand], staff, scroll, rod of word of recall
 
@@ -82,6 +96,12 @@ echo issue "$@"
 sleep 0.2
 }
 
+_cure(){
+test "$*" || return 3
+_is 1 1 invoke cure $*
+_rotate_range_attack
+}
+
 _watch_scripttell(){
 
 #echo watch $DRAW_INFO
@@ -93,17 +113,26 @@ echo watch $DRAW_INFO
 
   sleep 0.1
   unset REPLY
-  read -t 1
+  read -t 1 #</proc/self/fd/0
+#ash: bad number
+#/root/cf/s2/fi: line 626: can't open /proc/self/fd/1: No such device or address
+#/root/cf/s2/fi: line 106: /proc/self/fd/0: No such device or address
+#/root/cf/s2/fi: line 483: test: (lvl 20).: Ganzzahliger Ausdruck erwartet.
+#/root/cf/s2/fi: line 488: test: You: Ganzzahliger Ausdruck erwartet.
+
   _log "_watch_scripttell:$REPLY"
   _debug "$REPLY"
 
   case $REPLY in *scripttell*)
    _draw 3 "_watch_scripttell:$REPLY"
    case $REPLY in *abort*|*break*|*exit*|*halt*|*kill*|*quit*|*stop*|*term*)
+    _draw 4 "Stopping in $COMMAND_PAUSE seconds ..."
     touch /tmp/cf_script_exit.flag
      break 2;;
    esac
   ;;
+  *You*feel*very*ill*) _cure poison;;
+  *You*feel*ill*)      _cure disease;;
   '') c=$((c+1));;
   esac
 
@@ -236,7 +265,14 @@ DIRECTION="$DIR"
 
 _debug "_parse_parameters:ITEM=$ITEM DIR=$DIRECTION COMMAND_PAUSE=$COMMAND_PAUSE"
 _debug "NUMBER='$NUMBER'"
-test  "$DIRECTION" -a "$ITEM" || _error 1 "Missing ITEM -o DIRECTION"
+
+#        ITEM=${ITEM:-"$ITEM_DEFAULT"}
+#    DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
+#COMMAND_PAUSE=${COMMAND_PAUSE:-"$COMMAND_PAUSE_DEFAULT"}
+#
+#_debug "_parse_parameters:ITEM=$ITEM DIR=$DIRECTION COMMAND_PAUSE=$COMMAND_PAUSE"
+
+test  "$DIRECTION" -a "$ITEM" #|| _error 1 "Missing ITEM -o DIRECTION"
 }
 
 
@@ -261,17 +297,19 @@ sleep 0.5
 
 _usage(){
 _draw 5 "Script to $COMMAND ITEM DIRECTION <COMMAND_PAUSE> ."
-_draw 5 "Syntax:"
-_draw 5 "script $0 <item> <dir> <<seconds>>"
-_draw 5 "For example: 'script $0 rod of firebolt east 3'"
+_draw 2 "Syntax:"
+_draw 7 "script $0 <item> <dir> <<seconds>>"
+_draw 8 "For example: 'script $0 rod of firebolt east 3'"
 _draw 5 "will apply rod of firebolt"
 _draw 5 "and will issue the $COMMAND east command with pause of 3 sec."
 _draw 4 "Run without any parameters will use these defaults:"
 _draw 4 "$ITEM_DEFAULT $DIRECTION_DEFAULT $COMMAND_PAUSE_DEFAULT"
-_draw 5 "Options:"
+_draw 6 "Without -n option loops forever, use 'scriptkill' or"
+_draw 6 "'scripttell $0 stop' to terminate."
+_draw 2 "Options:"
 _draw 4 "-F  on fast network connection."
 _draw 4 "-S  on slow 2G network connection."
-_draw 4 "-n NUMBER to limit to NUMBER times usage of ITEM."
+_draw 6 "-n NUMBER to limit to NUMBER times usage of ITEM."
 _draw 5 "-d  to turn on debugging."
 _draw 5 "-L  to log to $LOG_FILE ."
 _draw 5 "-v to say what is being issued to server."
@@ -334,6 +372,8 @@ _check_have_needed_item_applied(){
 
 _debug "_check_have_needed_item_applied:$*"
 
+[ "$CHECK_DO" ] || return 0
+
 local oneITEM oldITEM ITEMSA
 
 _draw 6 "Checking if '$ITEM' is already applied .."
@@ -370,6 +410,7 @@ _rotate_range_attack(){
 _debug "_rotate_range_attack:$*"
 
 local REPLY_RANGE oldREPLY_RANGE
+local c=0
 
 _draw 6 "Rotate shoottype to ready '$ITEM' .."
 
@@ -388,7 +429,11 @@ read -t 1 REPLY_RANGE
  #_debug "issue 1 1 rotateshoottype"
     _is 1 1 rotateshoottype
  oldREPLY_RANGE="$REPLY_RANGE"
+
+c=$((c+1))
+test "$c" -ge 8 && return 4
 sleep 2.1
+
 done
 
 }
@@ -419,7 +464,8 @@ read -t1 statHP
 }
 
 _do_emergency_recall(){
-#_debug "issue 1 1 apply rod of word of recall"
+_debug "_do_emergency_recall:$*"
+
  _is 1 1 apply -u "$ITEM_RECALL"
  _is 1 1 apply -a "$ITEM_RECALL"
  _is 1 1 fire 0
@@ -431,6 +477,8 @@ exit 5
 }
 
 _watch_food(){
+_debug "_watch_food:$*"
+
 local r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_LVL
 
 echo request stat hp
@@ -450,7 +498,7 @@ read -t1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_LVL
 _do_loop(){
 NUMBER=$1
 
-DEBUG=1
+#DEBUG=1
 
 _debug "_do_loop:$*:NUMBER=$NUMBER"
 
@@ -479,7 +527,7 @@ do
  TRIES_STILL=$((NUMBER-one))
  _debug TRIES_STILL=$TRIES_STILL
 
- case $TRIES_STILL in -*) TRIES_STILL=$(( TRIES_STILL * -1 ));; esac
+ case $TRIES_STILL in -*) TRIES_STILL=$(( TRIES_STILL * -1 )); INFINITE=1;; esac
  _debug TRIES_STILL=$TRIES_STILL
 
  TIMEE=`/bin/date +%s`
@@ -493,10 +541,14 @@ do
  MINUTES=$(( ((TRIES_STILL * TIMEAVG) / 60 ) ))
  _debug MINUTES=$MINUTES
  SECONDS=$(( (TRIES_STILL * TIMEAVG) - (MINUTES*60) ))
-_debug SECONDS=$SECONDS
+ _debug SECONDS=$SECONDS
  case $SECONDS in [0-9]) SECONDS="0$SECONDS";; esac
 
- _draw 2 "Elapsed $TIME s, still '$TRIES_STILL' to go ($MINUTES:$SECONDS minutes) ..."
+ if test "$INFINITE"; then
+  _draw 2 "Elapsed $MINUTES:$SECONDS m, fired '$TRIES_STILL' times."
+ else
+  _draw 2 "Elapsed $TIME s, still '$TRIES_STILL' laps to go ($MINUTES:$SECONDS minutes) ..."
+ fi
 
  test "$one" = "$NUMBER" && break
  test -e /tmp/cf_script_exit.flag && break
@@ -521,35 +573,63 @@ exit $RV
 }
 
 _do_program(){
-if test "$*"; then
+
+_debug "_do_program:$*"
+
+#         ITEM=${ITEM:-"$ITEM_DEFAULT"}
+#    DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
+#COMMAND_PAUSE=${COMMAND_PAUSE:-"$COMMAND_PAUSE_DEFAULT"}
+
+#if test "$*"; then
 _parse_parameters "$@"
-else
-_draw 3 "Using defaults: $ITEM_DEFAULT $DIRECTION_DEFAULT $COMMAND_PAUSE_DEFAULT"
-fi
+case $? in 0) :;;
+#else
+*)
+#_draw 3 "Using defaults: $ITEM_DEFAULT $DIRECTION_DEFAULT $COMMAND_PAUSE_DEFAULT"
          ITEM=${ITEM:-"$ITEM_DEFAULT"}
     DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
 COMMAND_PAUSE=${COMMAND_PAUSE:-"$COMMAND_PAUSE_DEFAULT"}
+_draw 3 "Using defaults: $ITEM $DIRECTION $COMMAND_PAUSE"
+;;
+esac
+#fi
 
 #   NUMBER=${NUMBER:-"$NUMBER_DEFAULT"}
 #_check_have_needed_item_in_inventory || _error 1 "Item $ITEM not in inventory"
+
 _check_have_needed_item_applied
 case $? in
 0) :
+   #sleep 1
+   #_rotate_range_attack || return 10
+   #sleep 1
 ;;
+
 *) _check_have_needed_item_in_inventory
    case $? in
    0) _apply_needed_item;;
-   *) _error 1 "Item '$ITEM' not in inventory";;
+   *) _error 1 "Item '$ITEM' not found in player's inventory.";;
    esac
 ;;
 esac
 sleep 1
-_rotate_range_attack
+_rotate_range_attack || return 10
 sleep 1
 _direction_word_to_number $DIRECTION
 _do_loop $NUMBER
 }
 
+
+OPTIONS_SET="$-"
+_draw 3 "OPTIONS set : $OPTIONS_SET"
+
+#-m      Monitor mode.  Job control is enabled.
+# This option is on by default for interactive shells on systems that support it (see JOB CONTROL above).
+# Background processes run in a separate process group
+# and a line containing their exit status is printed upon their completion.
+set -m
+OPTIONS_SET="$-"
+_draw 3 "OPTIONS set : $OPTIONS_SET"
 
 rm -f /tmp/cf_script_exit.flag
 case $* in
@@ -563,6 +643,9 @@ esac
 # *** Here ends program *** #
 
 rm -f /tmp/cf_script_exit.flag
+
+JOBS=`jobs -p`
+test "$JOBS" && kill -15 $JOBS
 
 _count_time(){
 
@@ -586,6 +669,7 @@ test "$one" && _draw 5 "You fired '$one' time(s)."
 
 _draw 2 "$0 is finished."
 
+exit 0 # _draw could return non-zero
 
 # ***
 # ***
