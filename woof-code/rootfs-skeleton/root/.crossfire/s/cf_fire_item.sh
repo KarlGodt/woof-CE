@@ -84,22 +84,38 @@ sleep 0.2
 
 _watch_scripttell(){
 
-echo watch $DRAW_INFO
+#echo watch $DRAW_INFO
 
 while :; do
 
-sleep 0.1
-unset REPLY
-read -t 3
+echo watch $DRAW_INFO
+ while :; do
 
-case $REPLY in *scripttell*)
- _draw 3 "_watch_scripttell:$REPLY"
- case $REPLY in *abort*|*break*|*exit*|*halt*|*kill*|*quit*|*stop*|*term*)
-  touch /tmp/cf_script_exit.flag
-  break;;
- esac
-;;
-esac
+  sleep 0.1
+  unset REPLY
+  read -t 1
+  _log "_watch_scripttell:$REPLY"
+  _debug "$REPLY"
+
+  case $REPLY in *scripttell*)
+   _draw 3 "_watch_scripttell:$REPLY"
+   case $REPLY in *abort*|*break*|*exit*|*halt*|*kill*|*quit*|*stop*|*term*)
+    touch /tmp/cf_script_exit.flag
+     break 2;;
+   esac
+  ;;
+  '') c=$((c+1));;
+  esac
+
+ #c=$((c+1))
+ test "$c" = ${COMMAND_PAUSE:-9} && break
+ done
+
+echo unwatch $DRAW_INFO
+#sleep $COMMAND_PAUSE
+#echo unwatch $DRAW_INFO
+_watch_food
+c=0
 
 done
 
@@ -458,7 +474,7 @@ do
  sleep $COMMAND_PAUSE
  one=$((one+1))
 
- _watch_food
+ #_watch_food
 
  TRIES_STILL=$((NUMBER-one))
  _debug TRIES_STILL=$TRIES_STILL
@@ -535,6 +551,7 @@ _do_loop $NUMBER
 }
 
 
+rm -f /tmp/cf_script_exit.flag
 case $* in
 #'') _draw 3 "Script needs <item> <direction>"
 #    _draw 3 "and optionally <number of $COMMAND attempts> as arguments.";;
@@ -544,6 +561,8 @@ esac
 
 
 # *** Here ends program *** #
+
+rm -f /tmp/cf_script_exit.flag
 
 _count_time(){
 
