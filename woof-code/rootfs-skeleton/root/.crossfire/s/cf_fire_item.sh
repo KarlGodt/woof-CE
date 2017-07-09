@@ -1,8 +1,10 @@
-#!/bin/ash
+#!/bin/bash
 
 # *** diff marker 1
 # ***
 # ***
+
+exec 2>/tmp/cf_script_err.log
 
 export PATH=/bin:/usr/bin
 
@@ -24,6 +26,10 @@ COMMAND_STOP=fire_stop
 FOOD_STAT_MIN=300
 FOOD=waybread
 
+ITEM_RECALL='rod of word of recall' #  [wand], staff, scroll, rod of word of recall
+
+DRAW_INFO=drawinfo # drawinfo (older servers) OR drawextinfo (newer servers)
+
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
@@ -33,6 +39,73 @@ test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 _get_player_name && {
 test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 }
+
+CHECK_DO=1
+
+_draw(){
+test "$*" || return
+COLOUR=${1:-0}
+shift
+while read -r line
+do
+test "$line" || continue
+echo draw $COLOUR "$line"
+sleep 0.1
+done <<EoI
+`echo "$@"`
+EoI
+}
+
+_debug(){
+[ "$DEBUG" ] || return 0
+_draw ${COL_DBG:-11} "$*"
+}
+
+_debugx(){
+[ "$DEBUGX" ] || return 0
+_draw ${COL_DBG:-11} "$*"
+}
+
+_log(){
+[ "$LOGGING" ] || return 0
+echo "$*" >>"${LOG_REPLY_FILE:-/tmp/cf_script.log}"
+}
+
+_verbose(){
+[ "$VERBOSE" ] || return 0
+_draw ${COL_VERB:-12} "$*"
+}
+
+_is(){
+_verbose "$*"
+echo issue "$@"
+sleep 0.2
+}
+
+_watch_scripttell(){
+
+echo watch $DRAW_INFO
+
+while :; do
+
+sleep 0.1
+unset REPLY
+read -t 3
+
+case $REPLY in *scripttell*)
+ _draw 3 "_watch_scripttell:$REPLY"
+ case $REPLY in *abort*|*break*|*exit*|*halt*|*kill*|*quit*|*stop*|*term*)
+  touch /tmp/cf_script_exit.flag
+  break;;
+ esac
+;;
+esac
+
+done
+
+echo unwatch $DRAW_INFO
+}
+
 
 # *** Here begins program *** #
 _draw 2 "$0 started <$*> with pid $$ $PPID"
@@ -108,6 +181,7 @@ nw|northwest)   DIR=northwest; DIRN=8; readonly DIR DIRN;;
       --number)   NUMBER="$2"; shift;;
       --slow)  SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
       --verb*) VERBOSE=$((VERBOSE+1));;
+      --nocheck*) unset CHECK_DO;;
       *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
      esac
 ;;
@@ -123,6 +197,7 @@ nw|northwest)   DIR=northwest; DIRN=8; readonly DIR DIRN;;
       n) NUMBER="$2"; _debugx "n:$*";shift;_debugx "n:$*";;
       S) SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
       v) VERBOSE=$((VERBOSE+1));;
+      X) unset CHECK_DO;;
       *) _draw 3 "Ignoring unhandled option '$oneOP'";;
      esac
     done
@@ -184,6 +259,7 @@ _draw 4 "-n NUMBER to limit to NUMBER times usage of ITEM."
 _draw 5 "-d  to turn on debugging."
 _draw 5 "-L  to log to $LOG_FILE ."
 _draw 5 "-v to say what is being issued to server."
+_draw 3 "-X  do not check inventory ( faster, unsafe )"
 exit 0
 }
 
@@ -197,7 +273,11 @@ exit 0
 
 
 _check_have_needed_item_in_inventory(){
+
 _debug "_check_have_needed_item_in_inventory:$*"
+
+[ "$CHECK_DO" ] || return 0
+
 local oneITEM oldITEM ITEMS TIMEB TIMEE TIME
 
 _draw 6 "Checking if in inventory..."
@@ -228,11 +308,16 @@ TIMEE=`/bin/date +%s`
 TIME=$((TIMEE-TIMEB))
 _draw 4 "Check took elapsed $TIME sec."
 
+echo "$ITEMS" >/tmp/cf_script_req_items_inv.lst
+
+
 echo "$ITEMS" | grep -q -i "$ITEM"
 }
 
 _check_have_needed_item_applied(){
+
 _debug "_check_have_needed_item_applied:$*"
+
 local oneITEM oldITEM ITEMSA
 
 _draw 6 "Checking if '$ITEM' is already applied .."
@@ -265,7 +350,9 @@ _apply_needed_item(){
 }
 
 _rotate_range_attack(){
+
 _debug "_rotate_range_attack:$*"
+
 local REPLY_RANGE oldREPLY_RANGE
 
 _draw 6 "Rotate shoottype to ready '$ITEM' .."
@@ -317,7 +404,8 @@ read -t1 statHP
 
 _do_emergency_recall(){
 #_debug "issue 1 1 apply rod of word of recall"
- _is 1 1 apply rod of word of recall
+ _is 1 1 apply -u "$ITEM_RECALL"
+ _is 1 1 apply -a "$ITEM_RECALL"
  _is 1 1 fire 0
  _is 1 1 fire_stop
 ## apply bed of reality
@@ -331,7 +419,7 @@ local r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_LVL
 
 echo request stat hp
 read -t1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_LVL
- _debug "_watch_food:FOOD_LVL=$FOOD_LVL HP=$HP"
+ _debug "_watch_food:FOOD_LVL='$FOOD_LVL' HP='$HP'"
  if test "$FOOD_LVL" -lt $FOOD_STAT_MIN; then
   #_debug "issue 0 0 apply $FOOD"
      _is 0 0 apply $FOOD
@@ -350,8 +438,10 @@ DEBUG=1
 
 _debug "_do_loop:$*:NUMBER=$NUMBER"
 
+_watch_scripttell &
+
 TIMEB=`/bin/date +%s`
-#for one in `seq 1 1 $NUMBER`
+
 while :;
 do
 
@@ -366,21 +456,24 @@ do
              _is 1 1 $COMMAND $DIRECTION_NUMBER
              _is 1 1 $COMMAND_STOP
  sleep $COMMAND_PAUSE
+ one=$((one+1))
 
  _watch_food
 
- one=$((one+1))
-
  TRIES_STILL=$((NUMBER-one))
  _debug TRIES_STILL=$TRIES_STILL
+
  case $TRIES_STILL in -*) TRIES_STILL=$(( TRIES_STILL * -1 ));; esac
  _debug TRIES_STILL=$TRIES_STILL
+
  TIMEE=`/bin/date +%s`
  TIME=$((TIMEE-TIMEC))
  _debug TIME=$TIME
+
  TIMEALL=$((TIMEALL+TIME))
  TIMEAVG=$(( TIMEALL / one ))  # average 8 laps * 8 seconds = 64, 7 * 9 = 63 ...
  _debug TIMEAVG=$TIMEAVG
+
  MINUTES=$(( ((TRIES_STILL * TIMEAVG) / 60 ) ))
  _debug MINUTES=$MINUTES
  SECONDS=$(( (TRIES_STILL * TIMEAVG) - (MINUTES*60) ))
@@ -390,6 +483,7 @@ _debug SECONDS=$SECONDS
  _draw 2 "Elapsed $TIME s, still '$TRIES_STILL' to go ($MINUTES:$SECONDS minutes) ..."
 
  test "$one" = "$NUMBER" && break
+ test -e /tmp/cf_script_exit.flag && break
 done
 #_debug "_do_loop:issue 0 0 $COMMAND_STOP"
             _is 0 0 $COMMAND_STOP
@@ -450,6 +544,27 @@ esac
 
 
 # *** Here ends program *** #
+
+_count_time(){
+
+test "$*" || return 3
+
+TIMEE=`/bin/date +%s` || return 4
+
+TIMEX=$((TIMEE - $*)) || return 5
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
+_count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
+_count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
+
+test "$one" && _draw 5 "You fired '$one' time(s)."
+
 _draw 2 "$0 is finished."
 
 
