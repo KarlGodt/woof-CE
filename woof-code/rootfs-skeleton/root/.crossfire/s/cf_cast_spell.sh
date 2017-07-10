@@ -42,8 +42,8 @@ TIMEA=`/bin/date +%s`
 #LOGGING=1  # print to a file - especially large requests like inv
 PROBE_DO=1  # apply rod of probe in firing direction after firing
 PROBE_ITEM='rod of probe'
-STATS_DO=1     # check hp, sp and food level
-CHECK_COUNT_FOOD=10 # only run every yth time a check for food level and sp points
+STATS_DO=1         # old __do_loop: check hp, sp and food level
+CHECK_COUNT_FOOD=5 # old __do_loop: only run every yth time a check for food level and sp points
 CHECK_COUNT_PROBE=1 # and probe PROBE_ITEM
 
 # *** common variables
@@ -54,13 +54,18 @@ mkdir -p "$TMP_DIR"
 LOG_FILE="$TMP_DIR"/cf_cast_spells.$$.log
 
 # *** uncommon non-editable variables *** #
-readonly DIRECTION_DEFAULT=center  # center: if fighting spell suicide ?
+readonly DIRECTION_DEFAULT=center  # center: if fighting spell suicide !!
 readonly NUMBER_DEFAULT=10         # unused
-readonly SPELL_DEFAULT='create food'     # casts 'create food'
-readonly SPELL_DEFAULT_PARAM='waybread'  # with 'waybread' as parameter
+
+#readonly SPELL_DEFAULT='create food'     # casts 'create food'
+#readonly SPELL_DEFAULT_PARAM='waybread'  # with 'waybread' as parameter
+readonly SPELL_DEFAULT='create missile'   # casts 'create missile'
+readonly SPELL_DEFAULT_PARAM='frost'      # with 'frost' as parameter fire,frost,lightning,paralysis,poison,magic,accuracy
+
 readonly COMMAND=fire
 readonly COMMAND_STOP=fire_stop
-readonly COMMAND_PAUSE_DEFAULT=4   # seconds between castings
+readonly COMMAND_PAUSE_DEFAULT=4   # seconds wait between castings
+
 readonly FOOD_STAT_MIN=300         # at 200 starts to beep
 readonly FOOD=waybread  # apple, food, haggis, waybread, etc from inventory
 # make sure to have enough/amulet of Sustenance if leaving PC for several hours
@@ -76,13 +81,13 @@ DRAW_INFO=drawinfo # drawinfo (older servers) OR drawextinfo (newer servers)
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 #ls "${MY_SELF%/*}"/cf_functions.sh
-test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-_set_global_variables "$@"
-# *** Override any VARIABLES in cf_functions.sh *** #
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
-_get_player_name && {
-test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
-}
+#test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+#_set_global_variables "$@"
+## *** Override any VARIABLES in cf_functions.sh *** #
+#test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+#_get_player_name && {
+#test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
+#}
 
 
 _draw(){
@@ -127,8 +132,8 @@ _usage(){
 # *** print usage message to client window and exit
 
 _draw 5 "Script to $COMMAND SPELL DIRECTION COMMAND_PAUSE ."
-_draw 5 "Syntax:"
-_draw 5 "script $0 <<spell>> <<dir>> <<pause>>"
+_draw 2 "Syntax:"
+_draw 7 "script $0 <<spell>> <<dir>> <<pause>>"
 _draw 5 "For example: 'script $0 firebolt east 10'"
 _draw 5 "will issue cast firebolt"
 _draw 5 "and will issue the $COMMAND east command"
@@ -137,15 +142,19 @@ _draw 8 "Defaults:"
 _draw 8 " Without any parameters would use these defaults:"
 _draw 8 " $SPELL_DEFAULT $SPELL_DEFAULT_PARAM $DIRECTION_DEFAULT $COMMAND_PAUSE_DEFAULT"
 _draw 3 "WARNING:"
-_draw 3 "Without -n X option, loops forever - use scriptkill command to terminate :P ."
-_draw 5 "Options:"
+_draw 3 "Without -n X option, loops forever,"
+_draw 3 "use 'scriptkill' command to terminate,"
+_draw 3 "or scripttell $0 halt ."
+_draw 2 "Options:"
 _draw 6 "-n NUMBER to limit to NUMBER times casting the spell."
-_draw 2 "-P  for praying spell and to pray between casts."
-_draw 2 "-s <OPTION> to pass parameter to spell"
-_draw 2 "   ie 'spider' to summon pet monster"
+_draw 7 "-P  for praying spell and to pray between casts."
+_draw 6 "-s <OPTION> to pass parameter to spell"
+_draw 6 "   ie 'spider' to summon pet monster."
+_draw 2 "-A cast create missile with various parameters"
+_draw 2 " (no further options required)."
 _draw 4 "-F  on fast network connection."
 _draw 4 "-S  on slow 2G network connection."
-_draw 2 "-f  to not check if spell is known (force)"
+_draw 3 "-f  to not check if spell is known (force)"
 _draw 5 "-d to turn on debugging."
 _draw 5 "-L  to log to $LOG_FILE ."
 _draw 5 "-v to say what is being issued to server."
@@ -182,13 +191,13 @@ echo request stat hp
 
 __regenerate_spell_points(){
 	:
-	touch /tmp/cf_fire_item_regenerate_sp.tmp
+	touch /tmp/cf_cast_spell_regenerate_sp.tmp
 	_request_stat_hp
 }
 
 __regenerate_grace_points(){
 	:
-	touch /tmp/cf_fire_item_regenerate_gp.tmp
+	touch /tmp/cf_cast_spell_regenerate_gp.tmp
 	_request_stat_hp
 }
 
@@ -204,17 +213,15 @@ local FOOD_LVL=999  # dummy
 local HP_FULL=10    # dummy
 local SP_FULL=10    # dummy
 local GR_FULL=10    # dummy
+local SP_OLD=0      #
+local GR_OLD=0      #
 
-#echo watch $DRAW_INFO
+echo watch $DRAW_INFO
 #echo watch stats hp
 #echo watch stats food
 echo watch stats
 
 while :; do
-
-#echo watch $DRAW_INFO
-#echo watch stats hp
-#echo watch stats food
 
  while :; do
 
@@ -242,48 +249,44 @@ while :; do
 	*watch*stats*sp*)    SP=${REPLY##* }
 	 _test_integer $SP || continue
      test "$SP" -gt "$SP_FULL" && SP_FULL=$SP
-     #if test "$SP" -le "${SP_SPELL:-1}"; then
-     # test -e /tmp/cf_fire_item_regenerate_sp.tmp || __regenerate_spell_points
-     #fi
-     #if test "$SP" -le "${SP_SPELL:-1}"; then
-     # touch  /tmp/cf_fire_item_regenerate_sp.tmp
-     #sc=$((sc+1))
-     #test "$sc" -lt $SP_FULL && continue
-     #sc=0
+
+     test "$SP" -lt "$SP_OLD" && SP_SPELL=${SP_SPELL:-$((SP_OLD-SP))} # TODO: mana drain by traps, etc.
+
      if test "$SP_SPELL"; then
       if test "$SP" -lt "$SP_SPELL"; then
-            touch /tmp/cf_fire_item_regenerate_sp.tmp
+            touch /tmp/cf_cast_spell_regenerate_sp.tmp
       elif test "$SP" -lt "${SP_FULL}"; then :
-      else rm -f /tmp/cf_fire_item_regenerate_sp.tmp
+      else rm -f /tmp/cf_cast_spell_regenerate_sp.tmp
       fi
-     elif test "$SP" -lt "${SP_FULL}"; then
-      touch  /tmp/cf_fire_item_regenerate_sp.tmp
+     elif test "$SP" -lt "$((SP_FULL/10))"; then
+      touch  /tmp/cf_cast_spell_regenerate_sp.tmp
+     elif test "$SP" -lt "${SP_FULL}"; then :
      else
-      rm -f /tmp/cf_fire_item_regenerate_sp.tmp
+      rm -f /tmp/cf_cast_spell_regenerate_sp.tmp
      fi
+
+     SP_OLD=$SP
 	;;
 	*watch*stats*grace*) GP=${REPLY##* }
 	 _test_integer $GP || continue
      test "$GP" -gt "$GP_FULL" && GP_FULL=$GP
-     #if test "$GP" -le "${GP_SPELL:-1}"; then
-     # test -e /tmp/cf_fire_item_regenerate_gp.tmp || __regenerate_grace_points
-     #fi
-     #if test "$GP" -le "${GP_SPELL:-1}"; then
-     # touch  /tmp/cf_fire_item_regenerate_gp.tmp
-     #gc=$((gc+1))
-     #test "$gc" -lt $GP_FULL && continue
-     #gc=0
+
+     test "$GP" -lt "$GP_OLD" && SP_SPELL=${SP_SPELL:-$((GP_OLD-GP))} # TODO: grace drain by traps, etc.
+
      if test "$SP_SPELL"; then
-      if test "$GP" -lt "$GP_SPELL"; then
-           touch /tmp/cf_fire_item_regenerate_gp.tmp
+      if test "$GP" -lt "$SP_SPELL"; then
+           touch /tmp/cf_cast_spell_regenerate_gp.tmp
       elif test "$GP" -lt "${SP_FULL}"; then :
-      else rm -f /tmp/cf_fire_item_regenerate_gp.tmp
+      else rm -f /tmp/cf_cast_spell_regenerate_gp.tmp
       fi
-     elif test "$GP" -lt "${SP_FULL}"; then
-      touch /tmp/cf_fire_item_regenerate_gp.tmp
+     elif test "$GP" -lt "$((SP_FULL/10))"; then
+      touch /tmp/cf_cast_spell_regenerate_gp.tmp
+     elif test "$GP" -lt "${SP_FULL}"; then :
      else
-      rm -f /tmp/cf_fire_item_regenerate_gp.tmp
+      rm -f /tmp/cf_cast_spell_regenerate_gp.tmp
      fi
+
+	 GP_OLD=$GP
 	;;
     *request*stats*hp*)  # then we know that we need to wait
      :
@@ -412,6 +415,7 @@ sw|southwest)   DIR=southwest; DIRN=6;; # readonly DIR DIRN;;
 nw|northwest)   DIR=northwest; DIRN=8;; # readonly DIR DIRN;;
 
 --*) case $PARAM_1 in
+      --arrow*) CREATE_ARROWS=1;;
       --help)   _usage;;
       --deb*)    DEBUG=$((DEBUG+1));;
       --fast)  SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
@@ -425,6 +429,7 @@ nw|northwest)   DIR=northwest; DIRN=8;; # readonly DIR DIRN;;
       --spell*)   SPELL_PARAM="$2"; shift;;
       --usage)  _usage;;
       --verb*) VERBOSE=$((VERBOSE+1));;
+      --oldcode) OLD_CODE=1;;
       *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
      esac
 ;;
@@ -432,6 +437,7 @@ nw|northwest)   DIR=northwest; DIRN=8;; # readonly DIR DIRN;;
     for oneOP in $OPTS; do
     _debug "oneOP='$oneOP'"
      case $oneOP in
+      A) CREATE_ARROWS=1;;
       h)  _usage;;
       d)   DEBUG=$((DEBUG+1));;
       F) SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
@@ -442,6 +448,7 @@ nw|northwest)   DIR=northwest; DIRN=8;; # readonly DIR DIRN;;
       s) SPELL_PARAM="$2"; shift;;
       S) SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
       v) VERBOSE=$((VERBOSE+1));;
+      Z) OLD_CODE=1;;
       *) _draw 3 "Ignoring unhandled option '$oneOP'";;
      esac
     done
@@ -797,13 +804,14 @@ return $?
 _regenerate_spell_points(){  # called by _do_loop if
 # ***
 
-_draw 4 "Regenerating spell points.."
+#_draw 4 "Regenerating spell points.."
 while :;
 do
+_draw 4 "Regenerating spell points.."
 
 sleep 20s
 _watch_food && break
-_verbose "Still regenerating to spellpoints $SP -> $((SP_MAX/2)) .."
+#_verbose "Still regenerating to spellpoints $SP -> $((SP_MAX/2)) .."
 done
 
 }
@@ -850,25 +858,21 @@ test $check_c2 -eq $CHECK_COUNT_PROBE && unset check_c2
 # ***
 # ***
 
-
 # ***
-_do_loop(){
+__do_loop(){
 # ***
-_debug "_do_loop:$*"
+_debug "__do_loop:$*"
 
 COMMAND_PAUSE=${1:-$COMMAND_PAUSE}
 COMMAND_PAUSE=${COMMAND_PAUSE:-$COMMAND_PAUSE_DEFAULT}
 
 local sc=0
 
-_watchdog &
-
 TIMEB=`/bin/date +%s`
 
 while :;
 do
 
- #TIMEB=`/bin/date +%s`
  TIMEC=${TIMEE:-$TIMEB}
 
 # user could change range attack while pausing ...
@@ -879,7 +883,7 @@ do
 #  <repeat> is the number of times to execute command
 #  <must_send> tells whether or not the command must sent at all cost (1 or 0).
 #  <repeat> and <must_send> are optional parameters.
-#TODO : Something blocks your magic.
+
  _is 1 1 $COMMAND $DIRECTION_NUMBER
  _is 1 1 $COMMAND_STOP
  one=$((one+1))
@@ -894,7 +898,6 @@ do
   test "$sc" -le $COMMAND_PAUSE || break
  done
 
- __old_check_stats__(){
  if test "$STATS_DO"; then
  if _counter_for_checks1; then
  _watch_food  # calls either _watch_cleric_gracepoints OR _watch_wizard_spellpoints
@@ -903,29 +906,181 @@ do
  esac
  fi
  fi
- }
 
  test "$PROBE_DO" && { _counter_for_checks2 && { _probe_enemy; sleep 1.5; }; }
 
- while test -e /tmp/cf_fire_item_regenerate_sp.tmp; do
+
+ #TRIES_STILL=$((NUMBER-one))  # unused
+ TIMEE=`/bin/date +%s`
+ TIME=$((TIMEE-TIMEC))
+ TIMET=$((TIMEE-TIMEB))
+ TIMET=$(( (TIMET/60) +1))
+
+
+ count=$((count+1))
+ _draw 4 "Elapsed $TIME s., finished the $count lap ($TIMET m total time) ..."
+
+ test "$one" = "$NUMBER" && break
  test -e /tmp/cf_script_exit.flag && break
- sleep 3; done
- #if test -e /tmp/cf_fire_item_regenerate_sp.tmp; then
- # _regenerate_spell_points
- # rm -f /tmp/cf_fire_item_regenerate_sp.tmp
- #fi
+done
+#_debug "_do_loop:issue 0 0 $COMMAND_STOP"
+            _is 0 0 $COMMAND_STOP
+}
 
- while test -e /tmp/cf_fire_item_regenerate_gp.tmp; do
+# ***
+_do_loop_arrows(){
+# ***
+_debug "_do_loop:$*"
+
+COMMAND_PAUSE=${1:-$COMMAND_PAUSE}
+COMMAND_PAUSE=${COMMAND_PAUSE:-$COMMAND_PAUSE_DEFAULT}
+
+local SC=0
+
+_watchdog &
+
+TIMEB=`/bin/date +%s`
+
+while :;
+do
+
+ TIMEC=${TIMEE:-$TIMEB}
+
+ for SPELL_PARAM in accuracy fire frost lightning magic paralysis poison ""
+ do
+
+ # user could change range attack while pausing ...
+ _draw 2 "casting $SPELL $SPELL_PARAM ..."
+ _apply_needed_spell
+
+# issue <repeat> <must_send> <command> - send
+#  <command> to server on behalf of client.
+#  <repeat> is the number of times to execute command
+#  <must_send> tells whether or not the command must sent at all cost (1 or 0).
+#  <repeat> and <must_send> are optional parameters.
+
+ _is 1 1 $COMMAND $DIRECTION_NUMBER
+ _is 1 1 $COMMAND_STOP
+ one=$((one+1))
+
+ #sleep $COMMAND_PAUSE
+ SC=0
+ while :; do
+  sleep 1
+  _debug "PRAY_DO='$PRAY_DO'"
+  test "$PRAY_DO" && _is $PRAY_DO 1 use_skill praying
+  SC=$((SC+1))
+  test "$SC" -le $COMMAND_PAUSE || break
+ done
+
+
+ test "$PROBE_DO" && { _counter_for_checks2 && { _probe_enemy; sleep 1.5; }; }
+
+ while test -e /tmp/cf_cast_spell_regenerate_sp.tmp; do
+ test -e /tmp/cf_script_exit.flag && break 1
+ sleep 3
+ # for i in 1 2 3; do
+ #  test -e /tmp/cf_script_exit.flag && break 2
+ #  _is 1 1 use_skill meditation
+ #  sleep 1
+ # done
+ _draw 2 "Regenerating spell points ..."
+ done
+
+ while test -e /tmp/cf_cast_spell_regenerate_gp.tmp; do
+  for i in 1 2 3; do
+   test -e /tmp/cf_script_exit.flag && break 2
+   _is 1 1 use_skill praying
+   sleep 1
+  done
+ _draw 2 "Regenerating spell points ..."
+ done
+
+
+ #TRIES_STILL=$((NUMBER-one))  # unused
+ TIMEE=`/bin/date +%s`
+ TIME=$((TIMEE-TIMEC))
+ TIMET=$((TIMEE-TIMEB))
+ TIMET=$(( (TIMET/60) +1))
+
+
+ count=$((count+1))
+ _draw 4 "Elapsed $TIME s., finished the $count lap ($TIMET m total time) ..."
+
+ test "$one" = "$NUMBER" && break
+ test -e /tmp/cf_script_exit.flag && break 2
+ done
+done
+#_debug "_do_loop:issue 0 0 $COMMAND_STOP"
+            _is 0 0 $COMMAND_STOP
+}
+
+
+# ***
+_do_loop(){
+# ***
+_debug "_do_loop:$*"
+
+COMMAND_PAUSE=${1:-$COMMAND_PAUSE}
+COMMAND_PAUSE=${COMMAND_PAUSE:-$COMMAND_PAUSE_DEFAULT}
+
+local SC=0
+
+_watchdog &
+
+TIMEB=`/bin/date +%s`
+
+while :;
+do
+
+ TIMEC=${TIMEE:-$TIMEB}
+
+# user could change range attack while pausing ...
+ _apply_needed_spell
+
+# issue <repeat> <must_send> <command> - send
+#  <command> to server on behalf of client.
+#  <repeat> is the number of times to execute command
+#  <must_send> tells whether or not the command must sent at all cost (1 or 0).
+#  <repeat> and <must_send> are optional parameters.
+
+ _is 1 1 $COMMAND $DIRECTION_NUMBER
+ _is 1 1 $COMMAND_STOP
+ one=$((one+1))
+
+ #sleep $COMMAND_PAUSE
+ SC=0
+ while :; do
+  sleep 1
+  _debug "PRAY_DO='$PRAY_DO'"
+  test "$PRAY_DO" && _is $PRAY_DO 1 use_skill praying
+  SC=$((SC+1))
+  test "$SC" -le $COMMAND_PAUSE || break
+ done
+
+
+ test "$PROBE_DO" && { _counter_for_checks2 && { _probe_enemy; sleep 1.5; }; }
+
+ while test -e /tmp/cf_cast_spell_regenerate_sp.tmp; do
  test -e /tmp/cf_script_exit.flag && break
- sleep 3; done
- #if test -e /tmp/cf_fire_item_regenerate_gp.tmp; then
- # _regenerate_grace_points
- # rm -f /tmp/cf_fire_item_regenerate_gp.tmp
- #fi
+ sleep 3
+ # for i in 1 2 3; do
+ #  test -e /tmp/cf_script_exit.flag && break 2
+ #  _is 1 1 use_skill meditation
+ #  sleep 1
+ # done
+ _draw 2 "Regenerating spell points ..."
+ done
 
- #test "$PROBE_DO" && { _counter_for_checks2 && { _probe_enemy; sleep 1.5; }; }
+ while test -e /tmp/cf_cast_spell_regenerate_gp.tmp; do
+  for i in 1 2 3; do
+   test -e /tmp/cf_script_exit.flag && break 2
+   _is 1 1 use_skill praying
+   sleep 1
+  done
+ _draw 2 "Regenerating spell points ..."
+ done
 
- #one=$((one+1))
 
  #TRIES_STILL=$((NUMBER-one))  # unused
  TIMEE=`/bin/date +%s`
@@ -1072,26 +1227,42 @@ _do_program(){
 # ***
 
 _parse_parameters "$@" # should generate global vars SPELL DIRECTION COMMAND_PAUSE
-readonly SPELL=${SPELL:-"$SPELL_DEFAULT"}
+
+if test "$CREATE_ARROWS"; then
+ readonly SPELL='create missile'
+else
+ readonly SPELL=${SPELL:-"$SPELL_DEFAULT"}
+ if test ! "$SPELL_PARAM"; then
+  if test "$SPELL" = "$SPELL_DEFAULT"; then
+   SPELL_PARAM="$SPELL_DEFAULT_PARAM"
+  fi
+ fi
+ readonly SPELL_PARAM
+fi
+
 #readonly
 DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
 #readonly
 COMMAND_PAUSE=${COMMAND_PAUSE:-"$COMMAND_PAUSE_DEFAULT"}
 
-if test ! "$SPELL_PARAM"; then
- if test "$SPELL" = "$SPELL_DEFAULT"; then
-  SPELL_PARAM="$SPELL_DEFAULT_PARAM"
- fi
-fi
-readonly SPELL_PARAM
-
 _check_have_needed_spell_in_inventory && { _apply_needed_spell || _error 1 "Could not apply spell."; } || _error 1 "Spell is not in inventory"
 sleep 1
+
 _rotate_range_attack
 sleep 1
+
 _direction_word_to_number $DIRECTION
+
 _check_spell_works && _draw 7 "Yup..." || { _draw 3 "Oh NOOO ... :("; return 20; }
-_do_loop $COMMAND_PAUSE
+sleep $COMMAND_PAUSE
+
+if test "$CREATE_ARROWS"; then
+ _do_loop_arrows
+elif test "$OLD_CODE"; then
+ __do_loop $COMMAND_PAUSE     # old
+else
+  _do_loop $COMMAND_PAUSE     # new
+fi
 }
 
 
