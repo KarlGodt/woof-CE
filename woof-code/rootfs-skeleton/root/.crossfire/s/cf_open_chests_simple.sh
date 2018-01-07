@@ -23,22 +23,57 @@
 # search for these similar scripts.
 #
 # Style:
-# This script was written mainly from memeory,
+# This script was written mainly from memory,
 # but used the function _check_if_on_cauldron()
 # with modifications for _check_if_on_chest()
 # from the cf_functions.sh already available.
 # Also used the existing functions
-# _is, _draw, _set_global_variables,
+# _is, _draw, _debug, _log, _set_global_variables,
 # _say_start_msg, _say_end_msg from cf_functions.sh .
 # Added __debug() function to cf_functions.sh
 # to draw multiple lines given.
 
-#. /etc/DISTRO_SPECS
-#. /etc/rc.d/PUPSTATE
-#. /etc/rc.d/f4puppy5
+VERSION=0.0
+VERSION=0.1 # added parameter processing
+# added help and version message
+# added script run time message
+# reordered some code lines
+# early exit if rare ball lightning
+# do not break for 'You search the area' message,
+#  since that seems to not be in sync with other messages
+#
 
+SEARCH_ATTEMPTS_DEFAULT=9
 
 . $HOME/cf/s/cf_functions.sh || exit 2
+
+_say_help(){
+_draw 6  "$MY_BASE"
+_draw 7  "Script to search for traps,"
+_draw 7  "disarming them,"
+_draw 7  "and open chest(s)."
+_draw 8  "Options:"
+_draw 9  "-S # :Number of search attempts, default $SEARCH_ATTEMPTS_DEFAULT"
+_draw 11 "-V   :Print version information."
+
+exit ${1:-2}
+}
+
+_say_version(){
+_draw 6 "$MY_BASE Version:$VERSION"
+exit ${1:-2}
+}
+
+___debug(){  ##+++2018-01-06
+test "$DEBUG" || return 0
+cnt=0
+echo "$*" | while read line
+do
+cnt=$((cnt+1))
+    echo draw 3 "__DEBUG:$cnt:$line"
+done
+unset cnt line
+}
 
 __is(){
 _debug "$*"
@@ -63,7 +98,7 @@ echo request items on
 
 while :; do
 read -t $TMOUT UNDER_ME
-_log "$ON_LOG" "$UNDER_ME"
+_log "$ON_LOG" "_check_if_on_chest:$UNDER_ME"
 _debug "$UNDER_ME"
 
 #UNDER_ME_LIST="$UNDER_ME
@@ -117,11 +152,15 @@ return 0
 }
 
 _pickup(){
+# TODO: Seems to pick up only
+# one piece of the item, if more than one
+# piece of the item, as 4 coins or 23 arrows
+# in _open_chests() ..?
 __is 0 0 pickup ${*:-0}
 }
 
 _search_traps(){
-cnt=9
+cnt=${SEARCH_ATTEMPTS:-$SEARCH_ATTEMPTS_DEFAULT}
 _draw 5 "Searching traps ..."
 
 while :
@@ -133,13 +172,14 @@ echo watch $DRAWINFO
 __is 0 0 search
 sleep 1
 
-
+ unset cnt0
  while :
  do
+ cnt0=$((cnt0+1))
  unset REPLY
  read -t $TMOUT
- _log "$REPLY"
- _debug "$REPLY"
+ _log "_search_traps:$cnt0:$REPLY"
+ _debug "$cnt0:$REPLY"
 
 #You spot a Rune of Burning Hands!
 #You spot a poison needle!
@@ -147,10 +187,11 @@ sleep 1
 #You spot a Rune of Shocking!
 #You spot a Rune of Icestorm!
 #You search the area.
-
+#You spot a Rune of Ball Lightning!
  case $REPLY in
+ *'You spot a Rune of Ball Lightning!'*) _just_exit 0;;
  *' spot '*) FOUND_TRAP=$((FOUND_TRAP+1));;
- *'You search the area.') break 1;;
+ *'You search the area.'*) SEARCH_MSG=$((SEARCH_MSG+1));; # break 1;;
  '') break 1;;
  *) :;;
  esac
@@ -183,18 +224,19 @@ TRAPS=$TRAPS_ALL
 
 while :
 do
-_draw 5 "Disarming ${TRAPS:-0} traps ..."
+_draw 5 "${TRAPS:-0} traps to disarm ..."
 
 echo watch $DRAWINFO
 __is 0 0 use_skill disarm
 sleep 1
 
- unset REPLY
+ unset REPLY OLD_REPLY cnt0
  while :
  do
+ cnt0=$((cnt0+1))
  read -t $TMOUT
- _log "$REPLY"
- _debug "$REPLY"
+ _log "_disarm_traps:$cnt0:$REPLY"
+ _debug "$cnt0:$REPLY"
 
 #You fail to disarm the Rune of Burning Hands.
 #In fact, you set it off!
@@ -208,6 +250,7 @@ sleep 1
  *'In fact, you set it off!'*) TRAPS=$((TRAPS-1));;
  *'You detonate'*) _just_exit 1;;
  *'You are pricked'*) :;;
+ '') break 1;;
  *) :;;
  esac
 
@@ -247,6 +290,20 @@ sleep 1
 while :
 do
 
+# TODO: First apply attempt seems
+# not to work correctly
+# Seems fixed by leaving the stack of chests
+# and returning upon the stack of chests
+# at the beginning of the loop
+# and not at the end of the loop
+__is 1 1 $DIRB
+sleep 1
+__is 1 1 $DIRB
+sleep 1
+__is 1 1 $DIRF
+sleep 1
+__is 1 1 $DIRF
+
 __is 1 1 apply
 sleep 1
 # TODO : You find*Rune of*
@@ -256,6 +313,9 @@ sleep 1
 __is 1 1 $DIRB
 sleep 1
 
+# TODO: Seems to pick up only
+# one piece of the item, if more than one
+# piece of the item, as 4 coins or 23 arrows
 _pickup 4
 sleep 1
 
@@ -273,13 +333,13 @@ _check_if_on_chest -l || break 1
 sleep 1
 _draw 5 "$NUMBER_CHEST chest(s) to open ..."
 
-__is 1 1 $DIRB
-sleep 1
-__is 1 1 $DIRB
-sleep 1
-__is 1 1 $DIRF
-sleep 1
-__is 1 1 $DIRF
+#__is 1 1 $DIRB
+#sleep 1
+#__is 1 1 $DIRB
+#sleep 1
+#__is 1 1 $DIRF
+#sleep 1
+#__is 1 1 $DIRF
 
 sleep 1
 done
@@ -288,13 +348,35 @@ done
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
-MY_BASE=${MY_SELF##*/}  ## needs to be in main scrip
+MY_BASE=${MY_SELF##*/}  ## needs to be in main script
+_do_parameters(){
+# dont forget to pass parameters when invoking this function
+test "$*" || return 0
+
+# S # :Search attempts
+while getopts S:VhabcdefgijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRTUWXYZ oneOPT
+do
+case $oneOPT in
+S) SEARCH_ATTEMPTS=${OPTARG:-$SEARCH_ATTEMPTS_DEFAULT};;
+
+h) _say_help 0;;
+V) _say_version 0;;
+
+'') _draw 2 "FIXME: Empty positional parameter ...?";;
+*) _draw 3 "Unrecognized parameter '$oneOPT' ."
+esac
+
+sleep 0.1
+done
+
+}
 
 LOGGING=1
 _set_global_variables
 LOGGING=1
 
-_say_start_msg
+_say_start_msg $*
+_do_parameters $*
 
 _drop_chest
 sleep 1
@@ -309,4 +391,5 @@ _disarm_traps
 
 _open_chests
 
+_say_script_time
 _say_end_msg

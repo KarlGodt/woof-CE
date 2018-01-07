@@ -47,7 +47,7 @@ SOUND_DIR="$HOME"/.crossfire/sounds
 
 # Log file path in /tmp
 #MY_SELF=`realpath "$0"` ## needs to be in main script
-#MY_BASE=${MY_SELF##*/}  ## needs to be in main scrip
+#MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 TMP_DIR=/tmp/crossfire
 mkdir -p "$TMP_DIR"
 LOGFILE="$TMP_DIR"/"$MY_BASE".$$.log
@@ -74,6 +74,17 @@ _draw(){
 _debug(){
 test "$DEBUG" || return 0
     echo draw 3 "DEBUG:$@"
+}
+
+__debug(){  ##+++2018-01-06
+test "$DEBUG" || return 0
+cnt=0
+echo "$*" | while read line
+do
+cnt=$((cnt+1))
+    echo draw 3 "__DEBUG:$cnt:$line"
+done
+unset cnt line
 }
 
 _log(){
@@ -128,14 +139,16 @@ _draw 3 "Exiting $0. $@"
 echo unwatch
 echo unwatch $DRAWINFO
 beep -l 1000 -f 700
-exit $1
+RV=$1
+test ${RV//[0-9]/} && RV=3
+exit ${RV:-0}
 }
 
 _just_exit(){
 echo draw 3 "Exiting $0."
 echo unwatch
 #echo unwatch $DRAWINFO
-exit $1
+exit ${1:-0}
 }
 
 _emergency_exit(){
@@ -288,7 +301,7 @@ echo request items on
 while :; do
 read -t $TMOUT UNDER_ME
 #echo "$UNDER_ME" >>"$ON_LOG"
-_log "$ON_LOG" "$UNDER_ME"
+_log "$ON_LOG" "_check_if_on_cauldron:$UNDER_ME"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case $UNDER_ME in
@@ -1332,4 +1345,12 @@ TIMEZ=$((TIMEE-TIMEA))
 TIMEAV=$((TIMEZ/one))
 TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
 _draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL ($TIMEEST m) to go..."
+}
+
+_say_script_time(){
+TIME_ELAPSED=`ps -o pid,etime,args | grep -w "$$" | grep -vwE 'grep|ps'`
+__debug "$TIME_ELAPSED"
+TIME_ELAPSED=`echo "$TIME_ELAPSED" | awk '{print $2}'`
+__debug "$TIME_ELAPSED"
+_draw 5 "Script had run a time of $TIME_ELAPSED"
 }
