@@ -41,9 +41,20 @@ VERSION=0.1 # added parameter processing
 # early exit if rare ball lightning
 # do not break for 'You search the area' message,
 #  since that seems to not be in sync with other messages
-#
+VERSION=0.2 # code reorderings, smaller bugfixes
+VERSION=0.3 # instead using _debug now using a MSGLEVEL
+# using PL_SPEED variable before dropping chests and after
+# dropping chests and using a middle value of both
 
 SEARCH_ATTEMPTS_DEFAULT=9
+
+# Log file path in /tmp
+MY_SELF=`realpath "$0"` ## needs to be in main script
+MY_BASE=${MY_SELF##*/}  ## needs to be in main script
+
+#DEBUG=1
+#LOGGING=1
+MSGLEVEL=6 # Message Levels 1-7 to print to the msg pane
 
 . $HOME/cf/s/cf_functions.sh || exit 2
 
@@ -76,10 +87,10 @@ unset cnt line
 }
 
 __is(){
-_debug "$*"
+_msg 7 "$*"
 Z1=$1; shift
 Z2=$1; shift
-_debug "$*"
+_msg 7 "$*"
 echo issue $Z1 $Z2 $*
 unset Z1 Z2
 sleep 0.2
@@ -99,7 +110,7 @@ echo request items on
 while :; do
 read -t $TMOUT UNDER_ME
 _log "$ON_LOG" "_check_if_on_chest:$UNDER_ME"
-_debug "$UNDER_ME"
+_msg 7 "$UNDER_ME"
 
 #UNDER_ME_LIST="$UNDER_ME
 #$UNDER_ME_LIST"
@@ -170,7 +181,7 @@ _draw 5 "Searching traps $cnt times ..."
 
 echo watch $DRAWINFO
 __is 0 0 search
-sleep 1
+_sleep
 
  unset cnt0
  while :
@@ -179,7 +190,7 @@ sleep 1
  unset REPLY
  read -t $TMOUT
  _log "_search_traps:$cnt0:$REPLY"
- _debug "$cnt0:$REPLY"
+ _msg 7 "$cnt0:$REPLY"
 
 #You spot a Rune of Burning Hands!
 #You spot a poison needle!
@@ -196,14 +207,14 @@ sleep 1
  *) :;;
  esac
 
- sleep 1
+ _sleep
  done
 
 TRAPS_ALL=${FOUND_TRAP:-$TRAPS_ALL}
 unset FOUND_TRAP
 
 echo unwatch $DRAWINFO
-sleep 1
+_sleep
 
 
 cnt=$((cnt-1))
@@ -228,7 +239,7 @@ _draw 5 "${TRAPS:-0} traps to disarm ..."
 
 echo watch $DRAWINFO
 __is 0 0 use_skill disarm
-sleep 1
+_sleep
 
  unset REPLY OLD_REPLY cnt0
  while :
@@ -236,7 +247,7 @@ sleep 1
  cnt0=$((cnt0+1))
  read -t $TMOUT
  _log "_disarm_traps:$cnt0:$REPLY"
- _debug "$cnt0:$REPLY"
+ _msg 7 "$cnt0:$REPLY"
 
 #You fail to disarm the Rune of Burning Hands.
 #In fact, you set it off!
@@ -254,7 +265,7 @@ sleep 1
  *) :;;
  esac
 
- sleep 1
+ _sleep
  test "$OLD_REPLY" = "$REPLY" && break 1
  OLD_REPLY=$REPLY
  done
@@ -262,18 +273,18 @@ sleep 1
 # when trap is triggered,
 # it might be wise to pick up the chests,
 # so they do not get burned or icecubed
-__is 1 1 $DIRB
-sleep 1
-__is 1 1 $DIRB
-sleep 1
-
-__is 1 1 $DIRF
-sleep 1
-__is 1 1 $DIRF
-sleep 1
+#__is 1 1 $DIRB
+#_sleep
+#__is 1 1 $DIRB
+#_sleep
+#__is 1 1 $DIRF
+#_sleep
+#__is 1 1 $DIRF
+#_sleep
+_move_back_and_forth 2
 
 echo unwatch $DRAWINFO
-sleep 1
+_sleep
 
 test "$TRAPS" -gt 0 || break 1
 done
@@ -284,11 +295,15 @@ unset OLD_REPLY
 _open_chests(){
 _draw 5 "Opening chests ..."
 
-_check_if_on_chest -l || return 0
-sleep 1
+#_check_if_on_chest -l || return 0
+#_sleep
 
 while :
 do
+
+_check_if_on_chest -l || break 1
+_sleep
+_draw 5 "$NUMBER_CHEST chest(s) to open ..."
 
 # TODO: First apply attempt seems
 # not to work correctly
@@ -296,59 +311,52 @@ do
 # and returning upon the stack of chests
 # at the beginning of the loop
 # and not at the end of the loop
-__is 1 1 $DIRB
-sleep 1
-__is 1 1 $DIRB
-sleep 1
-__is 1 1 $DIRF
-sleep 1
-__is 1 1 $DIRF
+#__is 1 1 $DIRB
+#_sleep
+#__is 1 1 $DIRB
+#_sleep
+#__is 1 1 $DIRF
+#_sleep
+#__is 1 1 $DIRF
+_move_back_and_forth 2
 
 __is 1 1 apply
-sleep 1
+_sleep
 # TODO : You find*Rune of*
 
-__is 1 1 $DIRB
-sleep 1
-__is 1 1 $DIRB
-sleep 1
+#__is 1 1 $DIRB
+#_sleep
+#__is 1 1 $DIRB
+#_sleep
+#_move_back 2
 
 # TODO: Seems to pick up only
 # one piece of the item, if more than one
 # piece of the item, as 4 coins or 23 arrows
-_pickup 4
-sleep 1
+#_pickup 4
+#_sleep
 
-__is 1 1 $DIRF
-sleep 1
-__is 1 1 $DIRF
-sleep 1
+#__is 1 1 $DIRF
+#_sleep
+#__is 1 1 $DIRF
+#_sleep
+#_move_forth 2
+_move_back_and_forth 2 "_pickup 4;_sleep;"
 
 _pickup 0
-sleep 1
+_sleep
 
 _drop_chest
-sleep 1
-_check_if_on_chest -l || break 1
-sleep 1
-_draw 5 "$NUMBER_CHEST chest(s) to open ..."
+_sleep
+#_check_if_on_chest -l || break 1
+#_sleep
+#_draw 5 "$NUMBER_CHEST chest(s) to open ..."
 
-#__is 1 1 $DIRB
-#sleep 1
-#__is 1 1 $DIRB
-#sleep 1
-#__is 1 1 $DIRF
-#sleep 1
-#__is 1 1 $DIRF
-
-sleep 1
+_sleep
 done
 
 }
 
-# Log file path in /tmp
-MY_SELF=`realpath "$0"` ## needs to be in main script
-MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 _do_parameters(){
 # dont forget to pass parameters when invoking this function
 test "$*" || return 0
@@ -371,19 +379,26 @@ done
 
 }
 
-LOGGING=1
-_set_global_variables
-LOGGING=1
-
+#MAIN
+_set_global_variables $*
 _say_start_msg $*
 _do_parameters $*
 
+_get_player_speed
+PL_SPEED2=$PL_SPEED1
+_sleep
 _drop_chest
-sleep 1
+_sleep
+_get_player_speed
+PL_SPEED3=$PL_SPEED1
+_sleep
+PL_SPEED4=$(( (PL_SPEED2+PL_SPEED3) / 2 ))
+_set_sync_sleep
+
 _check_if_on_chest
-sleep 1
+_sleep
 _pickup 0
-sleep 1
+_sleep
 
 _search_traps
 
@@ -391,5 +406,5 @@ _disarm_traps
 
 _open_chests
 
-_say_script_time
+#_say_script_time
 _say_end_msg

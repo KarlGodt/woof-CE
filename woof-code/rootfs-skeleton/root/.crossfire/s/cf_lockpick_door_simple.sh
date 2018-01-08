@@ -34,14 +34,20 @@ LOCKPICK_ATTEMPTS_DEFAULT=9
 SEARCH_ATTEMPTS_DEFAULT=9
 
 VERSION=0.0
+VERSION=0.1 # code reorderings, smaller bugfixes
+VERSION=0.2 # instead using _debug now using a MSGLEVEL
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
 MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 
-. $HOME/cf/s/cf_functions.sh || exit 2
+DRAWINFO=drawinfo # client 1.12.svn seems to accept both drawinfo and drawextinfo
+# client gtk1 1.12.svn needs drawinfo
+#DEBUG=1
+LOGGING=1
+MSGLEVEL=7 # Message Levels 1-7 to print to the msg pane
 
-DRAWINFO=drawextinfo # client 1.12.svn seems to accept both drawinfo and drawextinfo
+. $HOME/cf/s/cf_functions.sh || exit 2
 
 _say_help(){
 _draw 6  "$MY_BASE"
@@ -65,10 +71,10 @@ exit ${1:-2}
 }
 
 __is(){
-_debug "__is:$*"
+_msg 7 "__is:$*"
 Z1=$1; shift
 Z2=$1; shift
-_debug "__is:$*"
+_msg 7 "__is:$*"
 echo issue $Z1 $Z2 $*
 unset Z1 Z2
 sleep 0.2
@@ -86,7 +92,7 @@ _draw 5 "Searching traps $cnt times ..."
 
 echo watch $DRAWINFO
 __is 0 0 search
-sleep 1
+_sleep
 
 
  while :
@@ -94,7 +100,7 @@ sleep 1
  unset REPLY
  read -t $TMOUT
  _log "_search_traps:$REPLY"
- _debug "$REPLY"
+ _msg 7 "$REPLY"
 
 #You spot a Rune of Burning Hands!
 #You spot a poison needle!
@@ -111,14 +117,14 @@ sleep 1
  *) :;;
  esac
 
- sleep 1
+ _sleep
  done
 
 TRAPS_ALL=${FOUND_TRAP:-$TRAPS_ALL}
 unset FOUND_TRAP
 
 echo unwatch $DRAWINFO
-sleep 1
+_sleep
 
 
 cnt=$((cnt-1))
@@ -143,14 +149,14 @@ _draw 5 "Disarming ${TRAPS:-0} traps ..."
 
 echo watch $DRAWINFO
 __is 0 0 use_skill disarm
-sleep 1
+_sleep
 
  unset REPLY
  while :
  do
  read -t $TMOUT
  _log "_disarm_traps:$REPLY"
- _debug "$REPLY"
+ _msg 7 "$REPLY"
 
 #You fail to disarm the Rune of Burning Hands.
 #In fact, you set it off!
@@ -167,27 +173,13 @@ sleep 1
  *) :;;
  esac
 
- sleep 1
+ _sleep
  test "$OLD_REPLY" = "$REPLY" && break 1
  OLD_REPLY=$REPLY
  done
 
-# when trap is triggered, ...
-# NO: Do not walk around here,
-#     since returning to the spot would in 7 of 8 cases
-#     change the direction of lockpicking.
-#__is 1 1 $DIRB
-#sleep 1
-#__is 1 1 $DIRB
-#sleep 1
-
-#__is 1 1 $DIRF
-#sleep 1
-#__is 1 1 $DIRF
-#sleep 1
-
 echo unwatch $DRAWINFO
-sleep 1
+_sleep
 
 test "$TRAPS" -gt 0 || break 1
 done
@@ -206,9 +198,9 @@ do
 test "$INFINITE" || _draw 5 "$cnt attempts in lockpicking skill left .."
 
 echo watch $DRAWINFO
-#sleep 1
+#_sleep
 __is 1 1 use_skill lockpicking
-sleep 1
+_sleep
 
  unset cnt0 REPLY
  while :
@@ -217,21 +209,22 @@ sleep 1
  #unset REPLY
  read -t ${TMOUT:-1}
  _log "_lockpick_door:$REPLY"
- _debug "_lockpick_door:$REPLY"
-
-# echo unwatch $DRAWINFO
+ _msg 7 "_lockpick_door:$REPLY"
 
  case $REPLY in
  *there*is*no*door*) return 4;;
+
  *'There is no lock there.'*) return 0;;
- *'You pick the lock.'*) return 0;;
+ *'You pick the lock.'*)      return 0;;
+ *'The door has no lock!'*)   return 0;;
+
  *'You fail to pick the lock.'*) break 1;;
  '') break 1;; # :;;
  *)  :;;
  esac
 
  test "$cnt0" -gt 9 && break 1 # emergency break
- sleep 1
+ _sleep
  done
 
 echo unwatch $DRAWINFO
@@ -241,7 +234,7 @@ test "$INFINITE" || {
 	test "$cnt" -gt 0 || break 1
 }
 
-sleep 1
+_sleep
 done
 
 return 1
@@ -279,13 +272,12 @@ done
 
 }
 
-LOGGING=1
-_set_global_variables
-LOGGING=1
-
+#MAIN
+_set_global_variables $*
 _say_start_msg $*
-
 _do_parameters $*
+
+_get_player_speed
 
 _search_traps
 
@@ -295,5 +287,5 @@ _lockpick_door || _open_door_with_standard_key
 
 echo unwatch $DRAWINFO
 
-_say_script_time
+#_say_script_time
 _say_end_msg
