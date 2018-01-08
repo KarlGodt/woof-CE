@@ -212,11 +212,11 @@ _sleep
  _msg 7 "_lockpick_door:$REPLY"
 
  case $REPLY in
- *there*is*no*door*) return 4;;
+ *there*is*no*door*) RV=4; break 2;; #return 4;;
 
- *'There is no lock there.'*) return 0;;
- *'You pick the lock.'*)      return 0;;
- *'The door has no lock!'*)   return 0;;
+ *'There is no lock there.'*) RV=0; break 2;; #return 0;;
+ *'You pick the lock.'*)      RV=0; break 2;; #return 0;;
+ *'The door has no lock!'*)   RV=0; break 2;; #return 0;;
 
  *'You fail to pick the lock.'*) break 1;;
  '') break 1;; # :;;
@@ -237,7 +237,7 @@ test "$INFINITE" || {
 _sleep
 done
 
-return 1
+return ${RV:-1}
 }
 
 _open_door_with_standard_key(){
@@ -278,6 +278,7 @@ _say_start_msg $*
 _do_parameters $*
 
 _get_player_speed
+_set_sync_sleep
 
 _search_traps
 

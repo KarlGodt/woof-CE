@@ -45,6 +45,7 @@ VERSION=0.2 # code reorderings, smaller bugfixes
 VERSION=0.3 # instead using _debug now using a MSGLEVEL
 # using PL_SPEED variable before dropping chests and after
 # dropping chests and using a middle value of both
+VERSION=0.4 # code cleanup 2018-01-08
 
 SEARCH_ATTEMPTS_DEFAULT=9
 
@@ -111,9 +112,6 @@ while :; do
 read -t $TMOUT UNDER_ME
 _log "$ON_LOG" "_check_if_on_chest:$UNDER_ME"
 _msg 7 "$UNDER_ME"
-
-#UNDER_ME_LIST="$UNDER_ME
-#$UNDER_ME_LIST"
 
 case $UNDER_ME in
 '') continue;;
@@ -270,17 +268,6 @@ _sleep
  OLD_REPLY=$REPLY
  done
 
-# when trap is triggered,
-# it might be wise to pick up the chests,
-# so they do not get burned or icecubed
-#__is 1 1 $DIRB
-#_sleep
-#__is 1 1 $DIRB
-#_sleep
-#__is 1 1 $DIRF
-#_sleep
-#__is 1 1 $DIRF
-#_sleep
 _move_back_and_forth 2
 
 echo unwatch $DRAWINFO
@@ -295,9 +282,6 @@ unset OLD_REPLY
 _open_chests(){
 _draw 5 "Opening chests ..."
 
-#_check_if_on_chest -l || return 0
-#_sleep
-
 while :
 do
 
@@ -305,42 +289,18 @@ _check_if_on_chest -l || break 1
 _sleep
 _draw 5 "$NUMBER_CHEST chest(s) to open ..."
 
-# TODO: First apply attempt seems
-# not to work correctly
-# Seems fixed by leaving the stack of chests
-# and returning upon the stack of chests
-# at the beginning of the loop
-# and not at the end of the loop
-#__is 1 1 $DIRB
-#_sleep
-#__is 1 1 $DIRB
-#_sleep
-#__is 1 1 $DIRF
-#_sleep
-#__is 1 1 $DIRF
 _move_back_and_forth 2
 
 __is 1 1 apply
 _sleep
 # TODO : You find*Rune of*
+#You find Blades trap in the chest.
+#You set off a Blades trap!
+#You find silver coins in the chest.
+#You find booze in the chest.
+#You find Rune of Shocking in the chest.
+#You detonate a Rune of Shocking
 
-#__is 1 1 $DIRB
-#_sleep
-#__is 1 1 $DIRB
-#_sleep
-#_move_back 2
-
-# TODO: Seems to pick up only
-# one piece of the item, if more than one
-# piece of the item, as 4 coins or 23 arrows
-#_pickup 4
-#_sleep
-
-#__is 1 1 $DIRF
-#_sleep
-#__is 1 1 $DIRF
-#_sleep
-#_move_forth 2
 _move_back_and_forth 2 "_pickup 4;_sleep;"
 
 _pickup 0
@@ -348,11 +308,8 @@ _sleep
 
 _drop_chest
 _sleep
-#_check_if_on_chest -l || break 1
-#_sleep
-#_draw 5 "$NUMBER_CHEST chest(s) to open ..."
 
-_sleep
+#_sleep
 done
 
 }
@@ -406,5 +363,6 @@ _disarm_traps
 
 _open_chests
 
-#_say_script_time
 _say_end_msg
+
+###END###

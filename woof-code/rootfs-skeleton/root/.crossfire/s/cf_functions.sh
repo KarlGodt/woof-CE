@@ -25,18 +25,18 @@ MSGLEVEL=${MSGLEVEL:-7} #integer 1 emergency - 7 debug
 #7) DEBUG=${DEBUG:-1};; 6) INFO=${INFO:-1};; 5) NOTICE=${NOTICE:-1};; 4) WARN=${WARN:-1};;
 #3) ERROR=${ERROR:-1};; 2) ALERT=${ALERT:-1};; 1) EMERG=${EMERG:-1};;
 #esac
-DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; ALERT=1; EMERG=1
+DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
 case $MSGLEVEL in
-7) :;; 6) unset DEBUG;; 5) unset DEBUG INFO;; 4) unset DEBUG INFO NOTICE;;
-3) unset DEBUG INFO NOTICE WARN;; 2) unset DEBUG INFO NOTICE WARN ERROR;;
-1) unset DEBUG INFO NOTICE WARN ERROR ALERT;;
+7) unset Q;; 6) unset DEBUG Q;; 5) unset DEBUG INFO VERB;; 4) unset DEBUG INFO NOTICE VERB;;
+3) unset DEBUG INFO NOTICE WARN VERB;; 2) unset DEBUG INFO NOTICE WARN ERROR VERB;;
+1) unset DEBUG INFO NOTICE WARN ERROR ALERT VERB;;
 *) _error "MSGLEVEL variable not set from 1 - 7";;
 esac
 
 TMOUT=${TMOUT:-1}      # read -t timeout, integer, seconds
 SLEEP=${SLEEP:-1}      #default sleep value, float, seconds, refined in _get_player_speed()
-
 DELAY_DRAWINFO=${DELAY_DRAWINFO:-2}  #default pause to sync, float, seconds, refined in _get_player_speed()
+
 DRAWINFO=${DRAWINFO:-drawinfo} #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
 FUNCTION_CHECK_FOR_SPACE=_check_for_space # request map pos works
 case $* in
@@ -168,11 +168,11 @@ _log(){
 }
 
 _sound(){
-    local DUR
+    local lDUR
 test "$2" && { DUR="$1"; shift; }
-test "$DUR" || DUR=0
+lDUR=${lDUR:-0}
 test -e "$SOUND_DIR"/${1}.raw && \
-           aplay $Q $VERB -d $DUR "$SOUND_DIR"/${1}.raw
+           aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw
 }
 
 _say_start_msg(){
