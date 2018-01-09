@@ -99,7 +99,7 @@ _draw(){
     echo draw $COLOUR "$MSG"
 }
 
-_msg(){
+__msg(){  ##+++2018-01-08
 local LVL=$1; shift
 case $LVL in
 7|debug) test "$DEBUG"  && _debug  "$*";;
@@ -113,8 +113,22 @@ case $LVL in
 esac
 }
 
+_msg(){  ##+++2018-01-08
+local LVL=$1; shift
+case $LVL in
+7|debug) _debug  "$*";;
+6|info)  _info   "$*";;
+5|note)  _notice "$*";;
+4|warn)  _warn   "$*";;
+3|err)   _error  "$*";;
+2|alert) _alert  "$*";;
+1|emerg) _emerg  "$*";;
+*) _debug "$*";;
+esac
+}
+
 _debug(){
-#test "$DEBUG" || return 0
+test "$DEBUG" || return 0
     echo draw 10 "DEBUG:$@"
 }
 
@@ -130,32 +144,32 @@ unset cnt line
 }
 
 _info(){
-#test "$INFO" || return 0
+test "$INFO" || return 0
     echo draw 7 "INFO:$@"
 }
 
 _notice(){
-#test "$NOTICE" || return 0
+test "$NOTICE" || return 0
     echo draw 2 "NOTICE:$@"
 }
 
 _warn(){
-#test "$WARN" || return 0
+test "$WARN" || return 0
     echo draw 6 "WARNING:$@"
 }
 
 _error(){
-#test "$ERROR" || return 0
+test "$ERROR" || return 0
     echo draw 4 "ERROR:$@"
 }
 
 _alert(){
-#test "$ALERT" || return 0
+test "$ALERT" || return 0
     echo draw 3 "ALERT:$@"
 }
 
 _ermerg(){
-#test "$EMERG" || return 0
+test "$EMERG" || return 0
     echo draw 3 "EMERGENCY:$@"
 }
 
@@ -180,6 +194,8 @@ _say_start_msg(){
 _draw 2 "$0 has started.."
 _draw 2 "PID is $$ - parentPID is $PPID"
 
+_check_drawinfo
+
 # *** Check for parameters *** #
 _draw 5 "Checking the parameters ($*)..."
 }
@@ -194,7 +210,7 @@ test "$TIMEA" || return 1
  _draw 4 "Loop of script had run a total of $TIMEM minutes and $TIMES seconds."
 }
 
-_say_script_time(){
+_say_script_time(){ ##+++2018-01-07
 TIME_ELAPSED=`ps -o pid,etime,args | grep -w "$$" | grep -vwE 'grep|ps'`
 __debug "$TIME_ELAPSED"
 TIME_ELAPSED=`echo "$TIME_ELAPSED" | awk '{print $2}'`
@@ -239,15 +255,64 @@ TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
 _draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL ($TIMEEST m) to go..."
 }
 
+_check_drawinfo(){  ##+++2018-01-08
+DEBUG0=$DEBUG;       DEBUG=${DEBUG:-''}
+LOGGING0=$LOGGING; LOGGING=${LOGGING:-1}
+
+_draw 2 "Checking drawinfo ..."
+
+echo watch
+
+while :;
+do
+
+# I use search here to provoke
+# a response from the server
+# like You search the area.
+# It could be something else,
+# but I have no better idea for the moment.
+__is 0 0 search
+
+ unset cnt0
+ while :
+ do
+ cnt0=$((cnt0+1))
+ read -t $TMOUT
+ _log "_check_drawinfo:$cnt0:$REPLY"
+    _msg 7 "$cnt0:$REPLY"
+ #_debug 3 "$cnt0:$REPLY"
+
+ case $REPLY in
+ *drawinfo*'You search'*|*drawinfo*'You spot'*)       DRAWINFO0=drawinfo;    break 2;;
+ *drawextinfo*'You search'*|*drawextinfo*'You spot'*) DRAWINFO0=drawextinfo; break 2;;
+ *tick*) TICKS=$((TICKS+1));;
+ '') break 1;;
+ *) :;;
+ esac
+
+ sleep 0.1
+ done
+
+_sleep
+done
+
+test "$DRAWINFO0" = "$DRAWINFO" || {
+    _msg 5 "Changing internally from $DRAWINFO to $DRAWINFO0"
+    DRAWINFO=$DRAWINFO0
+}
+
+echo unwatch
+unset cnt0
+DEBUG=$DEBUG0
+LOGGING=$LOGGING0
+}
+
 # *** EXIT FUNCTIONS *** #
 _exit(){
 case $1 in
 [0-9]|[0-9][0-9]|[0-9][0-9][0-9]) RV=$1; shift;;
 esac
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
+
 _move_back_and_forth 2
 sleep ${SLEEP}s
 _draw 3 "Exiting $0. $@"
@@ -284,7 +349,7 @@ beep -l 1000 -f 700
 exit ${1:-0}
 }
 
-_move_back(){
+_move_back(){  ##+++2018-01-08
 for i in `seq 1 1 ${1:-1}`
 do
 _is 1 1 $DIRB
@@ -292,7 +357,7 @@ _sleep
 done
 }
 
-_move_forth(){
+_move_forth(){  ##+++2018-01-08
 for i in `seq 1 1 ${1:-1}`
 do
 _is 1 1 $DIRF
@@ -300,7 +365,7 @@ _sleep
 done
 }
 
-_move_back_and_forth(){
+_move_back_and_forth(){  ##+++2018-01-08
 STEPS=${1:-1}
 for i in `seq 1 1 $STEPS`
 do
@@ -334,7 +399,7 @@ _sleep
 done
 }
 
-_round_up_and_down(){
+_round_up_and_down(){  ##+++2018-01-08
 echo "_round_up_and_down:$1" >&2
                #123
 STELLEN=${#1}  #3
@@ -603,8 +668,6 @@ _draw 5 "Checking for space to move..."
 
 echo request map pos
 
-echo watch request
-
 # client v.1.70.0 request map pos:request map pos 280 231 ##cauldron adventurers guild stoneville
 # client v.1.10.0                 request map pos 272 225 ##cauldron adventurers guild stoneville
 
@@ -617,9 +680,6 @@ test "$REPLY_MAP" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY_MAP"
 sleep 0.1s
 done
-
-echo unwatch request
-
 
 PL_POS_X=`echo "$REPLY_MAP" | awk '{print $4}'` #request map pos:request map pos 280 231
 PL_POS_Y=`echo "$REPLY_MAP" | awk '{print $5}'`
@@ -737,14 +797,11 @@ EoI
 
 echo request map $R_X $R_Y
 
-echo watch request
-
 while :; do
 read -t $TMOUT
-#echo "request map '$R_X' '$R_Y':$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
-#echo "IS_WALL=$IS_WALL" >>"$REPLY_LOG"
+
 _log "$REPLY_LOG" "IS_WALL=$IS_WALL"
 test "$IS_WALL" = 0 || _exit_no_space 1
 
@@ -752,8 +809,6 @@ test "$REPLY" || break
 unset REPLY
 sleep 0.1s
 done
-
-echo unwatch request
 
 done
 
@@ -833,10 +888,6 @@ _draw 5 "Checking for space to move..."
 #                        );
 #         }
 
-echo watch request
-
-sleep 0.5
-
 echo request map near
 
 #echo watch request
@@ -848,7 +899,6 @@ cm=0
 while :; do
 cm=$((cm+1))
 read -t $TMOUT REPLY_MAP
-#echo "request map pos:$REPLY_MAP" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "request map near:$REPLY_MAP"
 test "$cm" = 5 && break
 test "$REPLY_MAP" || break
@@ -856,8 +906,6 @@ test "$REPLY_MAP" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY_MAP"
 sleep 0.1s
 done
-
-echo unwatch request
 
 _empty_message_stream
 
@@ -977,14 +1025,11 @@ EoI
 
 echo request map $R_X $R_Y
 
-echo watch request
-
 while :; do
 read -t $TMOUT
-#echo "request map '$R_X' '$R_Y':$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
-#echo "IS_WALL=$IS_WALL" >>"$REPLY_LOG"
+
 _log "$REPLY_LOG" "IS_WALL=$IS_WALL"
 test "$IS_WALL" = 0 || _exit_no_space 1
 
@@ -992,8 +1037,6 @@ test "$REPLY" || break
 unset REPLY
 sleep 0.1s
 done
-
-echo unwatch request
 
 done
 
@@ -1027,11 +1070,8 @@ REPLY="";
 
 echo request items actv
 
-echo watch request
-
 while :; do
 read -t $TMOUT
-#echo "request items actv:$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "request items actv:$REPLY"
 case $REPLY in
 *rod*of*word*of*recall*) RECALL=1;;
@@ -1045,8 +1085,6 @@ done
 if test "$RECALL" = 1; then # unapply it now , _emergency_exit applies again
 _is 1 1 apply rod of word of recall
 fi
-
-echo unwatch request
 
 _draw 6 "Done."
 
@@ -1252,7 +1290,6 @@ local OLD_REPLY="";
 local REPLY="";
 while :; do
 read -t 1
-#echo "drop:$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "drop:$REPLY"
 case $REPLY in
 *Nothing*to*drop*)                _exit 1 "Missing in inventory";;
@@ -1276,34 +1313,14 @@ sleep ${SLEEP}s
 }
 
 _close_cauldron(){
-
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#sleep ${SLEEP}s
-
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-#sleep ${SLEEP}s
 _move_back_and_forth 2
 }
 
 _go_cauldron_drop_alch_yeld(){
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#sleep ${SLEEP}s
 _move_back 4
 }
 
 _go_drop_alch_yeld_cauldron(){
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-
-#sleep ${SLEEP}s
-#sleep ${DELAY_DRAWINFO}s
 _move_forth 4
 }
 
@@ -1507,7 +1524,7 @@ local REPLY
 
 read -t 1  # empty the stream of messages
 
-echo watch $DRAWINFO
+#echo watch $DRAWINFO
 sleep 1
 echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
 while :;
@@ -1546,7 +1563,7 @@ oF="$FOOD_LVL"
 sleep 0.1
 done
 
-echo unwatch $DRAWINFO
+#echo unwatch $DRAWINFO
 }
 
 #Food

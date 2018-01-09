@@ -46,8 +46,12 @@ VERSION=0.3 # instead using _debug now using a MSGLEVEL
 # using PL_SPEED variable before dropping chests and after
 # dropping chests and using a middle value of both
 VERSION=0.4 # code cleanup 2018-01-08
+VERSION=1.0 # added options to choose between
+# use_skill, cast and invoke to disarm traps
 
 SEARCH_ATTEMPTS_DEFAULT=9
+#DISARM variable set to skill, invokation OR cast
+DISARM=skill
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -56,6 +60,8 @@ MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 #DEBUG=1
 #LOGGING=1
 MSGLEVEL=6 # Message Levels 1-7 to print to the msg pane
+
+#DRAWINFO=drawextinfo # client gtk2 1.12.svn
 
 . $HOME/cf/s/cf_functions.sh || exit 2
 
@@ -67,7 +73,10 @@ _draw 7  "and open chest(s)."
 _draw 8  "Options:"
 _draw 9  "-S # :Number of search attempts, default $SEARCH_ATTEMPTS_DEFAULT"
 _draw 11 "-V   :Print version information."
-
+_draw 12 "-c   :cast spell disarm"
+_draw 12 "-i   :invoke spell disarm"
+_draw 12 "-u   :use_skill disarm"
+_draw 10 "-d   :Print debugging to msgpane"
 exit ${1:-2}
 }
 
@@ -115,8 +124,8 @@ _msg 7 "$UNDER_ME"
 
 case $UNDER_ME in
 '') continue;;
-*request*items*on*end*) break;;
-*scripttell*break*)     break;;
+*request*items*on*end*) break 1;;
+*scripttell*break*)     break 1;;
 *scripttell*exit*)    _exit 1;;
 esac
 
@@ -171,13 +180,16 @@ __is 0 0 pickup ${*:-0}
 _search_traps(){
 cnt=${SEARCH_ATTEMPTS:-$SEARCH_ATTEMPTS_DEFAULT}
 _draw 5 "Searching traps ..."
+test "$cnt" -gt 0 || return 0
 
+TRAPS_ALL_OLD=0
 while :
 do
 
 _draw 5 "Searching traps $cnt times ..."
 
-echo watch $DRAWINFO
+echo watch ${DRAWINFO}
+_sleep
 __is 0 0 search
 _sleep
 
@@ -209,6 +221,12 @@ _sleep
  done
 
 TRAPS_ALL=${FOUND_TRAP:-$TRAPS_ALL}
+_debug "TRAPS_ALL=$TRAPS_ALL"
+test "$TRAPS_ALL_OLD" -gt $TRAPS_ALL && TRAPS_ALL=$TRAPS_ALL_OLD
+_debug "TRAPS_ALL=$TRAPS_ALL"
+TRAPS_ALL_OLD=${TRAPS_ALL:-0}
+_debug "FOUND_TRAP=$FOUND_TRAP TRAPS_ALL_OLD=$TRAPS_ALL_OLD"
+
 unset FOUND_TRAP
 
 echo unwatch $DRAWINFO
@@ -223,8 +241,107 @@ done
 unset cnt
 }
 
-_disarm_traps(){
-_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
+_cast_disarm(){
+#_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
+test "$TRAPS_ALL" || return 0
+test "${TRAPS_ALL//[0-9]/}" && return 2
+test "$TRAPS_ALL" -gt 0     || return 0
+
+TRAPS=$TRAPS_ALL
+
+while :
+do
+_draw 5 "${TRAPS:-0} traps to disarm ..."
+
+# TODO: checks for enough mana
+echo watch $DRAWINFO
+__is 0 0 cast disarm
+_sleep
+__is 0 0 fire 0
+__is 0 0 fire_stop
+_sleep
+
+ unset REPLY OLD_REPLY cnt0
+ while :
+ do
+ cnt0=$((cnt0+1))
+ read -t $TMOUT
+ _log "_cast_disarm:$cnt0:$REPLY"
+ _msg 7 "$cnt0:$REPLY"
+
+ case $REPLY in
+ *'You successfully disarm'*) TRAPS=$((TRAPS-1)); break 1;;
+ *'You fail to disarm'*) break 1;;
+ *"There's nothing there!"*) break 2;; #_just_exit 1;;
+ *) :;;
+ esac
+
+ sleep 0.1
+ done
+
+echo unwatch $DRAWINFO
+_sleep
+
+test "$TRAPS" -gt 0 || break 1
+done
+
+echo unwatch $DRAWINFO
+}
+
+_invoke_disarm(){ ## invoking does to a direction
+#_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
+test "$TRAPS_ALL" || return 0
+test "${TRAPS_ALL//[0-9]/}" && return 2
+test "$TRAPS_ALL" -gt 0     || return 0
+
+TRAPS=$TRAPS_ALL
+
+_move_back 2
+_move_forth 1
+_sleep
+
+while :
+do
+_draw 5 "${TRAPS:-0} traps to disarm ..."
+
+echo watch $DRAWINFO
+__is 0 0 invoke disarm
+_sleep
+
+#There's nothing there!
+#You fail to disarm the diseased needle.
+#You successfully disarm the diseased needle!
+ unset REPLY OLD_REPLY cnt0
+ while :
+ do
+ cnt0=$((cnt0+1))
+ read -t $TMOUT
+ _log "_invoke_disarm:$cnt0:$REPLY"
+ _msg 7 "$cnt0:$REPLY"
+
+ case $REPLY in
+ *'You successfully disarm'*) TRAPS=$((TRAPS-1)); break 1;;
+ *'You fail to disarm'*) break 1;;
+ # Here there could be a trap next to the stack of chests ...
+ # so invoking disarm towards the stack of chests would not
+ # work to disarm the traps elsewhere on tiles around
+ *"There's nothing there!"*) break 2;; #_just_exit 1;;
+ *) :;;
+ esac
+ done
+
+echo unwatch $DRAWINFO
+_sleep
+
+test "$TRAPS" -gt 0 || break 1
+done
+
+echo unwatch $DRAWINFO
+_move_forth 1
+}
+
+_use_skill_disarm(){
+#_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
 test "$TRAPS_ALL" -gt 0     || return 0
@@ -244,7 +361,7 @@ _sleep
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log "_disarm_traps:$cnt0:$REPLY"
+ _log "_use_skill_disarm:$cnt0:$REPLY"
  _msg 7 "$cnt0:$REPLY"
 
 #You fail to disarm the Rune of Burning Hands.
@@ -279,6 +396,16 @@ done
 unset OLD_REPLY
 }
 
+_disarm_traps(){
+_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
+case "$DISARM" in
+invokation) _invoke_disarm;;
+cast|spell) _cast_disarm;;
+skill|'') _use_skill_disarm;;
+*) _error "DISARM variable set not to skill, invokation OR cast'";;
+esac
+}
+
 _open_chests(){
 _draw 5 "Opening chests ..."
 
@@ -300,6 +427,7 @@ _sleep
 #You find booze in the chest.
 #You find Rune of Shocking in the chest.
 #You detonate a Rune of Shocking
+#The chest was empty.
 
 _move_back_and_forth 2 "_pickup 4;_sleep;"
 
@@ -319,11 +447,18 @@ _do_parameters(){
 test "$*" || return 0
 
 # S # :Search attempts
-while getopts S:VhabcdefgijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRTUWXYZ oneOPT
+# u   :use_skill
+# c   :cast disarm
+# i   :invoke disarm
+# d   :debugging output
+while getopts S:ciudVhabdefgjklmnopqrstvwxyzABCDEFGHIJKLMNOPQRTUWXYZ oneOPT
 do
 case $oneOPT in
 S) SEARCH_ATTEMPTS=${OPTARG:-$SEARCH_ATTEMPTS_DEFAULT};;
-
+c) DISARM=cast;;
+i) DISARM=invokation;;
+u) DISARM=skill;;
+d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
 h) _say_help 0;;
 V) _say_version 0;;
 
