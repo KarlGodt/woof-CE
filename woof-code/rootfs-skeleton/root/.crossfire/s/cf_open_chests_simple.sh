@@ -44,10 +44,13 @@ VERSION=0.1 # added parameter processing
 VERSION=0.2 # code reorderings, smaller bugfixes
 VERSION=0.3 # instead using _debug now using a MSGLEVEL
 # using PL_SPEED variable before dropping chests and after
-# dropping chests and using a middle value of both
+#  dropping chests and using a middle value of both
 VERSION=0.4 # code cleanup 2018-01-08
+
 VERSION=1.0 # added options to choose between
 # use_skill, cast and invoke to disarm traps
+VERSION=1.1 # added NUMBER option
+# Recognize *help and *version options
 
 SEARCH_ATTEMPTS_DEFAULT=9
 #DISARM variable set to skill, invokation OR cast
@@ -70,13 +73,16 @@ _draw 6  "$MY_BASE"
 _draw 7  "Script to search for traps,"
 _draw 7  "disarming them,"
 _draw 7  "and open chest(s)."
+_draw 6  "Syntax:"
+_draw 7  "$0 <NUMBER> <Options>"
 _draw 8  "Options:"
+_draw 10 "Simple number:Just open NUMBER chests."
 _draw 9  "-S # :Number of search attempts, default $SEARCH_ATTEMPTS_DEFAULT"
 _draw 11 "-V   :Print version information."
 _draw 12 "-c   :cast spell disarm"
 _draw 12 "-i   :invoke spell disarm"
 _draw 12 "-u   :use_skill disarm"
-_draw 10 "-d   :Print debugging to msgpane"
+_draw 10 "-d   :Print debugging to msgpane."
 exit ${1:-2}
 }
 
@@ -408,8 +414,10 @@ esac
 _open_chests(){
 _draw 5 "Opening chests ..."
 
+unset one
 while :
 do
+one=$((one+1))
 
 _check_if_on_chest -l || break 1
 _sleep
@@ -433,10 +441,11 @@ _move_back_and_forth 2 "_pickup 4;_sleep;"
 _pickup 0
 _sleep
 
+case $NUMBER in $one) break 1;; esac
+
 _drop_chest
 _sleep
 
-#_sleep
 done
 
 }
@@ -444,6 +453,11 @@ done
 _do_parameters(){
 # dont forget to pass parameters when invoking this function
 test "$*" || return 0
+
+case $1 in [0-9]*) NUMBER=$1; shift;;
+*help)    _say_help 0;;
+*version) _say_version 0;;
+esac
 
 # S # :Search attempts
 # u   :use_skill
