@@ -40,6 +40,7 @@ VERSION=1.1 # bugfix in _open_door_with_standard_key()
 # was missing a '-' in ${1:-$DIRECTION}
 VERSION=1.2 # bugfixes in regards to unexpected
 # settings of variables
+VERSION=1.3 # Recognize *help and *version options
 
 LOCKPICK_ATTEMPTS_DEFAULT=9
 SEARCH_ATTEMPTS_DEFAULT=9
@@ -427,6 +428,11 @@ _do_parameters(){
 # dont forget to pass parameters when invoking this function
 test "$*" || return 0
 
+case $1 in
+*help)    _say_help 0;;
+*version) _say_version 0;;
+esac
+
 # S # :Search attempts
 # D # :Direction to open door
 # I   :Infinte lockpick attempts
@@ -466,7 +472,8 @@ _do_parameters $*
 _get_player_speed
 _set_sync_sleep
 
-_turn_direction $DIRECTION cast "show invisible"
+#_turn_direction $DIRECTION cast "show invisible"
+_turn_direction $DIRECTION ready_skill "literacy"
 
 _search_traps
 
