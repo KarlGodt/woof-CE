@@ -26,11 +26,11 @@ FOOD=waybread
 
 # early functions
 _draw(){
-    local COLOUR="$1"
-    COLOUR=${COLOUR:-1} #set default
-    shift
-    local MSG="$@"
-    echo draw $COLOUR "$MSG"
+    case $1 in [0-9]|1[0-2])
+    lCOLOUR="$1"; shift;; esac
+    local lCOLOUR=${lCOLOUR:-1} #set default
+    local lMSG="$@"
+    echo draw $lCOLOUR "$lMSG"
 }
 
 _usage(){
