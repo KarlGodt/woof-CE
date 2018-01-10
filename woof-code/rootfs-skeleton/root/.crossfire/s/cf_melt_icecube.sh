@@ -133,7 +133,9 @@ esac
 _sleep
 
 done #NO_FAIL
-test "$NUMBER" && { test "$NUMBER" = "$cnt" && break 1; }
+
+#test "$NUMBER" && { test "$NUMBER" = "$cnt" && break 1; }
+case $NUMBER in $cnt) break 1;; esac
 
 done #main while loop
 
