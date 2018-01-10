@@ -87,13 +87,14 @@ exec 2>>"$ERROR_LOG"
 }
 
 _is(){
+    _debug "issue $*"
     echo issue "$@"
     sleep 0.2
 }
 
 _draw(){
     local COLOUR="$1"
-    test "$COLOUR" || COLOUR=1 #set default
+    COLOUR=${COLOUR:-1} #set default
     shift
     local MSG="$@"
     echo draw $COLOUR "$MSG"

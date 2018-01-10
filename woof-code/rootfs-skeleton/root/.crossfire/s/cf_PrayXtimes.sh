@@ -110,7 +110,8 @@ case $NUMBER in
 esac
 }
 
-test "$NUMBER" && { test "$NUMBER" = "$one" && break 1; }
+#test "$NUMBER" && { test "$NUMBER" = "$one" && break 1; }
+ case $NUMBER in $one) break 1;; esac
 done
 
 # *** Here ends program *** #

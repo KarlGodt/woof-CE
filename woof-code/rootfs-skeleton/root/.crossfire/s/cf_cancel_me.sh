@@ -20,11 +20,11 @@ _say_start_msg "$@"
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in *"help"*)
+case "$PARAM_1" in -h|*"help"*)
 
-echo draw 5 "Script to "
-echo draw 5 "apply $ROD"
-echo draw 5 "and then to fire center on oneself."
+_draw 5 "Script to "
+_draw 5 "apply $ROD"
+_draw 5 "and then to fire center on oneself."
 
         exit 0
 ;; esac
@@ -39,12 +39,12 @@ echo draw 3 "Only :digit: numbers as first option allowed."
 NUMBER=$PARAM_1
 
 } || {
-echo draw 3 "Script needs number of cancellation attempts as argument."
+_draw 3 "Script needs number of cancellation attempts as argument."
         exit 1
 }
 
 test "$1" || {
-echo draw 3 "Need <number> ie: script $0 50 ."
+_draw 3 "Need <number> ie: script $0 50 ."
         exit 1
 }
 
@@ -106,7 +106,7 @@ __check_if_item_is_active(){
 local ITEM="$*" oR tmpR
 test "$ITEM" || { echo "draw 3  $ITEM missing"; exit 1; }
 
-echo watch drawinfo
+_watch
 sleep 0.1
 echo request items actv
 while :; do
@@ -119,29 +119,29 @@ test "$oR" = "$tmpR" && break
 oR="$tmpR"
 sleep 0.1
 done
-echo unwatch drawinfo
 
+_unwatch
 }
 
 __check_if_item_is_active "$ROD"
 
-test "$HAVE_ITEM_APPLIED" || { echo "issue 1 1 apply -a $ROD"; sleep 1s; }
+test "$HAVE_ITEM_APPLIED" || { _is 1 1 "apply -a $ROD"; sleep 1s; }
 
 _simple_apply_item(){
-echo "issue 1 1 apply -u $ROD"
+_is 1 1 apply -u "$ROD"
 sleep 2
-echo "issue 1 1 apply -a $ROD"
+_is 1 1 apply -a "$ROD"
 }
 
 
 __check_range_attack(){
 
 local ITEM="$*" oR tmpR c
-test "$ITEM" || { echo "draw 3  $ITEM missing"; exit 1; }
+test "$ITEM" || { _draw 3 '$ITEM missing.'; exit 1; }
 
 
 c=0
-echo watch drawinfo
+_watch
 while :;
 do
 test $c = 5 && break
@@ -161,27 +161,31 @@ echo request range
  done
 c=$((c+1))
 sleep 0.1
-test "$RANGE_ITEM_APPLIED" || echo issue 1 1 rotateshoottype
+test "$RANGE_ITEM_APPLIED" || _is 1 1 rotateshoottype
 done
 
-echo unwatch drawinfo
+_unwatch
 }
 
 __check_range_attack "$ROD"
 
 if test "$RANGE_ITEM_APPLIED"; then
 
-for one in `seq 1 1 $NUMBER`
+while : #for one in `seq 1 1 $NUMBER`
 do
+one=$((one+1))
 
-echo "issue 1 1 fire center"
-sleep 1s
+_is 1 1 fire "center"
+_sleep
 
+#test "$NUMBER" && { test "$NUMBER" = "$one" && break 1; }
+ case $NUMBER in $one) break 1;; esac
 done
 fi
 
-echo "issue 1 1 fire_stop"
+_is 1 1 fire_stop
 
 # *** Here ends program *** #
-#echo draw 2 "$0 is finished."
+#_draw 2 "$0 is finished."
 _say_end_msg
+###END###
