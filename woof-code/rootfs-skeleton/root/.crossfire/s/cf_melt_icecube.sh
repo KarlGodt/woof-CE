@@ -48,18 +48,10 @@ sleep 0.1
 done
 
 
-__just_exit(){
-_draw 3 "Exiting $0."
-echo unwatch
-#echo unwatch drawinfo
-exit $1
-}
-
 # *** Getting Player's Speed *** #
 _get_player_speed
 
-
-
+# functions:
 _mark_item(){
 local lITEM=${*:-icecube}
 local lRV=0
@@ -104,19 +96,21 @@ return ${lRV:-0}
 }
 
 # *** Actual script to pray multiple times *** #
+# MAIN
+
 test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
 
 _debug "NUMBER='$NUMBER'"
 _watch
 
-    if test "$NUMBER"; then
-
-for one in `seq 1 1 $NUMBER`
+unset cnt
+while :
 do
+cnt=$((cnt+1))
 
 _mark_item icecube || break 2
 
-sleep 1s
+_sleep
 
 NO_FAIL=
 until [ "$NO_FAIL" ]
@@ -136,46 +130,12 @@ case $? in
 9) :;;       #unused
 esac
 
-sleep 1s
+_sleep
 
 done #NO_FAIL
+test "$NUMBER" && { test "$NUMBER" = "$cnt" && break 1; }
 
-done #NUMBER
-
-    else #PARAM_1
-
-until [ "$NO_ICECUBE" ];
-do
-
-_mark_item icecube || break 2
-
-sleep 1s
-
-NO_FAIL=
-until [ "$NO_FAIL" ]
-do
-
-_apply_item "flint and steel"
-case $? in
-0) break 1;; #success
-1) :;;       #try again
-2) :;;       #unused
-3) :;;       #unused
-4) :;;       #unused
-5) break 2;; #used up
-6) break 2;; #no item
-7) break 1;; #not marked
-8) :;;       #unused
-9) :;;       #unused
-esac
-
-sleep 1s
-
-done #NO_FAIL
-
-done #NO_ICECUBE
-
-    fi #^!PARAM_1
+done #main while loop
 
 
 # *** Here ends program *** #

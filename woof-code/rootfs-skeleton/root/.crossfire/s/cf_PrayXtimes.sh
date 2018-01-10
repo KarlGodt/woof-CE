@@ -1,5 +1,9 @@
 #!/bin/ash
 
+# 2018-01-10 : Code overhaul.
+# No real changes,
+# except to support infinte looping.
+
 export PATH=/bin:/usr/bin
 
 
@@ -16,12 +20,12 @@ test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 _say_start_msg "$@"
 
 # *** Check for parameters *** #
-test "$1" || {
-_draw 3 "Script needs number of praying attempts as argument."
-        exit 1
+#test "$1" || {
+#_draw 3 "Script needs number of praying attempts as argument."
+#        exit 1
 #_draw 3 "Need <number> ie: script $0 50 ."
 #        exit 1
-}
+#}
 
 while [ "$1" ]
 do
@@ -31,11 +35,12 @@ PARAM_1="$1"
 case "$PARAM_1" in -h|*"help"*)
 
 _draw 5 "Script to pray given number times."
-_draw 5 "Syntax:"
-_draw 5 "script $0 <number>"
+_draw 2 "Syntax:"
+_draw 2 "script $0 <number>"
 _draw 5 "For example: 'script $0 50'"
 _draw 5 "will issue 50 times the use_skill praying command."
-
+_draw 2 "Without <number> will loop forever,"
+_draw 2 "use scriptkill to terminate."
         exit 0;;
 *)
 # *** testing parameters for validity *** #
@@ -53,7 +58,7 @@ shift
 sleep 0.1
 done
 
-_get_player_speed(){
+__get_player_speed(){
 
 _empty_message_stream
 
@@ -79,45 +84,35 @@ _msg 7 "USLEEP=$USLEEP:SPEED=$SPEED"
 USLEEP=$(( USLEEP - ( (SPEED/10000) * 1000 ) ))
 _msg 6 "Sleeping $USLEEP usleep micro-seconds between praying"
 }
-_get_player_speed
+__get_player_speed
 
 
 # *** Actual script to pray multiple times *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
 
-c=0
-for one in `seq 1 1 $NUMBER`
+c=0; one=0
+while :
 do
+one=$((one+1))
 
-echo "issue 1 1 use_skill praying"
-#sleep 1s
+_is 1 1 "use_skill" "praying"
 usleep $USLEEP
 
 _check_food_level
 _check_hp_and_return_home $HP
 
-__old_check_health__(){
 c=$((c+1))
 test $c -ge $COUNT_CHECK_FOOD && {
 c=0
-_check_food_level
-#_check_hp_and_return_home $HP $HP_MIN_DEF
-_check_hp_and_return_home $HP
-unset Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
-unset Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2
-_draw 5 "$((NUMBER-one)) prayings left"
- }
+case $NUMBER in
+'') _draw 5 "$one praying attempts done.";;
+*)  _draw 5 "$((NUMBER-one)) prayings left.";;
+esac
 }
 
-c=$((c+1))
-test $c -ge $COUNT_CHECK_FOOD && {
-c=0
- _draw 5 "$((NUMBER-one)) prayings left"
-}
-
+test "$NUMBER" && { test "$NUMBER" = "$one" && break 1; }
 done
 
 # *** Here ends program *** #
 _say_end_msg
-
 ###END###
