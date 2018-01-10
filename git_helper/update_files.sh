@@ -1,5 +1,8 @@
 #!/bin/ash
 
+# 2018-01-10 Added -D DIRECTORY
+# positional parameter recognition
+
 . /etc/rc.d/PUPSTATE
 . /etc/DISTRO_SPECS
 . /etc/rc.d/f4puppy5
@@ -11,12 +14,19 @@ echo "Either adds interactively to   SYSTEM if not there."
 echo " Or removes interactively from GIT    if not added to SYSTEM."
 echo "diff -qs both files AND continues if zero return value."
 echo "Asks to add to GIT or to SYSTEM."
+echo "Options:"
+echo "-D DIRECTORY ie -d \$PWD"
+echo "to just diff the files of a directory."
 echo
 echo "TODO: AUTO_UPDATE_GIT variable"
 exit 0
 }
 
-case $1 in ''):;;*) _help;;esac
+case $1 in ''):;;
+-D*) shift; DIR="$*";;
+*) _help;;esac
+
+DIR=${DIR:-'.'}
 
 ME_PROG=`realpath "$0"`
 ME_DIR="${ME_PROG%/*}"
@@ -40,10 +50,14 @@ while read oneGITF
 do
 
 test "$oneGITF" || break
-echo "$oneGITF"
+echo "$oneGITF"  #DEBUG
 
-oneOSF=${oneGITF#*.}
-echo "$oneOSF"
+case $oneGITF in
+./*) oneOSF=${oneGITF#*.};;
+*)   oneOSF=${oneGITF#*rootfs-skeleton};;
+esac
+
+echo "$oneOSF"   #DEBUG
 
 test -e "$oneOSF" || {
     # REM: What to do if Files does not exist...
@@ -179,7 +193,7 @@ esac
 
 
 done <<EoI
-`find . -type f`
+`find "$DIR" -type f`
 EoI
 
 
