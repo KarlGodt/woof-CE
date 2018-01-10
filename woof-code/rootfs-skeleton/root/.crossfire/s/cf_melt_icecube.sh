@@ -23,11 +23,11 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in -h|*"help"*)
 
-echo draw 5 "Script to melt icecube."
-echo draw 5 "Syntax:"
-echo draw 5 "script $0 [number]"
-echo draw 5 "For example: 'script $0 5'"
-echo draw 5 "will issue 5 times mark icecube and apply filint and steel."
+_draw 5 "Script to melt icecube."
+_draw 5 "Syntax:"
+_draw 5 "script $0 [number]"
+_draw 5 "For example: 'script $0 5'"
+_draw 5 "will issue 5 times mark icecube and apply filint and steel."
 
         exit 0
 ;;
@@ -35,7 +35,7 @@ echo draw 5 "will issue 5 times mark icecube and apply filint and steel."
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
-echo draw 3 "Only :digit: numbers as first option allowed."
+_draw 3 "Only :digit: numbers as first option allowed."
         exit 1 #exit if other input than letters
         }
 
@@ -49,7 +49,7 @@ done
 
 
 __just_exit(){
-echo draw 3 "Exiting $0."
+_draw 3 "Exiting $0."
 echo unwatch
 #echo unwatch drawinfo
 exit $1
@@ -114,20 +114,6 @@ _watch
 for one in `seq 1 1 $NUMBER`
 do
 
-#REPLY=
-#OLD_REPLY=
-
-#echo "issue 1 1 mark icecube"
-# while [ 1 ]; do
-# read -t $TMOUT REPLY
-# _log "$REPLY"
-# case $REPLY in
-# *Could*not*find*an*object*that*matches*) break 2;;
-# '') break;;
-# esac
-# unset REPLY
-# sleep 0.1s
-# done
 _mark_item icecube || break 2
 
 sleep 1s
@@ -136,24 +122,6 @@ NO_FAIL=
 until [ "$NO_FAIL" ]
 do
 
-#REPLY=
-#OLD_REPLY=
-
-#echo "issue 1 1 apply flint and steel"
-# while [ 1 ]; do
-# read -t $TMOUT REPLY
-# _log "$REPLY"
-# case $REPLY in
-# *used*up*flint*and*steel*) break 3;;
-# *Could*not*find*any*match*to*the*flint*and*steel*) break 3;;
-# *You*need*to*mark*a*lightable*object.*) NO_FAIL=1;break 1;;
-# '') break;;
-# *fail*) :;;
-# *) NO_FAIL=1; break 1;;
-# esac
-# unset REPLY
-# sleep 0.1s
-# done
 _apply_item "flint and steel"
 case $? in
 0) break 1;; #success
@@ -179,20 +147,6 @@ done #NUMBER
 until [ "$NO_ICECUBE" ];
 do
 
-#REPLY=
-#OLD_REPLY=
-
-#echo "issue 1 1 mark icecube"
-#while [ 1 ]; do
-# read -t $TMOUT
-# _log "$REPLY"
-# case $REPLY in
-# *Could*not*find*an*object*that*matches*) break 2;;
-# '') break;;
-# esac
-# unset REPLY
-# sleep 0.1s
-# done
 _mark_item icecube || break 2
 
 sleep 1s
@@ -201,24 +155,6 @@ NO_FAIL=
 until [ "$NO_FAIL" ]
 do
 
-#REPLY=
-#OLD_REPLY=
-
-#echo "issue 1 1 apply flint and steel"
-# while [ 1 ]; do
-# read -t $TMOUT
-# _log "$REPLY"
-# case $REPLY in
-# *used*up*flint*and*steel*) break 3;;
-# *Could*not*find*any*match*to*the*flint*and*steel*) break 3;;
-# *You*need*to*mark*a*lightable*object.*) NO_FAIL=1; break 1;;
-# '') break;;
-# *fail*) :;;
-# *) NO_FAIL=1; break 1;;
-# esac
-# unset REPLY
-# sleep 0.1s
-# done
 _apply_item "flint and steel"
 case $? in
 0) break 1;; #success
@@ -243,5 +179,6 @@ done #NO_ICECUBE
 
 
 # *** Here ends program *** #
-#echo draw 2 "$0 is finished."
+#_draw 2 "$0 is finished."
 _say_end_msg
+###END###
