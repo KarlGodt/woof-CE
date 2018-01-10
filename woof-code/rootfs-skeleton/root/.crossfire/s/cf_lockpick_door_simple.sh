@@ -36,6 +36,8 @@ VERSION=0.2 # instead using _debug now using a MSGLEVEL
 
 VERSION=1.0 # added option to choose between
 # use_skill, cast and invoke to disarm traps
+VERSION=1.1 # bugfix in _open_door_with_standard_key()
+# was missing a '-' in ${1:-$DIRECTION}
 
 LOCKPICK_ATTEMPTS_DEFAULT=9
 SEARCH_ATTEMPTS_DEFAULT=9
@@ -100,7 +102,7 @@ do
 
 _draw 5 "Searching traps $cnt times ..."
 
-echo watch $DRAWINFO
+_watch $DRAWINFO
 __is 0 0 search
 _sleep
 
@@ -133,7 +135,7 @@ _sleep
 TRAPS_ALL=${FOUND_TRAP:-$TRAPS_ALL}
 unset FOUND_TRAP
 
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 _sleep
 
 
@@ -157,11 +159,11 @@ while :
 do
 _draw 5 "${TRAPS:-0} traps to disarm ..."
 
-echo watch $DRAWINFO
+_watch $DRAWINFO
 _turn_direction $DIRECTION cast disarm
 
 # TODO: checks for enough mana
-#echo watch $DRAWINFO
+#_watch $DRAWINFO
 #__is 0 0 cast disarm
 #_sleep
 #__is 0 0 fire $DIRECTION
@@ -186,7 +188,7 @@ _turn_direction $DIRECTION cast disarm
  sleep 0.1
  done
 
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 _sleep
 
 test "$TRAPS" -gt 0 || break 1
@@ -207,7 +209,7 @@ _draw 5 "${TRAPS:-0} traps to disarm ..."
 
 #_turn_direction $DIRECTION
 
-echo watch $DRAWINFO
+_watch $DRAWINFO
 __is 0 0 invoke disarm
 _sleep
 
@@ -230,13 +232,12 @@ _sleep
  esac
  done
 
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 _sleep
 
 test "$TRAPS" -gt 0 || break 1
 done
 
-_move_forth 1
 }
 
 _use_skill_disarm(){
@@ -251,7 +252,7 @@ while :
 do
 _draw 5 "Disarming ${TRAPS:-0} traps ..."
 
-echo watch $DRAWINFO
+_watch $DRAWINFO
 __is 0 0 use_skill disarm
 _sleep
 
@@ -282,7 +283,7 @@ _sleep
  OLD_REPLY=$REPLY
  done
 
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 _sleep
 
 test "$TRAPS" -gt 0 || break 1
@@ -305,13 +306,15 @@ _lockpick_door(){
 _draw 5 "Attempting to lockpick the door ..."
 
 cnt=${LOCKPICK_ATTEMPTS:-$LOCKPICK_ATTEMPTS_DEFAULT}
+test "$cnt" -gt 0 || return 1  # to trigger _open_door_with_standard_key
 
+unset RV
 while :
 do
 
 test "$INFINITE" || _draw 5 "$cnt attempts in lockpicking skill left .."
 
-echo watch $DRAWINFO
+_watch $DRAWINFO
 #_sleep
 __is 1 1 use_skill lockpicking
 _sleep
@@ -341,7 +344,7 @@ _sleep
  _sleep
  done
 
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 
 test "$INFINITE" || {
     cnt=$((cnt-1))
@@ -351,13 +354,17 @@ test "$INFINITE" || {
 _sleep
 done
 
+#DEBUG=1 _debug "RV=$RV"
 return ${RV:-1}
 }
 
 _open_door_with_standard_key(){
-DIRECTION=${1:$DIRECTION}
+#DEBUG=1 _debug "_open_door_with_standard_key:$*"
+DIRECTION=${1:-$DIRECTION}
+#DEBUG=1 _debug "DIRECTION=$DIRECTION"
 test "$DIRECTION" || return 0
 _number_to_direction "$DIRECTION"
+#DEBUG=1 _debug "DIRECTION=$DIRECTION"
 _is 0 0 $DIRECTION
 }
 
@@ -453,9 +460,16 @@ _search_traps
 
 _disarm_traps
 
-_lockpick_door || _open_door_with_standard_key
+_lockpick_door
+RV=$?
+#DEBUG=1 _debug "RV=$RV"
+case $RV in
+0) :;;
+*) _open_door_with_standard_key $DIRECTION
+esac
 
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 
-#_say_script_time
 _say_end_msg
+
+###END###

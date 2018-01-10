@@ -255,6 +255,16 @@ TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
 _draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL ($TIMEEST m) to go..."
 }
 
+_watch(){
+echo unwatch ${1:-$DRAWINFO}
+sleep 0.4
+echo   watch ${1:-$DRAWINFO}
+}
+
+_unwatch(){
+echo unwatch ${1:-$DRAWINFO}
+}
+
 _check_drawinfo(){  ##+++2018-01-08
 DEBUG0=$DEBUG;       DEBUG=${DEBUG:-''}
 LOGGING0=$LOGGING; LOGGING=${LOGGING:-1}
@@ -271,9 +281,10 @@ do
 # like You search the area.
 # It could be something else,
 # but I have no better idea for the moment.
-__is 0 0 search
+#__is 0 0 search
+_is 0 0 examine
 
- unset cnt0
+ unset cnt0 TICKS
  while :
  do
  cnt0=$((cnt0+1))
@@ -283,9 +294,11 @@ __is 0 0 search
  #_debug 3 "$cnt0:$REPLY"
 
  case $REPLY in
- *drawinfo*'You search'*|*drawinfo*'You spot'*)       DRAWINFO0=drawinfo;    break 2;;
- *drawextinfo*'You search'*|*drawextinfo*'You spot'*) DRAWINFO0=drawextinfo; break 2;;
- *tick*) TICKS=$((TICKS+1));;
+ #*drawinfo*'You search'*|*drawinfo*'You spot'*)       DRAWINFO0=drawinfo;    break 2;;
+ #*drawextinfo*'You search'*|*drawextinfo*'You spot'*) DRAWINFO0=drawextinfo; break 2;;
+ *drawinfo*'That is'*|*drawinfo*'These are'*)       DRAWINFO0=drawinfo;    break 2;;
+ *drawextinfo*'That is'*|*drawextinfo*'These are'*) DRAWINFO0=drawextinfo; break 2;;
+ *tick*) TICKS=$((TICKS+1)); test "$TICKS" -gt 19 && break 1;;
  '') break 1;;
  *) :;;
  esac
@@ -296,15 +309,18 @@ __is 0 0 search
 _sleep
 done
 
+echo unwatch
+_empty_message_stream
+unset cnt0
+
 test "$DRAWINFO0" = "$DRAWINFO" || {
     _msg 5 "Changing internally from $DRAWINFO to $DRAWINFO0"
     DRAWINFO=$DRAWINFO0
 }
 
-echo unwatch
-unset cnt0
 DEBUG=$DEBUG0
 LOGGING=$LOGGING0
+_draw 6 "Done."
 }
 
 # *** EXIT FUNCTIONS *** #
@@ -335,16 +351,16 @@ _is 1 1 apply -u rod of word of recall
 _is 1 1 apply -a rod of word of recall
 _is 1 1 fire center
 _draw 3 "Emergency Exit $0 !"
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 _is 1 1 fire_stop
 beep -l 1000 -f 700
 exit ${1:-0}
 }
 
 _exit_no_space(){
-_draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
-_draw 3 "Remove that Item and try again."
-_draw 3 "If this is a Wall, try another place."
+_draw 3 "On position $nr $DIRB there is something ($IS_WALL)!"
+_draw 3 "Remove that item and try again."
+_draw 3 "If this is a wall, try on another place."
 beep -l 1000 -f 700
 exit ${1:-0}
 }
@@ -526,23 +542,13 @@ sleep ${SLEEP:-1}
 
 _drop_in_cauldron(){
 
-if test "$DRAWINFO" = drawextinfo; then
-echo watch drawinfo
-echo watch $DRAWINFO
-else
-echo watch $DRAWINFO
-fi
-
+_watch $DRAWINFO
 _drop "$@"
 
 _check_drop_or_exit
 
-if test "$DRAWINFO" = drawextinfo; then
-echo unwatch drawinfo
-echo unwatch $DRAWINFO
-else
-echo unwatch $DRAWINFO
-fi
+_unwatch $DRAWINFO
+
 }
 
 _drop(){
@@ -890,8 +896,6 @@ _draw 5 "Checking for space to move..."
 
 echo request map near
 
-#echo watch request
-
 # client v.1.70.0 request map pos:request map pos 280 231 ##cauldron adventurers guild stoneville
 # client v.1.10.0                 request map pos 272 225 ##cauldron adventurers guild stoneville
 #                request map near:request map     279 231  0 n n n n smooth 30 0 0 heads 4854 825 0 tails 0 0 0
@@ -1110,7 +1114,7 @@ OLD_REPLY="";
 REPLY_ALL='';
 REPLY="";
 
-echo watch $DRAWINFO
+_watch $DRAWINFO
 #sleep 0.5
 
 #issue <repeat> <must_send> <command>
@@ -1135,18 +1139,12 @@ _is 99 1 get
 # 'get  4 water' would get 4 water of every item containing water
 # 'take 4 water' ignores the number and would get all water from the topmost item containing water
 
-#cr=0
 while :; do
-#cr=$((cr+1))
 read -t $TMOUT
-#echo "take:$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "take:$cr:$REPLY"
 REPLY_ALL="$REPLY
 $REPLY_ALL"
-#if test "$cr" -ge 50; then
 test "$REPLY" || break
-#break
-#fi
 unset REPLY
 sleep 0.1s
 done
@@ -1156,22 +1154,11 @@ case $REPLY_ALL in
 *Nothing*to*take*) :;;
 *) _exit 1 "Cauldron NOT empty !!";;
 esac
-#test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-#_draw 3 "Cauldron NOT empty !!"
-#_draw 3 "Please empty the cauldron and try again."
-#_exit 1
-#}
 
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 
 sleep ${SLEEP}s
-
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
 _move_back_and_forth 2
-
 sleep ${SLEEP}s
 
 _draw 7 "OK ! Cauldron IS empty."
@@ -1185,12 +1172,7 @@ local REPLY OLD_REPLY
 local HAVE_CAULDRON=1
 _unknown &
 
-if test "$DRAWINFO" = drawextinfo; then
-echo watch drawinfo
-echo watch $DRAWINFO
-else
-echo watch $DRAWINFO
-fi
+_watch $DRAWINFO
 
 sleep 0.5
 _is 1 1 use_skill alchemy
@@ -1199,8 +1181,7 @@ _is 1 1 use_skill alchemy
 OLD_REPLY="";
 REPLY="";
 while :; do
-read -t 1
-#echo "$REPLY" >>"$REPLY_LOG"
+read -t $TMOUT
 _log "$REPLY_LOG" "alchemy:$REPLY"
 case $REPLY in
                                                        #(level < 25)  /* INGREDIENTS USED/SLAGGED */
@@ -1261,8 +1242,7 @@ NOTHING=0
 SLAG=0
 
 while :; do
-read -t 1
-#echo "take:$REPLY" >>"$REPLY_LOG"
+read -t $TMOUT
 _log "$REPLY_LOG" "take:$REPLY"
 case $REPLY in
 *Nothing*to*take*)   NOTHING=1;;
@@ -1274,13 +1254,7 @@ unset REPLY
 sleep 0.1s
 done
 
-if test "$DRAWINFO" = drawextinfo; then
-echo unwatch drawinfo
-echo unwatch $DRAWINFO
-else
-echo unwatch $DRAWINFO
-fi
-
+_unwatch $DRAWINFO
 sleep ${SLEEP}s
 }
 
@@ -1289,7 +1263,7 @@ local HAVE_PUT=0
 local OLD_REPLY="";
 local REPLY="";
 while :; do
-read -t 1
+read -t $TMOUT
 _log "$REPLY_LOG" "drop:$REPLY"
 case $REPLY in
 *Nothing*to*drop*)                _exit 1 "Missing in inventory";;
@@ -1351,7 +1325,7 @@ _empty_message_stream(){
 local REPLY
 while :;
 do
-read -t 1
+read -t $TMOUT
 _log "$REPLY_LOG" "_empty_message_stream:$REPLY"
 test "$REPLY" || break
 _msg 7 "_empty_message_stream:$REPLY"
@@ -1383,11 +1357,11 @@ _empty_message_stream
 _is 1 1 apply -a rod of word of recall
 _empty_message_stream
 
-_is 1 1 fire center ## Todo check if already applied and in inventory
+_is 1 1 fire center ## TODO: check if already applied and in inventory
 _is 1 1 fire_stop
 _empty_message_stream
 
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 exit
 fi
 
@@ -1404,7 +1378,7 @@ _is 1 0 cast create
 while :;
 do
 
-read -t 1
+read -t $TMOUT
 _msg 7 "_check_mana_for_create_food:$REPLY"
 case $REPLY in
 *ready*the*spell*create*food*) return 0;;
@@ -1440,7 +1414,7 @@ test "$lEAT_FOOD" || lEAT_FOOD=food
 _is 1 1 pickup 0
 _empty_message_stream
 
-# TODO : Check MANA
+# TODO: Check MANA
 _is 1 1 cast create food $lEAT_FOOD
 _empty_message_stream
 
@@ -1449,23 +1423,23 @@ do
 _is 1 1 fire_stop
 sleep 0.1
 
-while :;
-do
-_check_mana_for_create_food && break || { sleep 10; continue; }
-done
+ while :;
+ do
+  _check_mana_for_create_food && break || { sleep 10; continue; }
+ done
 
 sleep 0.1
 _is 1 1 fire center ## Todo handle bungling the spell
 
 unset BUNGLE
 sleep 0.1
-read -t 1 BUNGLE
+read -t $TMOUT BUNGLE
 test "`echo "$BUNGLE" | grep -i 'bungle'`" || break
 sleep 0.1
 done
 
 _is 1 1 fire_stop
-sleep 1
+_sleep
 _empty_message_stream
 
 
@@ -1477,21 +1451,21 @@ _empty_message_stream
 _apply_horn_of_plenty_and_eat(){
 local REPLY
 
-read -t 1
+read -t $TMOUT
 _is 1 1 apply -a Horn of Plenty
-sleep 1
+_sleep
 unset REPLY
-read -t 1
+read -t $TMOUT
 
 _is 1 1 fire center ## Todo handle bungling
 _is 1 1 fire_stop
-sleep 1
+_sleep
 unset REPLY
-read -t 1
+read -t $TMOUT
 
 _is 1 1 apply ## Todo check if food is there on tile
 unset REPLY
-read -t 1
+read -t $TMOUT
 }
 
 
@@ -1504,10 +1478,10 @@ test "$EAT_FOOD" || EAT_FOOD=waybread
 
 #_check_food_inventory ## Todo: check if food is in INV
 
-read -t 1
+read -t $TMOUT
 _is 1 1 apply $EAT_FOOD
 unset REPLY
-read -t 1
+read -t $TMOUT
 }
 
 _check_food_level(){
@@ -1522,10 +1496,10 @@ test "$MIN_FOOD_LEVEL" || MIN_FOOD_LEVEL=200
 local FOOD_LVL=''
 local REPLY
 
-read -t 1  # empty the stream of messages
+read -t $TMOUT  # empty the stream of messages
 
-#echo watch $DRAWINFO
-sleep 1
+#_watch $DRAWINFO
+_sleep
 echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
 while :;
 do
@@ -1542,12 +1516,12 @@ if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  #_eat_food
  _cast_create_food_and_eat $EAT_FOOD
 
- sleep 1
+ _sleep
  _empty_message_stream
- sleep 1
+ _sleep
  echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
  #sleep 0.1
- sleep 1
+ _sleep
  read -t1 Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
  _msg 7 HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL #DEBUG
 
@@ -1563,7 +1537,7 @@ oF="$FOOD_LVL"
 sleep 0.1
 done
 
-#echo unwatch $DRAWINFO
+#_unwatch $DRAWINFO
 }
 
 #Food

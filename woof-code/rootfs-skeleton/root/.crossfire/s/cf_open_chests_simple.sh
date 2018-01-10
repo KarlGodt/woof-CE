@@ -229,7 +229,7 @@ _debug "FOUND_TRAP=$FOUND_TRAP TRAPS_ALL_OLD=$TRAPS_ALL_OLD"
 
 unset FOUND_TRAP
 
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 _sleep
 
 
@@ -279,13 +279,13 @@ _sleep
  sleep 0.1
  done
 
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 _sleep
 
 test "$TRAPS" -gt 0 || break 1
 done
 
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 }
 
 _invoke_disarm(){ ## invoking does to a direction
@@ -330,13 +330,13 @@ _sleep
  esac
  done
 
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 _sleep
 
 test "$TRAPS" -gt 0 || break 1
 done
 
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 _move_forth 1
 }
 
@@ -387,7 +387,7 @@ _sleep
 
 _move_back_and_forth 2
 
-echo unwatch $DRAWINFO
+_unwatch $DRAWINFO
 _sleep
 
 test "$TRAPS" -gt 0 || break 1

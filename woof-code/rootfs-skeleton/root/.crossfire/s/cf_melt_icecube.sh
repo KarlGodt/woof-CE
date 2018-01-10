@@ -1,30 +1,5 @@
 #!/bin/ash
 
-# *** Color numbers found in common/shared/newclient.h : *** #
-#define NDI_BLACK       0
-#define NDI_WHITE       1
-#define NDI_NAVY        2
-#define NDI_RED         3
-#define NDI_ORANGE      4
-#define NDI_BLUE        5       /**< Actually, it is Dodger Blue */
-#define NDI_DK_ORANGE   6       /**< DarkOrange2 */
-#define NDI_GREEN       7       /**< SeaGreen */
-#define NDI_LT_GREEN    8       /**< DarkSeaGreen, which is actually paler
-#                                 *   than seagreen - also background color. */
-#define NDI_GREY        9
-#define NDI_BROWN       10      /**< Sienna. */
-#define NDI_GOLD        11
-#define NDI_TAN         12      /**< Khaki. */
-#define NDI_MAX_COLOR   12      /**< Last value in. */
-#
-#define NDI_COLOR_MASK  0xff    /**< Gives lots of room for expansion - we are
-#                                 *   using an int anyways, so we have the
-#                                 *   space to still do all the flags.
-#                                 */
-#define NDI_UNIQUE      0x100   /**< Print immediately, don't buffer. */
-#define NDI_ALL         0x200   /**< Inform all players of this message. */
-#define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
-#                                 *   errors. Overrides NDI_ALL. */
 
 export PATH=/bin:/usr/bin
 MY_SELF=`realpath "$0"`
@@ -38,11 +13,13 @@ test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 _say_start_msg "$@"
 
 # *** Check for parameters *** #
-[ "$*" ] && {
+
+while [ "$1" ]
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in *"help"*)
+case "$PARAM_1" in -h|*"help"*)
 
 echo draw 5 "Script to melt icecube."
 echo draw 5 "Syntax:"
@@ -51,8 +28,8 @@ echo draw 5 "For example: 'script $0 5'"
 echo draw 5 "will issue 5 times mark icecube and apply filint and steel."
 
         exit 0
-;; esac
-
+;;
+*)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
@@ -61,8 +38,13 @@ echo draw 3 "Only :digit: numbers as first option allowed."
         }
 
 NUMBER=$PARAM_1
+;;
+esac
 
-}
+shift
+sleep 0.1
+done
+
 
 __just_exit(){
 echo draw 3 "Exiting $0."
@@ -78,7 +60,7 @@ _get_player_speed
 test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
 
 _debug "NUMBER='$NUMBER'"
-echo watch drawinfo
+_watch
 
     if test "$NUMBER"; then
 
@@ -91,8 +73,8 @@ OLD_REPLY=
 echo "issue 1 1 mark icecube"
 
  while [ 1 ]; do
- read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ read -t $TMOUT REPLY
+ _log "$REPLY"
  case $REPLY in
  *Could*not*find*an*object*that*matches*) _just_exit 1;;
  '') break;;
@@ -113,14 +95,15 @@ OLD_REPLY=
 echo "issue 1 1 apply flint and steel"
 
  while [ 1 ]; do
- read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ read -t $TMOUT REPLY
+ _log "$REPLY"
  case $REPLY in
  *used*up*flint*and*steel*) _exit 2;;
  *Could*not*find*any*match*to*the*flint*and*steel*) _just_exit 2;;
+ *You*need*to*mark*a*lightable*object.*) NO_FAIL=1;break 1;;
  '') break;;
  *fail*) :;;
- *) NO_FAIL=1;;
+ *) NO_FAIL=1; break 1;;
  esac
  unset REPLY
  sleep 0.1s
@@ -142,8 +125,8 @@ OLD_REPLY=
 
 echo "issue 1 1 mark icecube"
 while [ 1 ]; do
- read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ read -t $TMOUT
+ _log "$REPLY"
  case $REPLY in
  *Could*not*find*an*object*that*matches*) _just_exit 1;;
  '') break;;
@@ -164,14 +147,15 @@ OLD_REPLY=
 
 echo "issue 1 1 apply flint and steel"
  while [ 1 ]; do
- read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ read -t $TMOUT
+ _log "$REPLY"
  case $REPLY in
  *used*up*flint*and*steel*) _just_exit 2;;
  *Could*not*find*any*match*to*the*flint*and*steel*) _exit 2;;
+ *You*need*to*mark*a*lightable*object.*) NO_FAIL=1; break 1;;
  '') break;;
  *fail*) :;;
- *) NO_FAIL=1;;
+ *) NO_FAIL=1; break 1;;
  esac
  unset REPLY
  sleep 0.1s
@@ -181,7 +165,7 @@ sleep 1s
 
 done #NO_FAIL
 
-done #true
+done #NO_ICECUBE
 
     fi #^!PARAM_1
 
