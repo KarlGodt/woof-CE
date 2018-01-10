@@ -193,7 +193,7 @@ _sleep
 __is 0 0 search
 _sleep
 
- unset cnt0
+ unset cnt0 FOUND_TRAP
  while :
  do
  cnt0=$((cnt0+1))
@@ -217,17 +217,16 @@ _sleep
  *) :;;
  esac
 
- _sleep
+ sleep 0.1
  done
 
+test "$FOUND_TRAP" && _draw 2 "Found $FOUND_TRAP trap(s)."
 TRAPS_ALL=${FOUND_TRAP:-$TRAPS_ALL}
 _debug "TRAPS_ALL=$TRAPS_ALL"
 test "$TRAPS_ALL_OLD" -gt $TRAPS_ALL && TRAPS_ALL=$TRAPS_ALL_OLD
 _debug "TRAPS_ALL=$TRAPS_ALL"
 TRAPS_ALL_OLD=${TRAPS_ALL:-0}
 _debug "FOUND_TRAP=$FOUND_TRAP TRAPS_ALL_OLD=$TRAPS_ALL_OLD"
-
-unset FOUND_TRAP
 
 _unwatch $DRAWINFO
 _sleep

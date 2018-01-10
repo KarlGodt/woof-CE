@@ -38,6 +38,8 @@ VERSION=1.0 # added option to choose between
 # use_skill, cast and invoke to disarm traps
 VERSION=1.1 # bugfix in _open_door_with_standard_key()
 # was missing a '-' in ${1:-$DIRECTION}
+VERSION=1.2 # bugfixes in regards to unexpected
+# settings of variables
 
 LOCKPICK_ATTEMPTS_DEFAULT=9
 SEARCH_ATTEMPTS_DEFAULT=9
@@ -97,6 +99,7 @@ _search_traps(){
 cnt=${SEARCH_ATTEMPTS:-$SEARCH_ATTEMPTS_DEFAULT}
 _draw 5 "Searching traps ..."
 
+TRAPS_ALL=0
 while :
 do
 
@@ -105,7 +108,6 @@ _draw 5 "Searching traps $cnt times ..."
 _watch $DRAWINFO
 __is 0 0 search
 _sleep
-
 
  while :
  do
@@ -132,12 +134,18 @@ _sleep
  _sleep
  done
 
+test "$FOUND_TRAP" && _draw 2 "Found $FOUND_TRAP trap(s)."
 TRAPS_ALL=${FOUND_TRAP:-$TRAPS_ALL}
+test "$TRAPS_ALL_OLD" -gt $TRAPS_ALL && TRAPS_ALL=$TRAPS_ALL_OLD
+TRAPS_ALL_OLD=${TRAPS_ALL:-0}
+
 unset FOUND_TRAP
 
 _unwatch $DRAWINFO
 _sleep
 
+test "$MULTIPLE_TRAPS" || {
+    test "$TRAPS_ALL" -ge 1 && break 1; }
 
 cnt=$((cnt-1))
 test $cnt -gt 0 || break 1
@@ -429,9 +437,13 @@ D) DIRECTION=${OPTARG:-0};;
 I) INFINITE=1;;
 L) LOCKPICK_ATTEMPTS=${OPTARG:-$LOCKPICK_ATTEMPTS_DEFAULT};;
 S) SEARCH_ATTEMPTS=${OPTARG:-$SEARCH_ATTEMPTS_DEFAULT};;
+
+M) MULTIPLE_TRAPS=$((MULTIPLE_TRAPS+1));;
+
 c) DISARM=cast;;
 i) DISARM=invokation;;
 u) DISARM=skill;;
+
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
 
 h) _say_help 0;;

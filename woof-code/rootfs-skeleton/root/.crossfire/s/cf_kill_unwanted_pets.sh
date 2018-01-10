@@ -1,4 +1,11 @@
 #!/bin/bash
+# uses read VAR <<< $VAR1
+
+# 2018-01-10 : Code overhaul using the _log()
+# function instead echo >>file
+# Added -w option, reworked parameter processing
+# Added case switch for drawextinfo/drawinfo sending
+# different amounts of pre-pet number values
 
 export PATH=/bin:/usr/bin
 
@@ -13,50 +20,64 @@ test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 _say_start_msg "$@"
 
 _say_help_and_exit(){
-echo draw 5 "Script to kill pets except the ones"
-echo draw 5 "given on parameter line."
-echo draw 2 "Syntax:"
-echo draw 5 "$0 pet1 pet2 .."
-echo draw 2 ":space: ( ) needs to be replaced by underscore (_)"
-echo draw 5 "for ex. green slime to green_slime ."
+_draw 5 "Script to kill pets except the ones"
+_draw 5 "given on parameter line."
+_draw 2 "Syntax:"
+_draw 2 "$0 pet1 pet2 .."
+_draw 5 ":space: ( ) needs to be replaced by underscore (_)"
+_draw 5 "for ex. green slime to green_slime ."
+_draw 2 "Options:"
+_draw 5 "-w :Use grep -w (word) to be more exact (lich/demilich)"
+
 exit 0
 }
 
+_log "\$*='$*'"
 # *** Check for parameters *** #
 case $* in
-'')     echo draw 3 "Script needs pets to keep as argument."
-        echo draw 3 "Need <pet_name> ie: script $0 nazgul,spectre ."
-         _say_help_and_exit;;
-h|*help) _say_help_and_exit;;
-*) :;;
+'')     _draw 3 "Script needs pets to keep as argument."
+        _draw 3 "Need <pet_name> ie: script $0 nazgul,spectre ."
+        _say_help_and_exit;;
 esac
 
-echo "\$*='$*'" >>/tmp/cf_pets.rpl
-keepPETS="`echo "$*" | sed 's/killer_bee/killer-bee/;s/dire_wolf_sire/dire-wolf-sire/;s/dire_wolf/dire-wolf/'`"
-echo "keepPETS='$keepPETS'" >>/tmp/cf_pets.rpl
+while [ "$1" ];
+do
+case $1 in
+-h|*-help) _say_help_and_exit;;
+-w|*-word)  GREP_PARAM="$GREP_PARAM $1";;
+*) keepPETS="$keepPETS $1";;
+esac
+
+shift
+sleep 0.1
+done
+
+_log "\$*='$*'"
+#keepPETS="`echo "$*" | sed 's/killer_bee/killer-bee/;s/dire_wolf_sire/dire-wolf-sire/;s/dire_wolf/dire-wolf/'`"
+keepPETS="`echo "$keepPETS" | sed 's/killer_bee/killer-bee/;s/dire_wolf_sire/dire-wolf-sire/;s/dire_wolf/dire-wolf/'`"
+_log "keepPETS='$keepPETS'"
 keepPETS="`echo "$keepPETS" | tr '[ ,]' '|'`"
-echo "keepPETS='$keepPETS'" >>/tmp/cf_pets.rpl
+_log "keepPETS='$keepPETS'"
 keepPETS="`echo "$keepPETS" | tr '_' ' '`"
-echo "keepPETS='$keepPETS'" >>/tmp/cf_pets.rpl
+_log "keepPETS='$keepPETS'"
 keepPETS="`echo "$keepPETS" | sed 's/killer-bee/killer_bee/;s/dire-wolf-sire/dire_wolf_sire/;s/dire-wolf/dire_wolf/'`"
-echo "keepPETS='$keepPETS'" >>/tmp/cf_pets.rpl
+_log "keepPETS='$keepPETS'"
 PETS_KEEP=`echo "$keepPETS" | sed 's/^|*//;s/|*$//'`
-echo "PETS_KEEP='$PETS_KEEP'" >>/tmp/cf_pets.rpl
+_log "PETS_KEEP='$PETS_KEEP'"
 
 # *** Actual script to kill unwanted pets *** #
 
 OLD_REPLY="";
 REPLY="";
 
-echo watch drawinfo
+_watch
 sleep 1
-echo "issue 1 1 showpets"
+_is 1 1 "showpets"
 
-#while [ 1 ]; do
 while :; do
 
 read -t 1 REPLY
-echo "watch drawinfo REPLY='$REPLY'" >>/tmp/cf_pets.rpl
+_log "REPLY='$REPLY'"
 
 case $REPLY in
 #*" - level "*) # filter in case of disturbing drawinfos ie Y times killed
@@ -73,16 +94,16 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+_unwatch
 
-echo "PETS_HAVE='$PETS_HAVE'" >>/tmp/cf_pets.rpl
-echo "PETS_KEEP='$PETS_KEEP'" >>/tmp/cf_pets.rpl
-PETS_KILL=`echo "$PETS_HAVE" | grep -v -E -i "$PETS_KEEP"`
-echo "PETS_KILL='$PETS_KILL'" >>/tmp/cf_pets.rpl
+_log "PETS_HAVE='$PETS_HAVE'"
+_log "PETS_KEEP='$PETS_KEEP'"
+PETS_KILL=`echo "$PETS_HAVE" | grep -v -E -i $GREP_PARAM "$PETS_KEEP"`
+_log "PETS_KILL='$PETS_KILL'"
 
 
 # *** example output :watch drawinfo 0 1  vampire - level 11
-
+#                     watch drawextinfo 0 10 0 64  demilich - level 31
 # *!* #PETS_KILL=`echo "$PETS_KILL" | awk '{print $5}' | sed '/^$/d'` # works not for "green slime"
 
 # *?* #PETS_KILL=`echo "$PETS_KILL" | awk '{print $5" "$6" "$7}' | sed 's/ - .*$//' | sed '/^$/d'`
@@ -104,16 +125,27 @@ echo "PETS_KILL='$PETS_KILL'" >>/tmp/cf_pets.rpl
 # *** Using cut with bash buildin <<< *** #
 
 # *** Using while read with bash buildin <<< *** #
-PETS_KILL=`while read a b c d PETNAME_REST; do echo "$PETNAME_REST";done<<<"$PETS_KILL"`
+case $DRAWINFO in
+drawextinfo)
+   PETS_KILL=`while read a b c d e f PETNAME_REST; do echo "$PETNAME_REST";done<<<"$PETS_KILL"`
+;;
+*) PETS_KILL=`while read a b c d     PETNAME_REST; do echo "$PETNAME_REST";done<<<"$PETS_KILL"`
+;;
+esac
+
+_log "PETS_KILL='$PETS_KILL'"
 PETS_KILL=`sed 's/ - level.*//' <<<"$PETS_KILL"`
+_log "PETS_KILL='$PETS_KILL'"
 PETS_KILL=`sed '/^$/d'          <<<"$PETS_KILL"`
+_log "PETS_KILL='$PETS_KILL'"
 # *** Using while read with bash buildin <<< *** #
 
 PETS_KILL=`echo "$PETS_KILL" | sort -u`
-echo "$PETS_KILL" >>/tmp/cf_pets.rpl
+_log "PETS_KILL='$PETS_KILL'"
 
-[ "$DEBUG" ] && echo draw 3 "$PETS_KILL" #DEBUG
+__debug "$PETS_KILL" #DEBUG
 
+# MAIN
 while read onePET
 do
 
@@ -123,8 +155,8 @@ case $onePET in
 *have*no*pet*) break;; # stop if we have no pets
 esac
 
-echo draw 3 "Killing $onePET .."
-echo "issue 1 1 killpets $onePET"
+_draw 3 "Killing $onePET .."
+_is 1 1 killpets "$onePET"
 sleep 1s
 
 done<<EoI
@@ -132,8 +164,6 @@ done<<EoI
 EoI
 
 
-
-
 # *** Here ends program *** #
-#echo draw 2 "$0 is finished."
 _say_end_msg
+###END###

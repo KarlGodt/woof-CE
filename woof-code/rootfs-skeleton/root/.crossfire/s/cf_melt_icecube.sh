@@ -1,5 +1,7 @@
 #!/bin/ash
 
+# 2018-01-10 : Code overhaul,
+# made duplicate code in functions.
 
 export PATH=/bin:/usr/bin
 MY_SELF=`realpath "$0"`
@@ -56,6 +58,51 @@ exit $1
 # *** Getting Player's Speed *** #
 _get_player_speed
 
+
+
+_mark_item(){
+local lITEM=${*:-icecube}
+local lRV=0
+_is 1 1 mark "$lITEM"
+
+ while [ 1 ]; do
+ read -t $TMOUT
+ _log "$REPLY"
+ case $REPLY in
+ *Could*not*find*an*object*that*matches*) lRV=1;break 1;;
+ '') break;;
+ esac
+ unset REPLY
+ sleep 0.1s
+ done
+
+return ${lRV:-0}
+}
+
+_apply_item(){
+local lITEM=${*:-"flint and steel"}
+local lRV=0
+_is 1 1 apply "$lITEM"
+
+ while [ 1 ]; do
+ read -t $TMOUT
+ _log "$REPLY"
+ case $REPLY in
+ *used*up*flint*and*steel*) lRV=5; break 1;;
+ *Could*not*find*any*match*to*the*flint*and*steel*) lRV=6; break 1;;
+ *You*need*to*mark*a*lightable*object.*) NO_FAIL=1; lRV=7; break 1;;
+ '')     lRV=1; break 1;;
+ *fail*) lRV=1; break 1;;
+ *You*light*the*icecube*with*the*flint*and*steel.*) lRV=0; break 1;;
+ *) :;;
+ esac
+ unset REPLY
+ sleep 0.1s
+ done
+
+return ${lRV:-0}
+}
+
 # *** Actual script to pray multiple times *** #
 test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
 
@@ -67,21 +114,21 @@ _watch
 for one in `seq 1 1 $NUMBER`
 do
 
-REPLY=
-OLD_REPLY=
+#REPLY=
+#OLD_REPLY=
 
-echo "issue 1 1 mark icecube"
-
- while [ 1 ]; do
- read -t $TMOUT REPLY
- _log "$REPLY"
- case $REPLY in
- *Could*not*find*an*object*that*matches*) _just_exit 1;;
- '') break;;
- esac
- unset REPLY
- sleep 0.1s
- done
+#echo "issue 1 1 mark icecube"
+# while [ 1 ]; do
+# read -t $TMOUT REPLY
+# _log "$REPLY"
+# case $REPLY in
+# *Could*not*find*an*object*that*matches*) break 2;;
+# '') break;;
+# esac
+# unset REPLY
+# sleep 0.1s
+# done
+_mark_item icecube || break 2
 
 sleep 1s
 
@@ -89,25 +136,37 @@ NO_FAIL=
 until [ "$NO_FAIL" ]
 do
 
-REPLY=
-OLD_REPLY=
+#REPLY=
+#OLD_REPLY=
 
-echo "issue 1 1 apply flint and steel"
-
- while [ 1 ]; do
- read -t $TMOUT REPLY
- _log "$REPLY"
- case $REPLY in
- *used*up*flint*and*steel*) _exit 2;;
- *Could*not*find*any*match*to*the*flint*and*steel*) _just_exit 2;;
- *You*need*to*mark*a*lightable*object.*) NO_FAIL=1;break 1;;
- '') break;;
- *fail*) :;;
- *) NO_FAIL=1; break 1;;
- esac
- unset REPLY
- sleep 0.1s
- done
+#echo "issue 1 1 apply flint and steel"
+# while [ 1 ]; do
+# read -t $TMOUT REPLY
+# _log "$REPLY"
+# case $REPLY in
+# *used*up*flint*and*steel*) break 3;;
+# *Could*not*find*any*match*to*the*flint*and*steel*) break 3;;
+# *You*need*to*mark*a*lightable*object.*) NO_FAIL=1;break 1;;
+# '') break;;
+# *fail*) :;;
+# *) NO_FAIL=1; break 1;;
+# esac
+# unset REPLY
+# sleep 0.1s
+# done
+_apply_item "flint and steel"
+case $? in
+0) break 1;; #success
+1) :;;       #try again
+2) :;;       #unused
+3) :;;       #unused
+4) :;;       #unused
+5) break 2;; #used up
+6) break 2;; #no item
+7) break 1;; #not marked
+8) :;;       #unused
+9) :;;       #unused
+esac
 
 sleep 1s
 
@@ -120,20 +179,21 @@ done #NUMBER
 until [ "$NO_ICECUBE" ];
 do
 
-REPLY=
-OLD_REPLY=
+#REPLY=
+#OLD_REPLY=
 
-echo "issue 1 1 mark icecube"
-while [ 1 ]; do
- read -t $TMOUT
- _log "$REPLY"
- case $REPLY in
- *Could*not*find*an*object*that*matches*) _just_exit 1;;
- '') break;;
- esac
- unset REPLY
- sleep 0.1s
- done
+#echo "issue 1 1 mark icecube"
+#while [ 1 ]; do
+# read -t $TMOUT
+# _log "$REPLY"
+# case $REPLY in
+# *Could*not*find*an*object*that*matches*) break 2;;
+# '') break;;
+# esac
+# unset REPLY
+# sleep 0.1s
+# done
+_mark_item icecube || break 2
 
 sleep 1s
 
@@ -141,25 +201,37 @@ NO_FAIL=
 until [ "$NO_FAIL" ]
 do
 
+#REPLY=
+#OLD_REPLY=
 
-REPLY=
-OLD_REPLY=
-
-echo "issue 1 1 apply flint and steel"
- while [ 1 ]; do
- read -t $TMOUT
- _log "$REPLY"
- case $REPLY in
- *used*up*flint*and*steel*) _just_exit 2;;
- *Could*not*find*any*match*to*the*flint*and*steel*) _exit 2;;
- *You*need*to*mark*a*lightable*object.*) NO_FAIL=1; break 1;;
- '') break;;
- *fail*) :;;
- *) NO_FAIL=1; break 1;;
- esac
- unset REPLY
- sleep 0.1s
- done
+#echo "issue 1 1 apply flint and steel"
+# while [ 1 ]; do
+# read -t $TMOUT
+# _log "$REPLY"
+# case $REPLY in
+# *used*up*flint*and*steel*) break 3;;
+# *Could*not*find*any*match*to*the*flint*and*steel*) break 3;;
+# *You*need*to*mark*a*lightable*object.*) NO_FAIL=1; break 1;;
+# '') break;;
+# *fail*) :;;
+# *) NO_FAIL=1; break 1;;
+# esac
+# unset REPLY
+# sleep 0.1s
+# done
+_apply_item "flint and steel"
+case $? in
+0) break 1;; #success
+1) :;;       #try again
+2) :;;       #unused
+3) :;;       #unused
+4) :;;       #unused
+5) break 2;; #used up
+6) break 2;; #no item
+7) break 1;; #not marked
+8) :;;       #unused
+9) :;;       #unused
+esac
 
 sleep 1s
 
