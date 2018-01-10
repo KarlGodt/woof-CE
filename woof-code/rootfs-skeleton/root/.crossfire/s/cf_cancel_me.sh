@@ -176,10 +176,12 @@ do
 one=$((one+1))
 
 _is 1 1 fire "center"
+_is 1 1 fire_stop
 _sleep
 
 #test "$NUMBER" && { test "$NUMBER" = "$one" && break 1; }
  case $NUMBER in $one) break 1;; esac
+
 done
 fi
 
