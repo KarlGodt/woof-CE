@@ -51,6 +51,8 @@ VERSION=1.0 # added options to choose between
 # use_skill, cast and invoke to disarm traps
 VERSION=1.1 # added NUMBER option
 # Recognize *help and *version options
+VERSION=1.2 # if no DIRECTION then default to invoke
+# if cast was given
 
 SEARCH_ATTEMPTS_DEFAULT=9
 #DISARM variable set to skill, invokation OR cast
@@ -192,7 +194,7 @@ TRAPS_ALL_OLD=0
 while :
 do
 
-_draw 5 "Searching traps $cnt times ..."
+_draw 5 "Searching traps $cnt time(s) ..."
 
 echo watch ${DRAWINFO}
 _sleep
@@ -256,7 +258,7 @@ TRAPS=$TRAPS_ALL
 
 while :
 do
-_draw 5 "${TRAPS:-0} traps to disarm ..."
+_draw 5 "${TRAPS:-0} trap(s) to disarm ..."
 
 # TODO: checks for enough mana
 echo watch $DRAWINFO
@@ -307,7 +309,7 @@ _sleep
 
 while :
 do
-_draw 5 "${TRAPS:-0} traps to disarm ..."
+_draw 5 "${TRAPS:-0} trap(s) to disarm ..."
 
 echo watch $DRAWINFO
 __is 0 0 invoke disarm
@@ -355,7 +357,7 @@ TRAPS=$TRAPS_ALL
 
 while :
 do
-_draw 5 "${TRAPS:-0} traps to disarm ..."
+_draw 5 "${TRAPS:-0} trap(s) to disarm ..."
 
 echo watch $DRAWINFO
 __is 0 0 use_skill disarm
@@ -405,7 +407,8 @@ _disarm_traps(){
 _draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
 case "$DISARM" in
 invokation) _invoke_disarm;;
-cast|spell) _cast_disarm;;
+cast|spell) #case "$DIRECTION" in '') _invoke_disarm;; *) _cast_disarm;; esac;;
+            _cast_disarm;;
 skill|'') _use_skill_disarm;;
 *) _error "DISARM variable set not to skill, invokation OR cast'";;
 esac
