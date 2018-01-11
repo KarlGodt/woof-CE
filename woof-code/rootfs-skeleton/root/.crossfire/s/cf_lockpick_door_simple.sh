@@ -104,7 +104,7 @@ TRAPS_ALL=0
 while :
 do
 
-_draw 5 "Searching traps $cnt times ..."
+_draw 5 "Searching traps $cnt time(s) ..."
 
 _watch $DRAWINFO
 __is 0 0 search
@@ -166,7 +166,7 @@ TRAPS=$TRAPS_ALL
 
 while :
 do
-_draw 5 "${TRAPS:-0} traps to disarm ..."
+_draw 5 "${TRAPS:-0} trap(s) to disarm ..."
 
 _watch $DRAWINFO
 _turn_direction $DIRECTION cast disarm
@@ -214,7 +214,7 @@ TRAPS=$TRAPS_ALL
 
 while :
 do
-_draw 5 "${TRAPS:-0} traps to disarm ..."
+_draw 5 "${TRAPS:-0} trap(s) to disarm ..."
 
 #_turn_direction $DIRECTION
 
@@ -250,7 +250,7 @@ done
 }
 
 _use_skill_disarm(){
-_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
+_draw 5 "Disarming ${TRAPS_ALL:-0} trap(s) ..."
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
 test "$TRAPS_ALL" -gt 0     || return 0
@@ -259,7 +259,7 @@ TRAPS=$TRAPS_ALL
 
 while :
 do
-_draw 5 "Disarming ${TRAPS:-0} traps ..."
+_draw 5 "Disarming ${TRAPS:-0} trap(s) ..."
 
 _watch $DRAWINFO
 __is 0 0 use_skill disarm
@@ -302,10 +302,11 @@ unset OLD_REPLY
 }
 
 _disarm_traps(){
-_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
+_draw 5 "Disarming ${TRAPS_ALL:-0} trap(s) ..."
 case "$DISARM" in
 invokation) _invoke_disarm;;
-cast|spell) _cast_disarm;;
+cast|spell) case "$DIRECTION" in '') _invoke_disarm;; *) _cast_disarm;; esac;;
+            # _cast_disarm;;
 skill|'') _use_skill_disarm;;
 *) _error "DISARM variable set not to skill, invokation OR cast'";;
 esac
