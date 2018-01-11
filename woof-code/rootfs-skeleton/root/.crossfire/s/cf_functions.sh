@@ -135,13 +135,13 @@ test "$DEBUG" || return 0
 
 __debug(){  ##+++2018-01-06
 test "$DEBUG" || return 0
-cnt=0
+dcnt=0
 echo "$*" | while read line
 do
-cnt=$((cnt+1))
-    echo draw 3 "__DEBUG:$cnt:$line"
+dcnt=$((dcnt+1))
+    echo draw 3 "__DEBUG:$dcnt:$line"
 done
-unset cnt line
+unset dcnt line
 }
 
 _info(){
@@ -227,14 +227,6 @@ _say_end_msg(){
 # *** Here ends program *** #
 _is 1 1 fire_stop
 test -f "$HOME"/.crossfire/sounds/su-fanf.raw && aplay $Q "$HOME"/.crossfire/sounds/su-fanf.raw & aPID=$!
-
-#if test "$TIMEA"; then
-# TIMEE=`date +%s`
-# TIME=$((TIMEE-TIMEA))
-# TIMEM=$((TIME/60))
-# TIMES=$(( TIME - (TIMEM*60) ))
-# _draw 4 "Loop of script had run a total of $TIMEM minutes and $TIMES seconds."
-#fi
 
 _tell_script_time || _say_script_time
 
@@ -343,7 +335,6 @@ exit ${RV:-0}
 _just_exit(){
 echo draw 3 "Exiting $0."
 echo unwatch
-#echo unwatch $DRAWINFO
 exit ${1:-0}
 }
 
@@ -584,10 +575,11 @@ echo request items on
 
 while :; do
 read -t $TMOUT UNDER_ME
-#echo "$UNDER_ME" >>"$ON_LOG"
 _log "$ON_LOG" "_check_if_on_cauldron:$UNDER_ME"
+
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
+
 case $UNDER_ME in
 *request*items*on*end*) break;;
 *scripttell*break*)     break;;
@@ -619,7 +611,7 @@ _check_for_space(){
 
 local REPLY_MAP OLD_REPLY NUMBERT
 test "$1" && NUMBERT="$1"
-test "$NUMBERT" || NUMBERT=4
+NUMBERT=${NUMBERT:-4}
 test "${NUMBERT//[[:digit:]]/}" && _exit 2 "_check_for_space: Need a digit. Invalid parameter passed:$*"
 
 _draw 5 "Checking for space to move..."
@@ -841,7 +833,7 @@ _draw 7 "OK."
 
 local REPLY_MAP OLD_REPLY NUMBERT cm
 test "$1" && NUMBERT="$1"
-test "$NUMBERT" || NUMBERT=4
+NUMBERT=${NUMBERT:-4}
 test "${NUMBERT//[[:digit:]]/}" && _exit 2 "_check_for_space_old_client: Need a digit. Invalid parameter passed:$*"
 
 _draw 5 "Checking for space to move..."
@@ -1088,11 +1080,10 @@ sleep 0.1s
 done
 
 if test "$RECALL" = 1; then # unapply it now , _emergency_exit applies again
-_is 1 1 apply rod of word of recall
+_is 1 1 apply -u rod of word of recall
 fi
 
 _draw 6 "Done."
-
 }
 
 
@@ -1263,6 +1254,7 @@ _check_drop_or_exit(){
 local HAVE_PUT=0
 local OLD_REPLY="";
 local REPLY="";
+
 while :; do
 read -t $TMOUT
 _log "$REPLY_LOG" "drop:$REPLY"
@@ -1331,7 +1323,8 @@ _log "$REPLY_LOG" "_empty_message_stream:$REPLY"
 test "$REPLY" || break
 _msg 7 "_empty_message_stream:$REPLY"
 unset REPLY
-sleep 0.1
+ sleep 0.01
+#sleep 0.1
 done
 }
 
@@ -1355,6 +1348,7 @@ _msg 7 currHP=$currHP currHPMin=$currHPMin
 if test "$currHP" -le $currHPMin; then
 
 _empty_message_stream
+_is 1 1 apply -u rod of word of recall
 _is 1 1 apply -a rod of word of recall
 _empty_message_stream
 
@@ -1404,8 +1398,8 @@ local lEAT_FOOD REPLY1 REPLY2 REPLY3 REPLY4 BUNGLE
 
 test "$EAT_FOOD" && lEAT_FOOD="$EAT_FOOD"
 test "$*" && lEAT_FOOD="$@"
-test "$lEAT_FOOD" || lEAT_FOOD=$FOOD_DEF
-test "$lEAT_FOOD" || lEAT_FOOD=food
+lEAT_FOOD=${lEAT_FOOD:-"$FOOD_DEF"}
+lEAT_FOOD=${lEAT_FOOD:-food}
 
 #while :;
 #do
@@ -1430,7 +1424,7 @@ sleep 0.1
  done
 
 sleep 0.1
-_is 1 1 fire center ## Todo handle bungling the spell
+_is 1 1 fire center ## TODO: handle bungling the spell
 
 unset BUNGLE
 sleep 0.1
@@ -1444,7 +1438,7 @@ _sleep
 _empty_message_stream
 
 
-_is 1 1 apply ## Todo check if food is there on tile
+_is 1 1 apply ## TODO: check if food is there on tile
 _empty_message_stream
 
 }
@@ -1453,18 +1447,19 @@ _apply_horn_of_plenty_and_eat(){
 local REPLY
 
 read -t $TMOUT
+_is 1 1 apply -u Horn of Plenty
 _is 1 1 apply -a Horn of Plenty
 _sleep
 unset REPLY
 read -t $TMOUT
 
-_is 1 1 fire center ## Todo handle bungling
+_is 1 1 fire center ## TODO: handle bungling
 _is 1 1 fire_stop
 _sleep
 unset REPLY
 read -t $TMOUT
 
-_is 1 1 apply ## Todo check if food is there on tile
+_is 1 1 apply ## TODO: check if food is there on tile
 unset REPLY
 read -t $TMOUT
 }
@@ -1475,7 +1470,7 @@ _eat_food(){
 local REPLY
 
 test "$*" && EAT_FOOD="$@"
-test "$EAT_FOOD" || EAT_FOOD=waybread
+EAT_FOOD=${EAT_FOOD:-waybread}
 
 #_check_food_inventory ## Todo: check if food is in INV
 
