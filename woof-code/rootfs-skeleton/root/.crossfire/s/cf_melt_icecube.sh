@@ -27,7 +27,7 @@ _draw 5 "Script to melt icecube."
 _draw 5 "Syntax:"
 _draw 5 "script $0 [number]"
 _draw 5 "For example: 'script $0 5'"
-_draw 5 "will issue 5 times mark icecube and apply filint and steel."
+_draw 5 "will issue 5 times mark icecube and apply flint and steel."
 
         exit 0
 ;;
@@ -84,8 +84,8 @@ _is 1 1 apply "$lITEM"
  *Could*not*find*any*match*to*the*flint*and*steel*) lRV=6; break 1;;
  *You*need*to*mark*a*lightable*object.*) NO_FAIL=1; lRV=7; break 1;;
  '')     lRV=1; break 1;;
- *fail*) lRV=1; break 1;;
- *You*light*the*icecube*with*the*flint*and*steel.*) lRV=0; break 1;;
+ *fail*) lRV=1; FAIL=$((FAIL+1)); break 1;;
+ *You*light*the*icecube*with*the*flint*and*steel.*) lRV=0; SUCC=$((SUCC+1)); break 1;;
  *) :;;
  esac
  unset REPLY
@@ -95,9 +95,16 @@ _is 1 1 apply "$lITEM"
 return ${lRV:-0}
 }
 
+_say_count(){
+case $SUCC in [0-9]*) _draw 7 "You had smolten $SUCC icecubes.";; esac
+case $FAIL in [0-9]*) _draw 4 "You tried $FAIL times and failed.";; esac
+}
+
 # *** Actual script to pray multiple times *** #
 # MAIN
 
+SUCC=0  # count the successful attempts
+FAIL=0  # count the failure attempts
 test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
 
 _debug "NUMBER='$NUMBER'"
@@ -112,27 +119,28 @@ _mark_item icecube || break 2
 
 _sleep
 
-NO_FAIL=
-until [ "$NO_FAIL" ]
-do
+ NO_FAIL=
+ until [ "$NO_FAIL" ]
+ do
 
-_apply_item "flint and steel"
-case $? in
-0) break 1;; #success
-1) :;;       #try again
-2) :;;       #unused
-3) :;;       #unused
-4) :;;       #unused
-5) break 2;; #used up
-6) break 2;; #no item
-7) break 1;; #not marked
-8) :;;       #unused
-9) :;;       #unused
-esac
+ _apply_item "flint and steel"
+ case $? in
+ 0) break 1;; #success
+ 1) :;;       #try again
+ 2) :;;       #unused
+ 3) :;;       #unused
+ 4) :;;       #unused
+ 5) break 2;; #used up
+ 6) break 2;; #no item
+ 7) break 1;; #not marked
+ 8) :;;       #unused
+ 9) :;;       #unused
+ esac
 
-_sleep
+ _say_count
+ _sleep
 
-done #NO_FAIL
+ done #NO_FAIL
 
 #test "$NUMBER" && { test "$NUMBER" = "$cnt" && break 1; }
 case $NUMBER in $cnt) break 1;; esac
@@ -142,5 +150,7 @@ done #main while loop
 
 # *** Here ends program *** #
 #_draw 2 "$0 is finished."
+
+_say_count
 _say_end_msg
 ###END###
