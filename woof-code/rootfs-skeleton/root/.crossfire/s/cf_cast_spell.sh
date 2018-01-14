@@ -36,17 +36,22 @@
 #  closing and restarting the client.
 
 # TODO: Check if FOOD is in inventory
+VERSION=1.0 # initial versions
+VERSION=2.0 # added -o parameter option to spells
+VERSION=3.0 # recognize more options
+# switch cleric/wizzard spells by SPELL_KIND
 
 export PATH=/bin:/usr/bin
 
 # *** Variables : Most are set or unset ( set meaning have content ( even " " ) , unset no content
 # *** common editable variables
 VERBOSE=1  # be a bit talkactive
-DEBUG=1    # print gained values
+DEBUG=     # print gained values
 LOGGING=1  # print to a file - especially large requests like inv
 PROBE=1    # apply rod of probe in firing direction after firing
 STATS=1    # check hp, sp and food level
 CHECK_COUNT=10 #only run every yth time a check for food and probe
+SPELL_KIND=wizzard # wizzard or cleric
 
 # *** common variables
 readonly TMP_DIR=/tmp/crossfire_client/${0##*/}.dir
@@ -75,18 +80,39 @@ _draw(){
     echo draw $lCOLOUR "$lMSG"
 }
 
+__draw(){
+case $1 in [0-9]|1[0-2])
+    lCOLOUR="$1"; shift;; esac
+    local lCOLOUR=${lCOLOUR:-1} #set default
+dcnt=0
+echo "$*" | while read line
+do
+dcnt=$((dcnt+1))
+    echo draw $lCOLOUR "$line"
+done
+unset dcnt line
+}
+
 # ***
 _usage(){
 # *** print usage message to client window and exit
 
 _draw 5 "Script to $COMMAND SPELL DIRECTION COMMAND_PAUSE ."
-_draw 5 "Syntax:"
-_draw 5 "script $0 <spell> <dir> <pause>"
-_draw 5 "For example: 'script $0 firebolt east 10'"
+_draw 2 "Syntax:"
+_draw 2 "script $0 <spell> <<-o spell option>> <dir> <pause> <<options>>"
+_draw 5 "For example: 'script $0 firebolt east 4'"
 _draw 5 "will issue cast firebolt"
-_draw 5 "and will issue the $COMMAND east command with a pause of 10 seconds in between."
+_draw 5 "and will issue the $COMMAND east command with a pause of 4 seconds in between."
+_draw 2 "Other examples:"
+_draw 5 "script $0 create food -o waybread south 9"
+
 _draw 3 "WARNING:"
 _draw 4 "Loops forever - use scriptkill command to terminate :P ."
+exit 0
+}
+
+_say_version(){
+_draw 2 "$0 Version:${VERSION:-'1.0'}"
 exit 0
 }
 
@@ -95,8 +121,9 @@ _error(){  # _error 1 "Some error occured"
 # ***
 
 RV=$1;shift
-_draw 3 "$*"
-exit $RV
+eMSG=`echo -e "$*"`
+__draw 3 "$eMSG"
+exit ${RV:-1}
 }
 
 # ***
@@ -147,7 +174,6 @@ case "$REPLY" in '') break;; esac
 _debug "_empty_message_stream:$REPLY"
 unset REPLY
  sleep 0.01
-#sleep 0.1
 done
 }
 
@@ -166,6 +192,7 @@ _direction_word_to_number(){
 # * Syntax : _direction_word_to_number WORD
 # * return : not used
 # * generates : DIRECTION_NUMBER
+_debug "_direction_word_to_number:$*"
 
 case $* in
 0|center|centre|c) readonly DIRECTION_NUMBER=0;;
@@ -179,11 +206,10 @@ case $* in
 8|northwest|nw) readonly DIRECTION_NUMBER=8;;
 *) _error 2 "Invalid direction '$*'"
 esac
-
 }
 
 # ***
-_parse_parameters(){
+____parse_parameters(){
 # *** parameters to script: "spell name" "directiontocastto" "pausing_between_casts"
 # *   We do a ^normal^ logic :
 # *   Since the spell could contain endless words ie: "summon pet monster water elemental"
@@ -214,18 +240,162 @@ _debug "_parse_parameters:SPELL=$SPELL DIR=$DIRECTION COMMAND_PAUSE=$COMMAND_PAU
 test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _error 1 "Missing SPELL -o DIRECTION -o COMMAND_PAUSE"
 }
 
+___parse_parameters(){
+# *** parameters to script: "spell name" "directiontocastto" "pausing_between_casts"
+# *   We do a ^normal^ logic :
+# *   Since the spell could contain endless words ie: "summon pet monster water elemental"
+# *   it needs to use 'rev' to revert the positional parameter line
+# *   and re-set to parameter line using 'set'
+# *   and then 'rev' each parameter again
+# *   TODO : add more parameters
+
+_debug "_parse_parameters:$*"
+PARAMS=`echo $* | rev`
+set - $PARAMS
+_debug "_parse_parameters:$*"
+local c=0
+while test $# != 0; do
+c=$((c+1))
+case $c in
+1) COMMAND_PAUSE=`echo $1 | sed 'sV^[[:punct:]]VV;sV[[:punct:]]$VV' | rev`;;
+2)     DIRECTION=`echo $1 | sed 'sV^[[:punct:]]VV;sV[[:punct:]]$VV' | rev`;;
+3)         SPELL=`echo $@ | sed 'sV^[[:punct:]]VV;sV[[:punct:]]$VV' | rev`
+    SPELL_OPTION=${SPELL##* -o}
+    SPELL_OPTION=`echo $SPELL_OPTION`
+    SPELL=${SPELL% -o*}
+    SPELL=`echo $SPELL`
+    ;;
+4) :;;
+5) :;;
+6) :;;
+esac
+shift
+done
+
+_debug "_parse_parameters:SPELL=$SPELL DIR=$DIRECTION COMMAND_PAUSE=$COMMAND_PAUSE"
+test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _error 1 "Missing SPELL -o DIRECTION -o COMMAND_PAUSE"
+test "${COMMAND_PAUSE//[0-9.,]/}" && _error 1 "COMMAND_PAUSE not an integer or float"
+}
+
+
+# ***
+__parse_parameters(){
+# *** parameters to script: "spell name" "directiontocastto" "pausing_between_casts"
+# *   We do a ^normal^ logic :
+# *   Since the spell could contain endless words ie: "summon pet monster water elemental"
+# *   it needs to use 'rev' to revert the positional parameter line
+# *   and re-set to parameter line using 'set'
+# *   and then 'rev' each parameter again
+# *   TODO : add more parameters
+
+_debug "_parse_parameters:$*"
+PARAMS=`echo $* | rev`
+set - $PARAMS
+_debug "_parse_parameters:$*"
+
+local c=0
+while test $# != 0; do
+_debug "\$1=$1"
+case $1 in
+*--) case $1 in
+     pleh--)    _usage 0;;
+     noisrev--) _say_version 0;;
+     esobrev--) VERBOSE=$((VERBOSE+1));;
+     gubed--)     DEBUG=$((DEBUG+1));;
+     *) _draw 4 "Unrecognized long option '`echo $1 | rev`' .";;
+     esac
+     shift
+     continue
+     ;;
+*-) case $1 in
+    h-) _usage 0;;
+    V-) _say_version 0;;
+    v-) VERBOSE=$((VERBOSE+1));;
+    d-)   DEBUG=$((DEBUG+1));;
+    *) _draw 4 "Unrecognized short option '`echo $1 | rev`' .";;
+    esac
+    shift
+    continue
+    ;;
+esac
+
+c=$((c+1))
+case $c in
+1) COMMAND_PAUSE=`echo $1 | sed 'sV^[[:punct:]]VV;sV[[:punct:]]$VV' | rev`;;
+2)     DIRECTION=`echo $1 | sed 'sV^[[:punct:]]VV;sV[[:punct:]]$VV' | rev`;;
+3)         SPELL=`echo $@ | sed 'sV^[[:punct:]]VV;sV[[:punct:]]$VV' | rev`
+
+    SPELL_OPTION=${SPELL##* -o}
+    _debug "SPELL_OPTION=$SPELL_OPTION"
+    SPELL_OPTION=${SPELL_OPTION% -*}  # trailing parameters
+    _debug "SPELL_OPTION=$SPELL_OPTION"
+    SPELL_OPTION=`echo $SPELL_OPTION`
+    _debug "SPELL_OPTION=$SPELL_OPTION"
+
+    MORE_OPTION1="${SPELL_OPTION##*-}-"
+    _debug "MORE_OPTION1=$MORE_OPTION1"
+    test "$MORE_OPTION1" = "${SPELL_OPTION}-" && unset MORE_OPTION1
+    _debug "MORE_OPTION1=$MORE_OPTION1"
+
+    SPELL=${SPELL% -o*}
+    _debug "SPELL=$SPELL"
+    MORE_OPTION2="${SPELL##*-}-"
+    _debug "MORE_OPTION2=$MORE_OPTION2"
+    test "$MORE_OPTION2" = "${SPELL}-" && unset MORE_OPTION2
+    _debug "MORE_OPTION2=$MORE_OPTION2"
+
+    SPELL=${SPELL% -*}  # trailing parameters
+    _debug "SPELL=$SPELL"
+    SPELL=`echo $SPELL`
+    _debug "SPELL=$SPELL"
+
+    break 1
+    ;;
+4) :;;
+5) :;;
+6) :;;
+esac
+sleep 0.1
+shift
+done
+
+set -- $MORE_OPTION1 $MORE_OPTION2
+_debug "\$*=$*"
+
+while [ "$1" ]
+do
+_debug "\$1=$1"
+case $1 in
+--*) :;;
+-*)  :;;
+esac
+sleep 0.1
+shift
+done
+
+_debug "_parse_parameters:SPELL=$SPELL DIR=$DIRECTION COMMAND_PAUSE=$COMMAND_PAUSE"
+test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _error 1 "Missing SPELL or DIRECTION or COMMAND_PAUSE"
+test "${COMMAND_PAUSE//[0-9.,]/}" && _error 1 "COMMAND_PAUSE not an integer or float"
+}
+
+_parse_parameters(){
+#____parse_parameters
+# ___parse_parameters
+   __parse_parameters
+}
+
 # ***
 _check_have_needed_spell_in_inventory(){
 # *** check if spell is applyable - takes some time ( 16 seconds )
-
 _debug "_check_have_needed_spell_in_inventory:$*"
+
 TIMEB=`date +%s`
 
 echo request spells
 while :;
 do
 read -t ${TMOUT:-1} oneSPELL
-   _log "$oneSPELL"
+   _log "_check_have_needed_spell_in_inventory:$oneSPELL"
  _debug "$oneSPELL"
 
  case $oneSPELL in $oldSPELL|'') break 1;; esac
@@ -240,17 +410,17 @@ unset oldSPELL oneSPELL
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-_draw 4 "Elapsed $TIME s"
+_debug "_check_have_needed_spell_in_inventory:Elapsed $TIME s"
 
 # client v.1.60.0 seems not to send spells data
 # if character changed without restarting the client ...
-case $SPELLS in '') _error 1 "Did not receive any data for request spells.";; esac
+case $SPELLS in '') _error 1 "Did not receive any data for request spells.\nTry restarting the client.";; esac
 
 SPELLS=`echo "$SPELLS" | sed 'sV^$VV'`
 __debug "$SPELLS"
 
 test "`echo "$SPELLS" | grep -v 'request spells end'`" || {
-    _error 1 "Did not receive any spells for request spells."
+    _error 1 "Did not receive any spells for request spells.\nTry restarting the client."
 }
 
 SPELL_LINE=`echo "$SPELLS" | grep -i "$SPELL"`
@@ -261,46 +431,50 @@ read r s ATTYPE LVL SP_NEEDED rest <<EoI
 EoI
 _debug "_check_have_needed_spell_in_inventory:SP_NEEDED=$SP_NEEDED"
 
-echo "$SPELLS" | grep -q -i "$SPELL"
+echo "$SPELLS" | grep -q -i " ${SPELL}$"
 }
 
 # ***
 _check_have_needed_spell_in_inventory_debug(){
 # *** check if spell is applyable - takes some time ( 16 seconds )
-
 _debug "_check_have_needed_spell_in_inventory:$*"
+
 TIMEB=`date +%s`
 
 local cnt=0
 while :
 do
 cnt=$((cnt+1))
-echo watch request
+#echo watch request
 
 echo request spells
 while :;
 do
 read -t ${TMOUT:-1} oneSPELL
-   _log    "$cnt:$oneSPELL"
+   _log    "_check_have_needed_spell_in_inventory_debug:$cnt:$oneSPELL"
  _debug -s "$cnt:$oneSPELL"
+
  #test "$oldSPELL" = "$oneSPELL" && break
  #test "$oneSPELL" || break
  case $oneSPELL in $oldSPELL|'') break 1;; esac
+
  SPELLS="$SPELLS
 $oneSPELL"
  oldSPELL="$oneSPELL"
+
  sleep 0.01
-#sleep 0.1
 done
+
 unset oldSPELL oneSPELL
-echo unwatch
+#echo unwatch
 
 SPELLS=`echo "$SPELLS" | sed 'sV^$VV'`
 __debug "$cnt:$SPELLS"
+
 test "`echo "$SPELLS" | grep -v 'request spells end'`" && break 1
 test "$cnt" -ge 9 && break 1
+
  sleep 0.1
-#sleep 1
 done
 
 TIMEE=`date +%s`
@@ -308,14 +482,14 @@ TIME=$((TIMEE-TIMEB))
 _draw 4 "Elapsed $TIME s"
 
 # client v.1.60.0 seems not to send spells data
-# if character changed without restarting the client ...
-case $SPELLS in '') _error 1 "Did not receive any data for request spells.";; esac
+# if character changed or applied savebed without restarting the client ...
+case $SPELLS in '') _error 1 "Did not receive any data for request spells.\nTry restarting the client.";; esac
 
 SPELLS=`echo "$SPELLS" | sed 'sV^$VV'`
 __debug "$SPELLS"
 
 test "`echo "$SPELLS" | grep -v 'request spells end'`" || {
-    _error 1 "Did not receive any spells for request spells."
+    _error 1 "Did not receive any spells for request spells.\nTry restarting the client."
 }
 
 SPELL_LINE=`echo "$SPELLS" | grep -i "$SPELL"`
@@ -326,46 +500,46 @@ read r s ATTYPE LVL SP_NEEDED rest <<EoI
 EoI
 _debug "_check_have_needed_spell_in_inventory:SP_NEEDED=$SP_NEEDED"
 
-echo "$SPELLS" | grep -q -i "$SPELL"
+echo "$SPELLS" | grep -q -i " ${SPELL}$"
 }
 
 # *** unused - leftover from cf_fire_item.sh
 _check_have_needed_spell_applied(){
 # ***
-
 _debug "_check_have_needed_spell_applied:$*"
 
 echo request spells
 while :;
 do
 read -t ${TMOUT:-1} oneSPELL
-_log "$oneSPELL"
+_log "_check_have_needed_spell_applied:$oneSPELL"
  test "$oldSPELL" = "$oneSPELL" && break
  test "$oneSPELL" || break
+
  SPELLSA="$SPELLSA
 $oneSPELL"
  oldSPELL="$oneSPELL"
+
 sleep 0.01
 done
 unset oldSPELL oneSPELL
 
-echo "$SPELLSA" | grep -q -i "$SPELL"
+echo "$SPELLSA" | grep -q -i " ${SPELL}$"
 }
 
 # ***
 _probe_enemy(){
 # ***
 _debug "_probe_enemy:$*"
+
 PROBE_ITEM=${*:-"$PROBE_ITEM"}
 test "$PROBE_ITEM" || return 0
 
-#if test ! "$HAVE_APPLIED_PROBE"; then
 case $PROBE_ITEM in
 *rod*|*staff*|*wand*|*horn*)
    _is 1 1 apply -u $PROBE_ITEM
    _is 1 1 apply -a $PROBE_ITEM
-#fi
-_is 1 1 fire $DIRECTION_NUMBER
+   _is 1 1 fire $DIRECTION_NUMBER
 ;;
 *scroll*)
   _is 1 1 apply $PROBE_ITEM
@@ -373,15 +547,13 @@ _is 1 1 fire $DIRECTION_NUMBER
 esac
 
 _is 1 1 fire_stop
-
-#HAVE_APPLIED_PROBE=1
 }
 
 # ***
-_apply_needed_spell(){
+_set_spell(){
 # *** apply the spell that was given as parameter
 # *   does not cast - actual casting is done by 'fire'
- _is 1 1 cast ${*:-"$SPELL"}
+ _is 1 1 cast ${1:-"$SPELL"} ${2:-$SPELL_OPTION}
 }
 
 # *** unused
@@ -411,7 +583,7 @@ _debug "_rotate_range_attack:request range"
 echo request range
 sleep 1
 read -t ${TMOUT:-1} REPLY_RANGE
- _log "REPLY_RANGE=$REPLY_RANGE"
+ _log "_rotate_range_attack:REPLY_RANGE=$REPLY_RANGE"
 
  test "`echo "$REPLY_RANGE" | grep -i "$SPELL"`" && break
  test "$oldREPLY_RANGE" = "$REPLY_RANGE" && break
@@ -436,24 +608,27 @@ if test "$RETURN_ITEM"; then
  *rod*|*staff*|*wand*|*horn*)
   _is 1 1 apply -u "$RETURN_ITEM"
   _is 1 1 apply -a "$RETURN_ITEM"
+  _is 1 1 fire 0
   ;;
  *scroll*)
   _is 1 1 apply "$RETURN_ITEM"
   ;;
+ *) invoke "$RETURN_ITEM";; # assuming spell
  esac
-  _is 1 1 fire 0
+ # _is 1 1 fire 0
 fi
   _is 1 1 fire_stop
-## apply bed of reality
-# sleep 10
-# _is 1 1 apply
+
+# apply bed of reality
+ sleep 6
+_is 1 1 apply
+
 exit 5
 }
 
 # *** stub to switch wizard-cleric spells in future
 _watch_wizard_spellpoints(){
 # ***
-
 _debug "_watch_wizard_spellpoints:$*:SP=$SP SP_MAX=$SP_MAX"
 
 if [ "$SP" -le 0 ]; then
@@ -462,7 +637,7 @@ if [ "$SP" -le 0 ]; then
    return 6
  elif [ "$SP" -lt $SP_MAX ]; then
    return 4
- elif [ "$SP" -eq $SP_MAX ]; then
+ elif [ "$SP" -ge $SP_MAX ]; then
    return 0
  fi
 
@@ -481,7 +656,7 @@ if [ "$GR" -le 0 ]; then
    return 6
  elif [ "$GR" -lt $GR_MAX ]; then
    return 4
- elif [ "$GR" -eq $GR_MAX ]; then
+ elif [ "$GR" -ge $GR_MAX ]; then
    return 0
  fi
 
@@ -503,7 +678,6 @@ c=$((c+1))
 sleep 1
 test $c = $PRAYS && break
 done
-
 }
 
 _get_inventory_list(){
@@ -555,7 +729,7 @@ test "$lREQUEST" || return 253
 
 _empty_message_stream
 
-[ "$INV_LIST" ] && return 0
+#[ "$INV_LIST" ] && return 0
 
 local rcnt=0
 unset INV_LIST
@@ -615,12 +789,13 @@ _debug "lTOPMOST=$lTOPMOST"
 _debug "lREQUEST=$lREQUEST"
 _debug "lITEM=$lITEM"
 
-[ "$INV_LIST" ] || _get_inventory_list $lTOPMOST $lREQUEST
+#[ "$INV_LIST" ] || _get_inventory_list $lTOPMOST $lREQUEST
+_get_inventory_list $lTOPMOST $lREQUEST
 
 if test "$lTOPMOST"; then
- echo "$INV_LIST" | head -n1 | grep -q -i -E " $lITEM| ${lITEM}s"
+ echo "$INV_LIST" | head -n1 | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es"
 else
- echo "$INV_LIST"            | grep -q -i -E " $lITEM| ${lITEM}s"
+ echo "$INV_LIST"            | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es"
 fi
 }
 
@@ -637,8 +812,9 @@ do
  read -t ${TMOUT:-1}
  _log "_check_if_item_in_inventory:$REPLY"
  case $REPLY in
- *request*items*inv*$lITEM)    lRV=0; break 1;;
- *request*items*inv*${lITEM}s) lRV=0; break 1;;
+ *request*items*inv*$lITEM)     lRV=0; break 1;;
+ *request*items*inv*${lITEM}s)  lRV=0; break 1;;
+ *request*items*inv*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*inv*end)   break 1;;
  *scripttell*break*)     break;;
  *scripttell*exit*)    _exit 1;;
@@ -663,8 +839,9 @@ do
  read -t ${TMOUT:-1}
  _log "_check_if_item_in_open_container:$REPLY"
  case $REPLY in
- *request*items*cont*$lITEM)    lRV=0; break 1;;
- *request*items*cont*${lITEM}s) lRV=0; break 1;;
+ *request*items*cont*$lITEM)     lRV=0; break 1;;
+ *request*items*cont*${lITEM}s)  lRV=0; break 1;;
+ *request*items*cont*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*cont*end)   break 1;;
  *scripttell*break*)     break;;
  *scripttell*exit*)    _exit 1;;
@@ -687,8 +864,9 @@ do
  read -t ${TMOUT:-1}
  _log "_check_if_food_in_inventory:$REPLY"
  case $REPLY in
- *request*items*inv*$FOOD)    lRV=0; break 1;;
- *request*items*inv*${FOOD}s) lRV=0; break 1;;
+ *request*items*inv*$FOOD)     lRV=0; break 1;;
+ *request*items*inv*${FOOD}s)  lRV=0; break 1;;
+ *request*items*inv*${FOOD}es) lRV=0; break 1;;  # tomato tomatoes
  ''|*request*items*inv*end)   break 1;;
  *scripttell*break*)     break;;
  *scripttell*exit*)    _exit 1;;
@@ -711,8 +889,9 @@ do
  read -t ${TMOUT:-1}
  _log "_check_if_food_on_floor_simple:$REPLY"
  case $REPLY in
- *request*items*on*$FOOD)    lRV=0; break 1;;
- *request*items*on*${FOOD}s) lRV=0; break 1;;
+ *request*items*on*$FOOD)     lRV=0; break 1;;
+ *request*items*on*${FOOD}s)  lRV=0; break 1;;
+ *request*items*on*${FOOD}es) lRV=0; break 1;;  # tomato tomatoes
  ''|*request*items*on*end)   break 1;;
  *scripttell*break*)     break;;
  *scripttell*exit*)    _exit 1;;
@@ -741,8 +920,9 @@ do
 $REPLY"
 
  case $REPLY in
- *request*items*on*$lITEM)    lRV=0; break 1;;
- *request*items*on*${lITEM}s) lRV=0; break 1;;
+ *request*items*on*$lITEM)     lRV=0; break 1;;
+ *request*items*on*${lITEM}s)  lRV=0; break 1;;
+ *request*items*on*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*on*end)   break 1;;
  *scripttell*break*)     break;;
  *scripttell*exit*)    _exit 1;;
@@ -754,7 +934,7 @@ _empty_message_stream
 
 ITEMS_ON=`echo "$ITEMS_ON" | sed 'sV^$VV'`
 
-echo "$ITEMS_ON" | grep -q -i -E " $lITEM| ${lITEM}s"
+echo "$ITEMS_ON" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es"
 }
 
 _check_if_item_on_floor_topmost(){
@@ -774,8 +954,9 @@ do
 $REPLY"
 
  case $REPLY in
- *request*items*on*$lITEM)    lRV=0; break 1;;
- *request*items*on*${lITEM}s) lRV=0; break 1;;
+ *request*items*on*$lITEM)     lRV=0; break 1;;
+ *request*items*on*${lITEM}s)  lRV=0; break 1;;
+ *request*items*on*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*on*end)   break 1;;
  *scripttell*break*)     break;;
  *scripttell*exit*)    _exit 1;;
@@ -787,7 +968,7 @@ _empty_message_stream
 
 ITEMS_ON=`echo "$ITEMS_ON" | sed 'sV^$VV'`
 
-echo "$ITEMS_ON" | head -n1 | grep -q -i -E " $lITEM| ${lITEM}s"
+echo "$ITEMS_ON" | head -n1 | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es"
 }
 
 _check_if_food_on_floor(){
@@ -805,8 +986,9 @@ do
 $REPLY"
 
  case $REPLY in
- *request*items*on*$FOOD)    lRV=0; break 1;;
- *request*items*on*${FOOD}s) lRV=0; break 1;;
+ *request*items*on*$FOOD)     lRV=0; break 1;;
+ *request*items*on*${FOOD}s)  lRV=0; break 1;;
+ *request*items*on*${FOOD}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*on*end)   break 1;;
  *scripttell*break*)     break;;
  *scripttell*exit*)    _exit 1;;
@@ -821,7 +1003,7 @@ _empty_message_stream
 
 ITEMS_ON=`echo "$ITEMS_ON" | sed 'sV^$VV'`
 
-if test "`echo "$ITEMS_ON" | head -n1 | grep -E " $FOOD| ${FOOD}s"`"; then
+if test "`echo "$ITEMS_ON" | head -n1 | grep -E " $FOOD| ${FOOD}s| ${FOOD}es"`"; then
  :
 else
  _is 0 0 get $FOOD
@@ -854,26 +1036,12 @@ _check_if_item_in_open_container $lITEM && return 6
 return 0
 }
 
-# ***
-_watch_food(){
-# *** controlling function : Probably not needed for high-level characters with
-# *   high armour class , resistances and high sustainance level
-# *   Sends stat hp request
-# *   Applies foood if neccessary
-# *   Does switch to _do_emergency_recall if necessary
-# *   Does switch to _watch_wizard_spellpoints
-# *   TODO : implement a counter to call it every Yth time, not every time
-
-echo request stat hp
-read -t ${TMOUT:-1} r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
- _debug "_watch_food:FOOD_STAT=$FOOD_STAT HP=$HP SP=$SP"
-
- if test "$FOOD_STAT" -lt $FOOD_STAT_MIN; then
-     __do_eat_simple(){
+_do_eat_simple(){
      _is 0 0 apply $FOOD
-     }
+}
 
-     _do_eat(){
+_do_eat(){
+    _debug "_do_eat:$*"
      #_check_if_food_available
      __check_if_item_available $FOOD
      case $? in
@@ -884,25 +1052,43 @@ read -t ${TMOUT:-1} r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
     #*) _draw 4 "Unhandled return value from __check_if_food_available";;
      *) _draw 4 "Unhandled return value from __check_if_item_available";;
      esac
-     }
+}
 
-     __do_eat(){
-     unset INV_LIST
+__do_eat(){
+    _debug "__do_eat:$*"
+     #unset INV_LIST
        if _check_if_item_available -t -o $FOOD; then _is 0 0 apply
      elif _check_if_item_available    -o $FOOD; then _is 0 0 get $FOOD; _is 0 0 apply $FOOD
      else false
        fi
      case $? in 0) _draw 8 "OK, should have eaten $FOOD.";;
-     *) unset INV_LIST
+     *) #unset INV_LIST
       if _check_if_item_available   -i $FOOD; then _is 0 0 apply $FOOD
-       else unset INV_LIST
-       if _check_if_item_available  -c $FOOD; then _is 0 0 apply -b $FOOD
-       else _do_emergency_recall
-       fi
+       #else unset INV_LIST; if
+      elif _check_if_item_available -c $FOOD; then _is 0 0 apply -b $FOOD
+      else _do_emergency_recall
+       #fi
       fi;;
      esac
-     unset INV_LIST
-     }
+     #unset INV_LIST
+}
+
+# ***
+_watch_food(){
+# *** controlling function : Probably not needed for high-level characters with
+# *   high armour class , resistances and high sustainance level
+# *   Sends stat hp request
+# *   Applies foood if neccessary
+# *   Does switch to _do_emergency_recall if necessary
+# *   Does switch to _watch_wizard_spellpoints
+# *   TODO : implement a counter to call it every Yth time, not every time
+_debug "_watch_food:$*"
+
+echo request stat hp
+read -t ${TMOUT:-1} r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
+ _debug "_watch_food:FOOD_STAT=$FOOD_STAT HP=$HP SP=$SP"
+
+ if test "$FOOD_STAT" -lt $FOOD_STAT_MIN; then
 
    #_do_eat_simple
    #_do_eat
@@ -911,28 +1097,105 @@ read -t ${TMOUT:-1} r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
    sleep 1
  fi
 
- if test $HP -lt $((HP_MAX/10)); then
+ #test "$HP" -lt $((HP_MAX/10)) && _do_emergency_recall
+ #test "$HP" -gt $((HP_MAX/10)) || _do_emergency_recall
+ if test "$HP" -lt $((HP_MAX/10)); then
   _do_emergency_recall
  fi
 
-_watch_wizard_spellpoints
+ if test "$SPELL_KIND" = cleric; then
+      _watch_cleric_gracepoints;
+ else _watch_wizard_spellpoints;
+ fi
+
 return $?
 }
 
 # ***
-_regenerate_spell_points(){
+__regenerate_spell_points(){
 # ***
 
-_draw 4 "Regenerating spell points.."
+case $SPELL_KIND in
+ cleric)    _draw 4 "Regenerating grace points..";;
+ wizzard|*) _draw 4 "Regenerating spell points..";;
+esac
+
+while :;
+do
+#sleep 20s
+for i in `seq 1 1 20`; do
+ case $SPELL_KIND in
+ cleric)    _is 1 1 use_skill praying;;
+ wizzard|*) _is 1 1 use_skill meditation;;
+ esac
+sleep 0.8 # 1 second
+done
+
+_watch_food && break 1
+
+case $SPELL_KIND in
+ cleric)    _verbose "Still regenerating to gracepoints $GR -> $((GR_MAX)) ..";;
+ wizzard|*) _verbose "Still regenerating to spellpoints $SP -> $((SP_MAX)) ..";;
+esac
+
+done
+}
+# ***
+
+___regenerate_spell_points(){
+# ***
+
+case $SPELL_KIND in
+ cleric)    _draw 4 "Regenerating grace points.."
+   while :; do
+    for i in `seq 1 1 20`; do
+    _is 1 1 use_skill praying
+    sleep 0.8 # 1 second
+    done
+   _watch_food && break 1
+   _verbose "Still regenerating to gracepoints $GR -> $((GR_MAX)) .."
+   done
+;;
+ wizzard|*) _draw 4 "Regenerating spell points.."
+   while :; do
+    for i in `seq 1 1 20`; do
+    _is 1 1 use_skill meditation
+    sleep 0.8 # 1 second
+    done
+   _watch_food && break 1
+   _verbose "Still regenerating to spellpoints $SP -> $((SP_MAX)) .."
+   done
+;;
+esac
+}
+
+____regenerate_spell_points(){
+# ***
+ _draw 4 "Regenerating grace and spell points.."
+
 while :;
 do
 
-sleep 20s
-_watch_food && break
-#_verbose "Still regenerating to spellpoints $SP -> $((SP_MAX/2)) .."
-_verbose "Still regenerating to spellpoints $SP -> $((SP_MAX)) .."
+#_watch_food && break 1
+
+#sleep 20s
+for i in `seq 1 1 20`; do
+  _is 1 1 use_skill praying
+  _is 1 1 use_skill meditation
+sleep 0.6 # 1 second
 done
 
+_watch_food && break 1
+
+ _verbose "Still regenerating to spellpoints $SP -> $((SP_MAX)) .."
+ _verbose "Still regenerating to gracepoints $GR -> $((GR_MAX)) .."
+done
+}
+
+_regenerate_spell_points(){
+  # __regenerate_spell_points
+  #___regenerate_spell_points
+  ____regenerate_spell_points
 }
 
 # *** both STATS and PROBE
@@ -942,9 +1205,10 @@ _debug "_counter_for_checks:$*:$PROBE:$STATS:$check_c"
 check_c=$((check_c + 1))
 
 if test "$PROBE" -a "$STATS"; then
-test $check_c -eq $(( (CHECK_COUNT*2) - 1)) || { test $check_c -eq $((CHECK_COUNT*2)) && unset check_c; }
+#test $check_c -eq $(( (CHECK_COUNT*2) - 1)) || { test $check_c -eq $((CHECK_COUNT*2)) && unset check_c; }
+ test $check_c -ge $(( (CHECK_COUNT*2) - 1)) && unset check_c
 elif test "$PROBE" -o "$STATS"; then
-test $check_c -eq $CHECK_COUNT && unset check_c
+ test $check_c -eq $CHECK_COUNT && unset check_c
 else false
 fi
 }
@@ -974,31 +1238,38 @@ _do_loop(){  # by _do_program
 
 TIMES=`date +%s`
 
+# At the beginning wait to reach max mana and grace
+if test "$STATS"; then
+ _watch_food
+ case $? in 0) :;;
+ *) _regenerate_spell_points;;
+ esac
+fi
+
 while :;
 do
 
  TIMEB=`date +%s`
 
 # user could change range attack while pausing ...
- _apply_needed_spell
+ _set_spell
 
 # issue <repeat> <must_send> <command> - send
 #  <command> to server on behalf of client.
 #  <repeat> is the number of times to execute command
 #  <must_send> tells whether or not the command must sent at all cost (1 or 0).
-#  <repeat> and <must_send> are optional parameters._apply_needed_spell
+#  <repeat> and <must_send> are optional parameters.
 
  _is 1 1 $COMMAND $DIRECTION_NUMBER
  _is 1 1 $COMMAND_STOP
  sleep $COMMAND_PAUSE
 
  if test "$STATS"; then
- if _counter_for_checks; then
- _watch_food
- case $? in 6)
-  _regenerate_spell_points
- esac
- fi
+  if _counter_for_checks; then
+  _watch_food
+   case $? in 6) _regenerate_spell_points;;
+   esac
+  fi
  fi
 
  test "$PROBE" && { _counter_for_checks && { _probe_enemy; sleep 1.5; }; }
@@ -1022,10 +1293,10 @@ _do_program(){
 
 _parse_parameters "$@"
 readonly SPELL=${SPELL:-"$SPELL_DEFAULT"}
-DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
+readonly DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
 readonly COMMAND_PAUSE=${COMMAND_PAUSE:-"$COMMAND_PAUSE_DEFAULT"}
 
-_check_have_needed_spell_in_inventory && { _apply_needed_spell || _error 1 "Could not apply spell."; } || _error 1 "Spell is not in inventory"
+_check_have_needed_spell_in_inventory && { _set_spell || _error 1 "Could not apply spell."; } || _error 1 "Spell is not in inventory"
 sleep 1
 _rotate_range_attack
 sleep 1
@@ -1036,7 +1307,7 @@ _do_loop $COMMAND_PAUSE
 # ***
 
 case $@ in
--h|*help*) _usage;;
+#-h|*help*) _usage;;
 '') _draw 3 "Script needs <spell> <direction> and <number of $COMMAND pausing> as argument.";;
 *) _do_program "$@";;
 esac
