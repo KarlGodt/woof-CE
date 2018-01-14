@@ -53,6 +53,10 @@ VERSION=1.1 # added NUMBER option
 # Recognize *help and *version options
 VERSION=1.2 # if no DIRECTION then default to invoke
 # if cast was given
+VERSION=1.3 # handle chest as permanent container: exit.
+# handle portal of elementals: exit.
+VERSION=1.3.1 # count opened chests
+VERSION=2.0 # use sourced functions files
 
 SEARCH_ATTEMPTS_DEFAULT=9
 #DISARM variable set to skill, invokation OR cast
@@ -68,7 +72,12 @@ MSGLEVEL=6 # Message Levels 1-7 to print to the msg pane
 
 #DRAWINFO=drawextinfo # client gtk2 1.12.svn
 
-. $HOME/cf/s/cf_functions.sh || exit 2
+#. $HOME/cf/s/cf_functions.sh || exit 2
+
+. $HOME/cf/s/cf_funcs_common.sh || exit 4
+. $HOME/cf/s/cf_funcs_traps.sh  || exit 5
+. $HOME/cf/s/cf_funcs_move.sh   || exit 6
+. $HOME/cf/s/cf_funcs_chests.sh || exit 7
 
 _say_help(){
 _draw 6  "$MY_BASE"
@@ -88,7 +97,7 @@ _draw 10 "-d   :Print debugging to msgpane."
 exit ${1:-2}
 }
 
-_say_version(){
+__say_version(){
 _draw 6 "$MY_BASE Version:$VERSION"
 exit ${1:-2}
 }
@@ -99,7 +108,7 @@ cnt=0
 echo "$*" | while read line
 do
 cnt=$((cnt+1))
-    echo draw 3 "__DEBUG:$cnt:$line"
+    echo draw 3 "___DEBUG:$cnt:$line"
 done
 unset cnt line
 }
@@ -115,11 +124,69 @@ sleep 0.2
 }
 
 _drop_chest(){
-__is 0 0 drop chest
+_is 0 0 drop chest
 sleep 3
 }
 
-_check_if_on_chest(){
+_pickup(){
+# TODO: Seems to pick up only
+# one piece of the item, if more than one
+# piece of the item, as 4 coins or 23 arrows
+# in _open_chests() ..?
+_is 0 0 pickup ${*:-0}
+}
+
+_move_back(){  ##+++2018-01-08
+for i in `seq 1 1 ${1:-1}`
+do
+_is 1 1 $DIRB
+_sleep
+done
+}
+
+_move_forth(){  ##+++2018-01-08
+for i in `seq 1 1 ${1:-1}`
+do
+_is 1 1 $DIRF
+_sleep
+done
+}
+
+_move_back_and_forth(){  ##+++2018-01-08
+STEPS=${1:-1}
+for i in `seq 1 1 $STEPS`
+do
+_is 1 1 $DIRB
+_sleep
+done
+
+if test "$2"; then shift
+ while test "$1";
+ do
+ #oIFS=$IFS
+ #IFS=';'
+ COMMANDS=`echo "$1" | tr ';' '\n'`
+ test "$COMMANDS" || break 1
+  echo "$COMMANDS" | while read line
+  do
+  $line
+  sleep 0.1
+  done
+
+ #IFS=$oIFS
+ shift
+ sleep 0.1
+ done
+fi
+
+for i in `seq 1 1 $STEPS`
+do
+_is 1 1 $DIRF
+_sleep
+done
+}
+
+__check_if_on_chest(){
 _draw 5 "Checking if standing on chests ..."
 UNDER_ME='';
 UNDER_ME_LIST='';
@@ -127,7 +194,7 @@ echo request items on
 
 while :; do
 read -t $TMOUT UNDER_ME
-_log "$ON_LOG" "_check_if_on_chest:$UNDER_ME"
+_log "$ON_LOG" "__check_if_on_chest:$UNDER_ME"
 _msg 7 "$UNDER_ME"
 
 case $UNDER_ME in
@@ -177,20 +244,14 @@ test "$1" && return 1 || exit 1
 return 0
 }
 
-_pickup(){
-# TODO: Seems to pick up only
-# one piece of the item, if more than one
-# piece of the item, as 4 coins or 23 arrows
-# in _open_chests() ..?
-__is 0 0 pickup ${*:-0}
-}
-
-_search_traps(){
+__search_traps(){
 cnt=${SEARCH_ATTEMPTS:-$SEARCH_ATTEMPTS_DEFAULT}
 _draw 5 "Searching traps ..."
 test "$cnt" -gt 0 || return 0
 
 TRAPS_ALL_OLD=0
+TRAPS_ALL=$TRAPS_ALL_OLD
+
 while :
 do
 
@@ -198,7 +259,7 @@ _draw 5 "Searching traps $cnt time(s) ..."
 
 echo watch ${DRAWINFO}
 _sleep
-__is 0 0 search
+_is 0 0 search
 _sleep
 
  unset cnt0 FOUND_TRAP
@@ -207,7 +268,7 @@ _sleep
  cnt0=$((cnt0+1))
  unset REPLY
  read -t $TMOUT
- _log "_search_traps:$cnt0:$REPLY"
+ _log "__search_traps:$cnt0:$REPLY"
  _msg 7 "$cnt0:$REPLY"
 
 #You spot a Rune of Burning Hands!
@@ -241,14 +302,14 @@ _sleep
 
 
 cnt=$((cnt-1))
-test $cnt -gt 0 || break 1
+test "$cnt" -gt 0 || break 1
 
 done
 
 unset cnt
 }
 
-_cast_disarm(){
+__cast_disarm(){
 #_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -262,10 +323,10 @@ _draw 5 "${TRAPS:-0} trap(s) to disarm ..."
 
 # TODO: checks for enough mana
 echo watch $DRAWINFO
-__is 0 0 cast disarm
+_is 0 0 cast disarm
 _sleep
-__is 0 0 fire 0
-__is 0 0 fire_stop
+_is 0 0 fire 0
+_is 0 0 fire_stop
 _sleep
 
  unset REPLY OLD_REPLY cnt0
@@ -273,7 +334,7 @@ _sleep
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log "_cast_disarm:$cnt0:$REPLY"
+ _log "__cast_disarm:$cnt0:$REPLY"
  _msg 7 "$cnt0:$REPLY"
 
  case $REPLY in
@@ -295,7 +356,7 @@ done
 _unwatch $DRAWINFO
 }
 
-_invoke_disarm(){ ## invoking does to a direction
+__invoke_disarm(){ ## invoking does to a direction
 #_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -312,7 +373,7 @@ do
 _draw 5 "${TRAPS:-0} trap(s) to disarm ..."
 
 echo watch $DRAWINFO
-__is 0 0 invoke disarm
+_is 0 0 invoke disarm
 _sleep
 
 #There's nothing there!
@@ -323,7 +384,7 @@ _sleep
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log "_invoke_disarm:$cnt0:$REPLY"
+ _log "__invoke_disarm:$cnt0:$REPLY"
  _msg 7 "$cnt0:$REPLY"
 
  case $REPLY in
@@ -347,7 +408,7 @@ _unwatch $DRAWINFO
 _move_forth 1
 }
 
-_use_skill_disarm(){
+__use_skill_disarm(){
 #_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -360,7 +421,7 @@ do
 _draw 5 "${TRAPS:-0} trap(s) to disarm ..."
 
 echo watch $DRAWINFO
-__is 0 0 use_skill disarm
+_is 0 0 use_skill disarm
 _sleep
 
  unset REPLY OLD_REPLY cnt0
@@ -368,7 +429,7 @@ _sleep
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log "_use_skill_disarm:$cnt0:$REPLY"
+ _log "__use_skill_disarm:$cnt0:$REPLY"
  _msg 7 "$cnt0:$REPLY"
 
 #You fail to disarm the Rune of Burning Hands.
@@ -382,6 +443,8 @@ _sleep
  *'You fail to disarm'*) :;;
  *'In fact, you set it off!'*) TRAPS=$((TRAPS-1));;
  *'You detonate'*) _just_exit 1;;
+ *'A portal opens up, and screaming hordes pour'*) _just_exit 1;;
+ *'through!'*)     _just_exit 1;;
  *'You are pricked'*) :;;
  '') break 1;;
  *) :;;
@@ -403,7 +466,7 @@ done
 unset OLD_REPLY
 }
 
-_disarm_traps(){
+__disarm_traps(){
 _draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
 case "$DISARM" in
 invokation) _invoke_disarm;;
@@ -414,7 +477,7 @@ skill|'') _use_skill_disarm;;
 esac
 }
 
-_open_chests(){
+__open_chests(){
 _draw 5 "Opening chests ..."
 
 unset one
@@ -428,8 +491,24 @@ _draw 5 "$NUMBER_CHEST chest(s) to open ..."
 
 _move_back_and_forth 2
 
-__is 1 1 apply
-_sleep
+_watch
+_is 1 1 apply
+#_sleep
+ unset OPEN_COUNT
+ while :; do unset REPLY
+ read -t ${TMOUT:-1}
+ _log "__open_chests:$REPLY"
+ _msg 7 "$REPLY"
+ case $REPLY in
+ *'You find'*)   OPEN_COUNT=1;;
+ *empty*)        OPEN_COUNT=1;;
+ *'You open chest.'*) break 2;; # permanent container
+ '') break 1;;
+ esac
+ sleep 0.01
+ done
+_unwatch
+test "$OPEN_COUNT" && CHEST_COUNT=$((CHEST_COUNT+1))
 # TODO : You find*Rune of*
 #You find Blades trap in the chest.
 #You set off a Blades trap!
@@ -438,6 +517,8 @@ _sleep
 #You find Rune of Shocking in the chest.
 #You detonate a Rune of Shocking
 #The chest was empty.
+#11:50 You open chest.
+#11:50 You close chest (open) (active).
 
 _move_back_and_forth 2 "_pickup 4;_sleep;"
 
@@ -450,7 +531,6 @@ _drop_chest
 _sleep
 
 done
-
 }
 
 _do_parameters(){
@@ -492,6 +572,10 @@ _set_global_variables $*
 _say_start_msg $*
 _do_parameters $*
 
+#_check_for_space 2
+$FUNCTION_CHECK_FOR_SPACE 2
+_sleep
+
 _get_player_speed
 PL_SPEED2=$PL_SPEED1
 _sleep
@@ -503,17 +587,23 @@ _sleep
 PL_SPEED4=$(( (PL_SPEED2+PL_SPEED3) / 2 ))
 _set_sync_sleep
 
-_check_if_on_chest
+#__check_if_on_chest
+  _check_if_on_chest
+
 _sleep
 _pickup 0
 _sleep
 
-_search_traps
+#__search_traps
+  _search_traps
 
-_disarm_traps
+#__disarm_traps
+  _disarm_traps
 
-_open_chests
+#__open_chests
+  _open_chests
+
+_draw 8 "You opened ${CHEST_COUNT:-0} chest(s)."
 
 _say_end_msg
-
 ###END###
