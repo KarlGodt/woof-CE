@@ -4,8 +4,17 @@ export PATH=/bin:/usr/bin
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
-test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+
+#test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+#_set_global_variables "$@"
+
+test -f "${MY_SELF%/*}"/cf_funcs_common.sh   && . "${MY_SELF%/*}"/cf_funcs_common.sh
 _set_global_variables "$@"
+
+test -f "${MY_SELF%/*}"/cf_funcs_move.sh    && . "${MY_SELF%/*}"/cf_funcs_move.sh
+test -f "${MY_SELF%/*}"/cf_funcs_food.sh    && . "${MY_SELF%/*}"/cf_funcs_food.sh
+test -f "${MY_SELF%/*}"/cf_funcs_alchemy.sh && . "${MY_SELF%/*}"/cf_funcs_alchemy.sh
+
 # *** PARAMETERS *** #
 
 # *** Setting defaults *** #
@@ -13,32 +22,6 @@ GEM='';  #set empty default
 NUMBER=0 #set zero as default
 # *** Override any VARIABLES in cf_functions.sh *** #
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
-
-# *** Color numbers found in common/shared/newclient.h : *** #
-#define NDI_BLACK       0
-#define NDI_WHITE       1
-#define NDI_NAVY        2
-#define NDI_RED         3
-#define NDI_ORANGE      4
-#define NDI_BLUE        5       /**< Actually, it is Dodger Blue */
-#define NDI_DK_ORANGE   6       /**< DarkOrange2 */
-#define NDI_GREEN       7       /**< SeaGreen */
-#define NDI_LT_GREEN    8       /**< DarkSeaGreen, which is actually paler
-#                                 *   than seagreen - also background color. */
-#define NDI_GREY        9
-#define NDI_BROWN       10      /**< Sienna. */
-#define NDI_GOLD        11
-#define NDI_TAN         12      /**< Khaki. */
-#define NDI_MAX_COLOR   12      /**< Last value in. */
-#
-#define NDI_COLOR_MASK  0xff    /**< Gives lots of room for expansion - we are
-#                                 *   using an int anyways, so we have the
-#                                 *   space to still do all the flags.
-#                                 */
-#define NDI_UNIQUE      0x100   /**< Print immediately, don't buffer. */
-#define NDI_ALL         0x200   /**< Inform all players of this message. */
-#define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
-#                                 *   errors. Overrides NDI_ALL. */
 
 while :;
 do
@@ -56,7 +39,7 @@ _debug "$@"
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in *"help"*)
+case "$PARAM_1" in -h|*"help"*)
 
 _draw 5 "Script to produce water of GEM."
 _draw 7 "Syntax:"
