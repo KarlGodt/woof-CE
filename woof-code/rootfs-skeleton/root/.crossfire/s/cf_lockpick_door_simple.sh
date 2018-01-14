@@ -41,6 +41,7 @@ VERSION=1.1 # bugfix in _open_door_with_standard_key()
 VERSION=1.2 # bugfixes in regards to unexpected
 # settings of variables
 VERSION=1.3 # Recognize *help and *version options
+VERSION=2.0 # use sourced functions files
 
 LOCKPICK_ATTEMPTS_DEFAULT=9
 SEARCH_ATTEMPTS_DEFAULT=9
@@ -54,11 +55,14 @@ MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 
 DRAWINFO=drawinfo # client 1.12.svn seems to accept both drawinfo and drawextinfo
 # client gtk1 1.12.svn needs drawinfo, but gtk2 1.12.svn needs drawextinfo
-#DEBUG=1
+DEBUG=1
 LOGGING=1
 MSGLEVEL=6 # Message Levels 1-7 to print to the msg pane
 
-. $HOME/cf/s/cf_functions.sh || exit 2
+. $HOME/cf/s/cf_funcs_common.sh || exit 4
+. $HOME/cf/s/cf_funcs_traps.sh  || exit 5
+. $HOME/cf/s/cf_funcs_move.sh   || exit 6
+. $HOME/cf/s/cf_funcs_chests.sh || exit 7
 
 _say_help(){
 _draw 6  "$MY_BASE"
@@ -80,7 +84,7 @@ _draw 10 "-d   :Print debugging to msgpane"
 exit ${1:-2}
 }
 
-_say_version(){
+__say_version(){
 _draw 6 "$MY_BASE Version:$VERSION"
 exit ${1:-2}
 }
@@ -96,11 +100,13 @@ sleep 0.2
 }
 
 
-_search_traps(){
+__search_traps(){
 cnt=${SEARCH_ATTEMPTS:-$SEARCH_ATTEMPTS_DEFAULT}
 _draw 5 "Searching traps ..."
 
 TRAPS_ALL=0
+TRAPS_ALL_OLD=$TRAPS_ALL
+
 while :
 do
 
@@ -114,7 +120,7 @@ _sleep
  do
  unset REPLY
  read -t $TMOUT
- _log "_search_traps:$REPLY"
+ _log "__search_traps:$REPLY"
  _msg 7 "$REPLY"
 
 #You spot a Rune of Burning Hands!
@@ -149,14 +155,14 @@ test "$MULTIPLE_TRAPS" || {
     test "$TRAPS_ALL" -ge 1 && break 1; }
 
 cnt=$((cnt-1))
-test $cnt -gt 0 || break 1
+test "$cnt" -gt 0 || break 1
 
 done
 
 unset cnt
 }
 
-_cast_disarm(){
+__cast_disarm(){
 #_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -184,7 +190,7 @@ _turn_direction $DIRECTION cast disarm
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log "_cast_disarm:$cnt0:$REPLY"
+ _log "__cast_disarm:$cnt0:$REPLY"
  _msg 7 "$cnt0:$REPLY"
 
  case $REPLY in
@@ -204,7 +210,7 @@ test "$TRAPS" -gt 0 || break 1
 done
 }
 
-_invoke_disarm(){ ## invoking does to a direction
+__invoke_disarm(){ ## invoking does to a direction
 #_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -230,7 +236,7 @@ _sleep
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log "_invoke_disarm:$cnt0:$REPLY"
+ _log "__invoke_disarm:$cnt0:$REPLY"
  _msg 7 "$cnt0:$REPLY"
 
  case $REPLY in
@@ -249,7 +255,7 @@ done
 
 }
 
-_use_skill_disarm(){
+__use_skill_disarm(){
 _draw 5 "Disarming ${TRAPS_ALL:-0} trap(s) ..."
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -269,7 +275,7 @@ _sleep
  while :
  do
  read -t $TMOUT
- _log "_disarm_traps:$REPLY"
+ _log "__use_skill_disarm:$REPLY"
  _msg 7 "$REPLY"
 
 #You fail to disarm the Rune of Burning Hands.
@@ -301,7 +307,7 @@ done
 unset OLD_REPLY
 }
 
-_disarm_traps(){
+__disarm_traps(){
 _draw 5 "Disarming ${TRAPS_ALL:-0} trap(s) ..."
 case "$DISARM" in
 invokation) _invoke_disarm;;
@@ -312,17 +318,18 @@ skill|'') _use_skill_disarm;;
 esac
 }
 
-_lockpick_door(){
+__lockpick_door(){
 _draw 5 "Attempting to lockpick the door ..."
 
 cnt=${LOCKPICK_ATTEMPTS:-$LOCKPICK_ATTEMPTS_DEFAULT}
 test "$cnt" -gt 0 || return 1  # to trigger _open_door_with_standard_key
 
-unset RV
+unset RV cnt1
 while :
 do
 
-test "$INFINITE" || _draw 5 "$cnt attempts in lockpicking skill left .."
+cnt1=$((cnt1+1))
+test "$INFINITE" && _draw 5 "${cnt1}. attempt .." || _draw 5 "$cnt attempts in lockpicking skill left .."
 
 _watch $DRAWINFO
 #_sleep
@@ -335,8 +342,8 @@ _sleep
  cnt0=$((cnt0+1))
  #unset REPLY
  read -t ${TMOUT:-1}
- _log "_lockpick_door:$REPLY"
- _msg 7 "_lockpick_door:$REPLY"
+ _log "__lockpick_door:$REPLY"
+ _msg 7 "__lockpick_door:$REPLY"
 
  case $REPLY in
  *there*is*no*door*) RV=4; break 2;; #return 4;;
@@ -368,7 +375,7 @@ done
 return ${RV:-1}
 }
 
-_open_door_with_standard_key(){
+__open_door_with_standard_key(){
 #DEBUG=1 _debug "_open_door_with_standard_key:$*"
 DIRECTION=${1:-$DIRECTION}
 #DEBUG=1 _debug "DIRECTION=$DIRECTION"
@@ -378,7 +385,7 @@ _number_to_direction "$DIRECTION"
 _is 0 0 $DIRECTION
 }
 
-_direction_to_number(){
+__direction_to_number(){
 DIRECTION=${1:-$DIRECTION}
 test "$DIRECTION" || return 0
 
@@ -397,7 +404,7 @@ case $DIRECTION in
 esac
 }
 
-_number_to_direction(){
+__number_to_direction(){
 DIRECTION=${1:-$DIRECTION}
 test "$DIRECTION" || return 0
 DIRECTION=`echo "$DIRECTION" | tr '[A-Z]' '[a-z]'`
@@ -415,7 +422,7 @@ case $DIRECTION in
 esac
 }
 
-_turn_direction(){
+__turn_direction(){
 test "$3" && { DIRECTION=${1:-DIRECTION}; shift; }
 test "$DIRECTION" || return 0
 
@@ -473,19 +480,23 @@ _do_parameters $*
 _get_player_speed
 _set_sync_sleep
 
-#_turn_direction $DIRECTION cast "show invisible"
-_turn_direction $DIRECTION ready_skill "literacy"
+#__turn_direction $DIRECTION cast "show invisible"
+  _turn_direction $DIRECTION ready_skill "literacy"
 
-_search_traps
+#__search_traps
+  _search_traps
 
-_disarm_traps
+#__disarm_traps
+  _disarm_traps
 
-_lockpick_door
+#__lockpick_door
+  _lockpick_door
 RV=$?
 #DEBUG=1 _debug "RV=$RV"
 case $RV in
 0) :;;
-*) _open_door_with_standard_key $DIRECTION
+*) #__open_door_with_standard_key $DIRECTION;;
+     _open_door_with_standard_key $DIRECTION;;
 esac
 
 _unwatch $DRAWINFO
