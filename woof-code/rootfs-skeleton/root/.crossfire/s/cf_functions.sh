@@ -57,7 +57,7 @@ COUNT_CHECK_FOOD=${COUNT_CHECK_FOOD:-10} # number between attempts to check food
                     #  1 would mean check every single time, which is too much
 EAT_FOOD=${EAT_FOOD:-waybread}   # set to desired food to eat ie food, mushroom, booze, .. etc.
 FOOD_DEF=$EAT_FOOD     # default
-MIN_FOOD_LEVEL_DEF=${MIN_FOOD_LEVEL_DEF:-200} # default minimum. 200 starts to beep.
+MIN_FOOD_LEVEL_DEF=${MIN_FOOD_LEVEL_DEF:-300} # default minimum. 200 starts to beep.
                        # waybread has foodvalue of 500
                        # 999 is max foodlevel
 
@@ -65,10 +65,14 @@ HP_MIN_DEF=${HP_MIN_DEF:-20}          # minimum HP to return home. Lowlevel char
 
 DIRB=${DIRB:-west}  # direction back to go
 case $DIRB in
-west)  DIRF=east;;
-east)  DIRF=west;;
-north) DIRF=south;;
-south) DIRF=north;;
+west)      DIRF=east;;
+east)      DIRF=west;;
+north)     DIRF=south;;
+northwest) DIRF=southeast;;
+northeast) DIRF=southwest;;
+south)     DIRF=north;;
+southwest) DIRF=northeast;;
+southeast) DIRF=northwest;;
 esac
 
 SOUND_DIR="$HOME"/.crossfire/sounds
@@ -78,11 +82,11 @@ SOUND_DIR="$HOME"/.crossfire/sounds
 #MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 TMP_DIR=/tmp/crossfire
 mkdir -p "$TMP_DIR"
-LOGFILE=${LOGFILE:-"$TMP_DIR"/"$MY_BASE".$$.log}
-REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
+   LOGFILE=${LOGFILE:-"$TMP_DIR"/"$MY_BASE".$$.log}
+  REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
 REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
-ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
-ERROR_LOG="$TMP_DIR"/"$MY_BASE".$$.err
+     ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
+  ERROR_LOG="$TMP_DIR"/"$MY_BASE".$$.err
 exec 2>>"$ERROR_LOG"
 }
 
@@ -234,7 +238,7 @@ test "$DEBUG" || { test -s "$ERROR_LOG" || rm -f "$ERROR_LOG"; }
 test "$DEBUG" -o "$INFO" || rm -f "$TMP_DIR"/*.$$*
 
 test "$aPID" && wait $aPID
-_draw 2  "$0 has finished."
+_draw 2  "$0 $$ has finished."
 }
 
 _loop_counter(){
@@ -259,6 +263,8 @@ echo unwatch ${1:-$DRAWINFO}
 }
 
 _check_drawinfo(){  ##+++2018-01-08
+_debug "_check_drawinfo:$*"
+
 DEBUG0=$DEBUG;       DEBUG=${DEBUG:-''}
 LOGGING0=$LOGGING; LOGGING=${LOGGING:-1}
 
@@ -291,6 +297,8 @@ _is 0 0 examine
  #*drawextinfo*'You search'*|*drawextinfo*'You spot'*) DRAWINFO0=drawextinfo; break 2;;
  *drawinfo*'That is'*|*drawinfo*'These are'*)       DRAWINFO0=drawinfo;    break 2;;
  *drawextinfo*'That is'*|*drawextinfo*'These are'*) DRAWINFO0=drawextinfo; break 2;;
+ *drawinfo*'This is'*|*drawinfo*'Those are'*)       DRAWINFO0=drawinfo;    break 2;;
+ *drawextinfo*'This is'*|*drawextinfo*'Those are'*) DRAWINFO0=drawextinfo; break 2;;
  *tick*) TICKS=$((TICKS+1)); test "$TICKS" -gt 19 && break 1;;
  '') break 1;;
  *) :;;
@@ -355,6 +363,16 @@ _draw 3 "Remove that item and try again."
 _draw 3 "If this is a wall, try on another place."
 beep -l 1000 -f 700
 exit ${1:-0}
+}
+
+# ***
+__error(){  # _error 1 "Some error occured"
+# ***
+
+RV=$1;shift
+eMSG=`echo -e "$*"`
+__draw 3 "$eMSG"
+exit ${RV:-1}
 }
 
 _move_back(){  ##+++2018-01-08
@@ -433,6 +451,8 @@ echo $GERUNDET
 }
 
 _set_sync_sleep(){
+_debug "_set_sync_sleep:$*"
+
 PL_SPEED1=${1:-$PL_SPEED1}
 PL_SPEED1=${PL_SPEED1:-50}
 
@@ -470,11 +490,12 @@ _info "Setting SLEEP=$SLEEP ,TMOUT=$TMOUT ,DELAY_DRAWINFO=$DELAY_DRAWINFO"
 }
 
 _get_player_speed(){
+_debug "_get_player_speed:$*"
 
 if test "$1" = '-l'; then
- spc=$((spc+1))
- test "$spc" -ge ${COUNT_CHECK_FOOD:-200} || return 1
- spc=0
+ spdcnt=$((spdcnt+1))
+ test "$spdcnt" -ge ${COUNT_CHECK_FOOD:-10} || return 1
+ spdcnt=0
 fi
 
 _draw 5 "Processing Player's speed..."
@@ -487,7 +508,7 @@ echo request stat cmbt # only one line
 
 while :; do
 read -t $TMOUT ANSWER
-_log "$REQUEST_LOG" "request stat cmbt:$ANSWER"
+_log "$REQUEST_LOG" "_get_player_speed:$ANSWER"
 _msg 7 "$ANSWER"
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
@@ -533,6 +554,7 @@ sleep ${SLEEP:-1}
 ### ALCHEMY
 
 _drop_in_cauldron(){
+_debug "_drop_in_cauldron:$*"
 
 _watch $DRAWINFO
 _drop "$@"
@@ -565,8 +587,10 @@ _unknown(){
 }
 
 
-# *** Check if standing on a cauldron *** #
+
 _check_if_on_cauldron(){
+# *** Check if standing on a cauldron *** #
+_debug "_check_if_on_cauldron:$*"
 _draw 5 "Checking if on a cauldron..."
 
 UNDER_ME='';
@@ -608,6 +632,7 @@ return 0
 
 _check_for_space(){
 # *** Check for 4 empty space to DIRB ***#
+_debug "_check_for_space:$*"
 
 local REPLY_MAP OLD_REPLY NUMBERT
 test "$1" && NUMBERT="$1"
@@ -673,7 +698,7 @@ echo request map pos
 while :; do
 read -t $TMOUT REPLY_MAP
 #echo "request map pos:$REPLY_MAP" >>"$REPLY_LOG"
-_log "$REPLY_LOG" "request map pos:$REPLY_MAP"
+_log "$REPLY_LOG" "_check_for_space:request map pos:$REPLY_MAP"
 test "$REPLY_MAP" || break
 test "$REPLY_MAP" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY_MAP"
@@ -702,8 +727,24 @@ north)
 R_X=$PL_POS_X
 R_Y=$((PL_POS_Y-nr))
 ;;
+northwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+northeast)
+R_X=$((PL_POS_X+nr))
+R_Y=$((PL_POS_Y-nr))
+;;
 south)
 R_X=$PL_POS_X
+R_Y=$((PL_POS_Y+nr))
+;;
+southwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y+nr))
+;;
+southeast)
+R_X=$((PL_POS_X+nr))
 R_Y=$((PL_POS_Y+nr))
 ;;
 esac
@@ -798,10 +839,10 @@ echo request map $R_X $R_Y
 
 while :; do
 read -t $TMOUT
-_log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
+_log "$REPLY_LOG" "_check_for_space:request map '$R_X' '$R_Y':$REPLY"
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 
-_log "$REPLY_LOG" "IS_WALL=$IS_WALL"
+_log "$REPLY_LOG" "_check_for_space:IS_WALL=$IS_WALL"
 test "$IS_WALL" = 0 || _exit_no_space 1
 
 test "$REPLY" || break
@@ -813,23 +854,26 @@ done
 
 else
 
-_draw 3 "Received Incorrect X Y parameters from server"
-exit 1
+__error 1 "Received Incorrect X Y parameters from server."
+#_draw 3 "Received Incorrect X Y parameters from server."
+#exit 1
 
 fi
 
 else
 
-_draw 3 "Could not get X and Y position of player."
-exit 1
+__error 1 "Could not get X and Y position of player."
+#_draw 3 "Could not get X and Y position of player."
+#exit 1
 
 fi
 
 _draw 7 "OK."
 }
 
- _check_for_space_old_client(){
+_check_for_space_old_client(){
 # *** Check for 4 empty space to DIRB ***#
+_debug "_check_for_space_old_client:$*"
 
 local REPLY_MAP OLD_REPLY NUMBERT cm
 test "$1" && NUMBERT="$1"
@@ -896,7 +940,7 @@ cm=0
 while :; do
 cm=$((cm+1))
 read -t $TMOUT REPLY_MAP
-_log "$REPLY_LOG" "request map near:$REPLY_MAP"
+_log "$REPLY_LOG" "_check_for_space_old_client:request map near:$REPLY_MAP"
 test "$cm" = 5 && break
 test "$REPLY_MAP" || break
 test "$REPLY_MAP" = "$OLD_REPLY" && break
@@ -928,8 +972,24 @@ north)
 R_X=$PL_POS_X
 R_Y=$((PL_POS_Y-nr))
 ;;
+northwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+northeast)
+R_X=$((PL_POS_X+nr))
+R_Y=$((PL_POS_Y-nr))
+;;
 south)
 R_X=$PL_POS_X
+R_Y=$((PL_POS_Y+nr))
+;;
+southwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y+nr))
+;;
+southeast)
+R_X=$((PL_POS_X+nr))
 R_Y=$((PL_POS_Y+nr))
 ;;
 esac
@@ -1024,10 +1084,10 @@ echo request map $R_X $R_Y
 
 while :; do
 read -t $TMOUT
-_log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
+_log "$REPLY_LOG" "_check_for_space_old_client:request map '$R_X' '$R_Y':$REPLY"
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 
-_log "$REPLY_LOG" "IS_WALL=$IS_WALL"
+_log "$REPLY_LOG" "_check_for_space_old_client:IS_WALL=$IS_WALL"
 test "$IS_WALL" = 0 || _exit_no_space 1
 
 test "$REPLY" || break
@@ -1039,15 +1099,17 @@ done
 
 else
 
-_draw 3 "Received Incorrect X Y parameters from server"
-exit 1
+__error 1 "Received Incorrect X Y parameters from server."
+#_draw 3 "Received Incorrect X Y parameters from server."
+#exit 1
 
 fi
 
 else
 
-_draw 3 "Could not get X and Y position of player."
-exit 1
+__error 1 "Could not get X and Y position of player."
+#_draw 3 "Could not get X and Y position of player."
+#exit 1
 
 fi
 
@@ -1056,6 +1118,7 @@ _draw 7 "OK."
 
 _prepare_rod_of_recall(){
 # *** Unreadying rod of word of recall - just in case *** #
+_debug "_prepare_rod_of_recall:$*"
 
 local RECALL OLD_REPLY REPLY
 
@@ -1069,7 +1132,7 @@ echo request items actv
 
 while :; do
 read -t $TMOUT
-_log "$REPLY_LOG" "request items actv:$REPLY"
+_log "$REPLY_LOG" "_prepare_rod_of_recall:$REPLY"
 case $REPLY in
 *rod*of*word*of*recall*) RECALL=1;;
 '') break;;
@@ -1089,6 +1152,7 @@ _draw 6 "Done."
 
 _check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
+_debug "_check_empty_cauldron:$*"
 
 local REPLY OLD_REPLY REPLY_ALL
 
@@ -1133,7 +1197,7 @@ _is 99 1 get
 
 while :; do
 read -t $TMOUT
-_log "$REPLY_LOG" "take:$cr:$REPLY"
+_log "$REPLY_LOG" "_check_empty_cauldron:take/get:$cr:$REPLY"
 REPLY_ALL="$REPLY
 $REPLY_ALL"
 test "$REPLY" || break
@@ -1157,6 +1221,7 @@ _draw 7 "OK ! Cauldron IS empty."
 }
 
 _alch_and_get(){
+_debug "_alch_and_get:$*"
 
 _check_if_on_cauldron
 
@@ -1174,7 +1239,7 @@ OLD_REPLY="";
 REPLY="";
 while :; do
 read -t $TMOUT
-_log "$REPLY_LOG" "alchemy:$REPLY"
+_log "$REPLY_LOG" "_alch_and_get:alchemy:$REPLY"
 case $REPLY in
                                                        #(level < 25)  /* INGREDIENTS USED/SLAGGED */
                                                        #(level < 40)  /* MAKE TAINTED ITEM */
@@ -1235,7 +1300,7 @@ SLAG=0
 
 while :; do
 read -t $TMOUT
-_log "$REPLY_LOG" "take:$REPLY"
+_log "$REPLY_LOG" "_alch_and_get:take/get:$REPLY"
 case $REPLY in
 *Nothing*to*take*)   NOTHING=1;;
 *You*pick*up*the*slag*) SLAG=1;;
@@ -1257,7 +1322,7 @@ local REPLY="";
 
 while :; do
 read -t $TMOUT
-_log "$REPLY_LOG" "drop:$REPLY"
+_log "$REPLY_LOG" "_check_drop_or_exit:$REPLY"
 case $REPLY in
 *Nothing*to*drop*)                _exit 1 "Missing in inventory";;
 *There*are*only*|*There*is*only*) _exit 1 "Not enough to drop." ;;
@@ -1291,14 +1356,41 @@ _go_drop_alch_yeld_cauldron(){
 _move_forth 4
 }
 
-_check_cauldron_cursed(){
-#_is 1 1 sense curse
+_check_cauldron_cursed_use_skill(){
+_is 1 1 use_skill sense curse
+}
+
+_check_cauldron_cursed_ready_skill(){
+_is 1 1 ready_skill sense curse
+_is 1 1 fire 0 # 0 is center
+_is 1 1 fire_stop
+}
+
+_check_cauldron_cursed_cast_detect_curse(){
 _is 1 1 cast detect curse
 _is 1 1 fire 0 # 0 is center
 _is 1 1 fire_stop
 }
 
+_check_cauldron_cursed_invoke_detect_curse(){
+_is 1 1 invoke detect curse
+}
+
+_check_cauldron_cursed(){
+_debug "_check_cauldron_cursed:$*"
+##_is 1 1 use_skill sense curse
+#_is 1 1 cast detect curse
+#_is 1 1 fire 0 # 0 is center
+#_is 1 1 fire_stop
+
+ _check_cauldron_cursed_use_skill
+#_check_cauldron_cursed_ready_skill
+#_check_cauldron_cursed_cast_detect_curse
+#_check_cauldron_cursed_invoke_detect_curse
+}
+
 _return_to_cauldron(){
+_debug "_return_to_cauldron:$*"
 
 _go_drop_alch_yeld_cauldron
 
@@ -1307,7 +1399,6 @@ _check_food_level
 _get_player_speed -l || sleep ${DELAY_DRAWINFO}s
 
 _check_if_on_cauldron
-
 }
 
 ### ALCHEMY
@@ -1330,21 +1421,22 @@ done
 
 #** we may get attacked and die **#
 _check_hp_and_return_home(){
+_debug "_check_hp_and_return_home:$*"
 
-hpc=$((hpc+1))
-test "$hpc" -lt $COUNT_CHECK_FOOD && return
-hpc=0
+hpcnt=$((hpcnt+1))
+test "$hpcnt" -lt $COUNT_CHECK_FOOD && return
+hpcnt=0
 
 local REPLY
 
-test "$1" && local currHP=$1
-test "$2" && local currHPMin=$2
+local currHP currHPMin
+currHP=$1
+currHPMin=$2
 
-test "$currHP"     || local currHP=$HP
-test "$HP_MIN_DEF" && local currHPMin=$HP_MIN_DEF
-test "$currHPMin"  || local currHPMin=$((MHP/10))
+currHP=${currHP:-$HP}
+currHPMin=${HP_MIN_DEF:-$((MHP/10))}
 
-_msg 7 currHP=$currHP currHPMin=$currHPMin
+_msg 7 "currHP=$currHP currHPMin=$currHPMin"
 if test "$currHP" -le $currHPMin; then
 
 _empty_message_stream
@@ -1366,33 +1458,38 @@ unset HP
 #Food
 
 _check_mana_for_create_food(){
-
+_debug "_check_mana_for_create_food:$*"
 local REPLY
+_watch
 _is 1 0 cast create
 
 while :;
 do
 
-read -t $TMOUT
+read -t ${TMOUT:-1}
+  _log "_check_mana_for_create_food:$REPLY"
 _msg 7 "_check_mana_for_create_food:$REPLY"
 case $REPLY in
 *ready*the*spell*create*food*) return 0;;
 *create*food*)
 MANA_NEEDED=`echo "$REPLY" | awk '{print $NF}'`
-test "$SP" -ge "$MANA_NEEDED" && return 0
+_debug "MANA_NEEDED=$MANA_NEEDED"
+test "$SP" -ge "$MANA_NEEDED" && return 0 || break 1
 ;;
-'') break;;
-*) sleep 0.1; continue;;
+'') break 1;;
+*) sleep 0.01; continue;;
 esac
 
 sleep 0.1
 unset REPLY
 done
 
+_unwatch
 return 1
 }
 
 _cast_create_food_and_eat(){
+_debug "_cast_create_food_and_eat:$*"
 
 local lEAT_FOOD REPLY1 REPLY2 REPLY3 REPLY4 BUNGLE
 
@@ -1444,6 +1541,7 @@ _empty_message_stream
 }
 
 _apply_horn_of_plenty_and_eat(){
+_debug "_apply_horn_of_plenty_and_eat:$*"
 local REPLY
 
 read -t $TMOUT
@@ -1466,7 +1564,7 @@ read -t $TMOUT
 
 
 _eat_food(){
-
+_debug "_eat_food:$*"
 local REPLY
 
 test "$*" && EAT_FOOD="$@"
@@ -1481,13 +1579,15 @@ read -t $TMOUT
 }
 
 _check_food_level(){
+_debug "_check_food_level:$*"
 
-fc=$((fc+1))
-test "$fc" -lt $COUNT_CHECK_FOOD && return
-fc=0
+fcnt=$((fcnt+1))
+test "$fcnt" -lt $COUNT_CHECK_FOOD && return 0
+fcnt=0
 
 test "$*" && MIN_FOOD_LEVEL="$@"
-test "$MIN_FOOD_LEVEL" || MIN_FOOD_LEVEL=200
+MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
+MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-200}
 
 local FOOD_LVL=''
 local REPLY
@@ -1500,7 +1600,7 @@ echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
 while :;
 do
 unset FOOD_LVL
-read -t1 Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
+read -t ${TMOUT:-1} Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
 test "$Re" = request || continue
 
 test "$FOOD_LVL" || break
@@ -1518,7 +1618,7 @@ if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
  #sleep 0.1
  _sleep
- read -t1 Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
+ read -t ${TMOUT:-1} Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
  _msg 7 HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL #DEBUG
 
  #return $?
