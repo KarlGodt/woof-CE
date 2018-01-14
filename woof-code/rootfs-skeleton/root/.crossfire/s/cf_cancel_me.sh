@@ -4,8 +4,12 @@ export PATH=/bin:/usr/bin
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
-test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-_set_global_variables
+
+#test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+#_set_global_variables "$@"
+
+test -f "${MY_SELF%/*}"/cf_funcs_common.sh   && . "${MY_SELF%/*}"/cf_funcs_common.sh
+_set_global_variables "$@"
 
 ROD='heavy rod of cancellation' # may set to scroll or staff or just rod
 # *** Override any VARIABLES in cf_functions.sh *** #
@@ -103,45 +107,46 @@ EoI
 
 __check_if_item_is_active(){
 
-local ITEM="$*" oR tmpR
-test "$ITEM" || { echo "draw 3  $ITEM missing"; exit 1; }
+local lITEM="$*" oR tmpR
+test "$lITEM" || { echo "draw 3 \$lITEM missing"; exit 1; }
 
-_watch
+#_watch
 sleep 0.1
 echo request items actv
 while :; do
 read -t 1 tmpR
 case $tmpR in
-*"$ITEM"*) HAVE_ITEM_APPLIED=YES; break;;
-'') break;;
+*"$lITEM"*) HAVE_ITEM_APPLIED=YES; break;;
+'')  break;;
+$oR) break;;
 esac
-test "$oR" = "$tmpR" && break
+#test "$oR" = "$tmpR" && break
 oR="$tmpR"
 sleep 0.1
 done
 
-_unwatch
+#_unwatch
 }
 
-__check_if_item_is_active "$ROD"
-
-test "$HAVE_ITEM_APPLIED" || { _is 1 1 "apply -a $ROD"; sleep 1s; }
-
 _simple_apply_item(){
-_is 1 1 apply -u "$ROD"
+local lROD=${*:-"$ROD"}
+
+test "$lROD" || return 254
+
+_is 1 1 apply -u "$lROD"
 sleep 2
-_is 1 1 apply -a "$ROD"
+_is 1 1 apply -a "$lROD"
 }
 
 
 __check_range_attack(){
 
-local ITEM="$*" oR tmpR c
-test "$ITEM" || { _draw 3 '$ITEM missing.'; exit 1; }
+local lITEM="$*" oR tmpR c
+test "$lITEM" || { _draw 3 '$lITEM missing.'; exit 1; }
 
 
-c=0
-_watch
+local c=0
+#_watch
 while :;
 do
 test $c = 5 && break
@@ -152,10 +157,11 @@ echo request range
  do
  read -t 1 tmpR
  case $tmpR in
- *"$ITEM"*) RANGE_ITEM_APPLIED=YES; break 2;;
- '') break;;
+ *"$lITEM"*) RANGE_ITEM_APPLIED=YES; break 2;;
+ '')  break;;
+ $oR) break;;
  esac
- test "$oR" = "$tmpR" && break
+ #test "$oR" = "$tmpR" && break
  oR="$tmpR"
 
  done
@@ -164,26 +170,39 @@ sleep 0.1
 test "$RANGE_ITEM_APPLIED" || _is 1 1 rotateshoottype
 done
 
-_unwatch
+#_unwatch
 }
+
+# MAIN:
+__check_if_item_is_active "$ROD"
+
+#test "$HAVE_ITEM_APPLIED" || { _is 1 1 "apply -a $ROD"; sleep 1s; }
+test "$HAVE_ITEM_APPLIED" || _simple_apply_item "$ROD"
+
+
+while :
+do
+one=$((one+1))
 
 __check_range_attack "$ROD"
 
 if test "$RANGE_ITEM_APPLIED"; then
 
-while : #for one in `seq 1 1 $NUMBER`
-do
-one=$((one+1))
+#while : #for one in `seq 1 1 $NUMBER`
+#do
+#one=$((one+1))
 
 _is 1 1 fire "center"
 _is 1 1 fire_stop
+fi
+
 _sleep
 
 #test "$NUMBER" && { test "$NUMBER" = "$one" && break 1; }
  case $NUMBER in $one) break 1;; esac
 
 done
-fi
+#fi
 
 _is 1 1 fire_stop
 
