@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/bash
 
 # Who:
 # Created by Karl Reimer Godt
@@ -57,6 +57,7 @@ VERSION=1.3 # handle chest as permanent container: exit.
 # handle portal of elementals: exit.
 VERSION=1.3.1 # count opened chests
 VERSION=2.0 # use sourced functions files
+VERSION=2.1 # implement -M option
 
 SEARCH_ATTEMPTS_DEFAULT=9
 #DISARM variable set to skill, invokation OR cast
@@ -85,10 +86,12 @@ _draw 7  "Script to search for traps,"
 _draw 7  "disarming them,"
 _draw 7  "and open chest(s)."
 _draw 6  "Syntax:"
-_draw 7  "$0 <NUMBER> <Options>"
+_draw 7  "$0 <<NUMBER>> <<Options>>"
 _draw 8  "Options:"
 _draw 10 "Simple number:Just open NUMBER chests."
 _draw 9  "-S # :Number of search attempts, default $SEARCH_ATTEMPTS_DEFAULT"
+_draw 10 "-M   :Do not break search when found first trap,"
+_draw 10 "      usefull if chests have more than one trap."
 _draw 11 "-V   :Print version information."
 _draw 12 "-c   :cast spell disarm"
 _draw 12 "-i   :invoke spell disarm"
@@ -124,7 +127,8 @@ sleep 0.2
 }
 
 _drop_chest(){
-_is 0 0 drop chest
+local lITEM="$*"
+_is 0 0 drop ${lITEM:-chest}
 sleep 3
 }
 
@@ -137,6 +141,7 @@ _is 0 0 pickup ${*:-0}
 }
 
 _move_back(){  ##+++2018-01-08
+test "$DIRB" || return 0
 for i in `seq 1 1 ${1:-1}`
 do
 _is 1 1 $DIRB
@@ -145,6 +150,7 @@ done
 }
 
 _move_forth(){  ##+++2018-01-08
+test "$DIRF" || return 0
 for i in `seq 1 1 ${1:-1}`
 do
 _is 1 1 $DIRF
@@ -154,6 +160,9 @@ done
 
 _move_back_and_forth(){  ##+++2018-01-08
 STEPS=${1:-1}
+
+#test "$DIRB" -a "$DIRF" || return 0
+test "$DIRB" || return 0
 for i in `seq 1 1 $STEPS`
 do
 _is 1 1 $DIRB
@@ -179,6 +188,7 @@ if test "$2"; then shift
  done
 fi
 
+test "$DIRF" || return 0
 for i in `seq 1 1 $STEPS`
 do
 _is 1 1 $DIRF
@@ -300,6 +310,8 @@ _debug "FOUND_TRAP=$FOUND_TRAP TRAPS_ALL_OLD=$TRAPS_ALL_OLD"
 _unwatch $DRAWINFO
 _sleep
 
+test "$MULTIPLE_TRAPS" || {
+    test "$TRAPS_ALL" -ge 1 && break 1; }
 
 cnt=$((cnt-1))
 test "$cnt" -gt 0 || break 1
@@ -527,7 +539,8 @@ _sleep
 
 case $NUMBER in $one) break 1;; esac
 
-_drop_chest
+#_drop_chest
+_drop chest
 _sleep
 
 done
@@ -547,10 +560,11 @@ esac
 # c   :cast disarm
 # i   :invoke disarm
 # d   :debugging output
-while getopts S:ciudVhabdefgjklmnopqrstvwxyzABCDEFGHIJKLMNOPQRTUWXYZ oneOPT
+while getopts S:ciudMVhabdefgjklmnopqrstvwxyzABCDEFGHIJKLNOPQRTUWXYZ oneOPT
 do
 case $oneOPT in
 S) SEARCH_ATTEMPTS=${OPTARG:-$SEARCH_ATTEMPTS_DEFAULT};;
+M) MULTIPLE_TRAPS=$((MULTIPLE_TRAPS+1));;
 c) DISARM=cast;;
 i) DISARM=invokation;;
 u) DISARM=skill;;
@@ -559,7 +573,7 @@ h) _say_help 0;;
 V) _say_version 0;;
 
 '') _draw 2 "FIXME: Empty positional parameter ...?";;
-*) _draw 3 "Unrecognized parameter '$oneOPT' ."
+*) _draw 3 "Unrecognized parameter '$oneOPT' .";;
 esac
 
 sleep 0.1
@@ -579,13 +593,17 @@ _sleep
 _get_player_speed
 PL_SPEED2=$PL_SPEED1
 _sleep
-_drop_chest
+
+#_drop_chest
+_drop chest
 _sleep
+
 _get_player_speed
 PL_SPEED3=$PL_SPEED1
 _sleep
 PL_SPEED4=$(( (PL_SPEED2+PL_SPEED3) / 2 ))
-_set_sync_sleep
+#_set_sync_sleep ${PL_SPEED4:-$PL_SPEED}
+test "$PL_SPEED4" && __set_sync_sleep ${PL_SPEED4} || _set_sync_sleep "$PL_SPEED"
 
 #__check_if_on_chest
   _check_if_on_chest
