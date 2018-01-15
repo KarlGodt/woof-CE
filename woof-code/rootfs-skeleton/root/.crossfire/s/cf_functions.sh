@@ -295,10 +295,10 @@ _is 0 0 examine
  case $REPLY in
  #*drawinfo*'You search'*|*drawinfo*'You spot'*)       DRAWINFO0=drawinfo;    break 2;;
  #*drawextinfo*'You search'*|*drawextinfo*'You spot'*) DRAWINFO0=drawextinfo; break 2;;
- *drawinfo*'That is'*|*drawinfo*'These are'*)       DRAWINFO0=drawinfo;    break 2;;
- *drawextinfo*'That is'*|*drawextinfo*'These are'*) DRAWINFO0=drawextinfo; break 2;;
- *drawinfo*'This is'*|*drawinfo*'Those are'*)       DRAWINFO0=drawinfo;    break 2;;
- *drawextinfo*'This is'*|*drawextinfo*'Those are'*) DRAWINFO0=drawextinfo; break 2;;
+ *drawinfo*'That is'*|*drawinfo*'Those are'*)       DRAWINFO0=drawinfo;    break 2;;
+ *drawextinfo*'That is'*|*drawextinfo*'Those are'*) DRAWINFO0=drawextinfo; break 2;;
+ *drawinfo*'This is'*|*drawinfo*'These are'*)       DRAWINFO0=drawinfo;    break 2;;
+ *drawextinfo*'This is'*|*drawextinfo*'These are'*) DRAWINFO0=drawextinfo; break 2;;
  *tick*) TICKS=$((TICKS+1)); test "$TICKS" -gt 19 && break 1;;
  '') break 1;;
  *) :;;
@@ -346,13 +346,33 @@ echo unwatch
 exit ${1:-0}
 }
 
-_emergency_exit(){
+__emergency_exit(){
 _is 1 1 apply -u rod of word of recall
 _is 1 1 apply -a rod of word of recall
 _is 1 1 fire center
 _draw 3 "Emergency Exit $0 !"
 _unwatch $DRAWINFO
 _is 1 1 fire_stop
+beep -l 1000 -f 700
+exit ${1:-0}
+}
+
+_emergency_exit(){
+
+case $RETURN_ITEM in
+''|*rod*|*staff*|*wand*|*horn*)
+_is 1 1 apply -u ${RETURN_ITEM:-'rod of word of recall'}
+_is 1 1 apply -a ${RETURN_ITEM:-'rod of word of recall'}
+_is 1 1 fire center
+_is 1 1 fire_stop
+;;
+*scroll*) -is 1 1 apply ${RETURN_ITEM};;
+*) :;;
+esac
+
+_draw 3 "Emergency Exit $0 !"
+_unwatch
+
 beep -l 1000 -f 700
 exit ${1:-0}
 }
@@ -376,6 +396,7 @@ exit ${RV:-1}
 }
 
 _move_back(){  ##+++2018-01-08
+test "$DIRB" || return 0
 for i in `seq 1 1 ${1:-1}`
 do
 _is 1 1 $DIRB
@@ -384,6 +405,7 @@ done
 }
 
 _move_forth(){  ##+++2018-01-08
+test "$DIRF" || return 0
 for i in `seq 1 1 ${1:-1}`
 do
 _is 1 1 $DIRF
@@ -393,6 +415,9 @@ done
 
 _move_back_and_forth(){  ##+++2018-01-08
 STEPS=${1:-1}
+
+#test "$DIRB" -a "$DIRF" || return 0
+test "$DIRB" || return 0
 for i in `seq 1 1 $STEPS`
 do
 _is 1 1 $DIRB
@@ -418,6 +443,7 @@ if test "$2"; then shift
  done
 fi
 
+test "$DIRF" || return 0
 for i in `seq 1 1 $STEPS`
 do
 _is 1 1 $DIRF
@@ -530,17 +556,31 @@ esac
 
 _msg 7 "Player speed is '$PL_SPEED1'"
 
+case $PL_SPEED1 in
+*.*)
 PL_SPEED_PRE="${PL_SPEED1%.*}."
 PL_SPEED_POST="${PL_SPEED1##*.}"
+;;
+*,*)
+PL_SPEED_PRE="${PL_SPEED1%,*},"
+PL_SPEED_POST="${PL_SPEED1##*,}"
+;;
+[0-9]*)
+PL_SPEED_PRE="${PL_SPEED1}."
+PL_SPEED_POST=00
+;;
+esac
+case ${#PL_SPEED_POST} in 1) PL_SPEED_POST="${PL_SPEED_POST}0";; esac
+
 PL_SPEED_POST=`_round_up_and_down $PL_SPEED_POST`
-_msg 7 "Rounded Player speed is '$PL_SPEED_POST'"
+_msg 7 "Rounded Player speed is '${PL_SPEED_PRE}$PL_SPEED_POST'"
 PL_SPEED_POST=${PL_SPEED_POST:0:2}
-_msg 7 "Rounded Player speed is '$PL_SPEED_POST'"
+_msg 7 "Rounded Player speed is '${PL_SPEED_PRE}$PL_SPEED_POST'"
 
 PL_SPEED1="${PL_SPEED_PRE}${PL_SPEED_POST}"
 _msg 7 "Rounded Player speed is '$PL_SPEED1'"
 
-PL_SPEED1=`echo "$PL_SPEED1" | sed 's!\.!!g;s!^0*!!'`
+PL_SPEED1=`echo "$PL_SPEED1" | sed 's!\.!!g;s!\,!!g;s!^0*!!'`
 _msg 6 "Using player speed '$PL_SPEED1'"
 
 _draw 6 "Done."
@@ -567,7 +607,8 @@ _unwatch $DRAWINFO
 
 _drop(){
  _sound 0 drip &
- echo issue 1 1 drop "$@"
+ #echo issue 1 1 drop "$@" #01:58 There are only 1 chests.
+  echo issue 0 0 drop "$@"
 }
 
 _success(){
@@ -1116,9 +1157,9 @@ fi
 _draw 7 "OK."
 }
 
-_prepare_rod_of_recall(){
+_unapply_rod_of_recall(){
 # *** Unreadying rod of word of recall - just in case *** #
-_debug "_prepare_rod_of_recall:$*"
+_debug "_unapply_rod_of_recall:$*"
 
 local RECALL OLD_REPLY REPLY
 
@@ -1132,7 +1173,7 @@ echo request items actv
 
 while :; do
 read -t $TMOUT
-_log "$REPLY_LOG" "_prepare_rod_of_recall:$REPLY"
+_log "$REPLY_LOG" "_unapply_rod_of_recall:$REPLY"
 case $REPLY in
 *rod*of*word*of*recall*) RECALL=1;;
 '') break;;
@@ -1439,17 +1480,21 @@ currHPMin=${HP_MIN_DEF:-$((MHP/10))}
 _msg 7 "currHP=$currHP currHPMin=$currHPMin"
 if test "$currHP" -le $currHPMin; then
 
-_empty_message_stream
-_is 1 1 apply -u rod of word of recall
-_is 1 1 apply -a rod of word of recall
-_empty_message_stream
+ __old_recall(){
+ _empty_message_stream
+ _is 1 1 apply -u ${RETURN_ITEM:-'rod of word of recall'}
+ _is 1 1 apply -a ${RETURN_ITEM:-'rod of word of recall'}
+ _empty_message_stream
 
-_is 1 1 fire center ## TODO: check if already applied and in inventory
-_is 1 1 fire_stop
-_empty_message_stream
+ _is 1 1 fire center ## TODO: check if already applied and in inventory
+ _is 1 1 fire_stop
+ _empty_message_stream
 
-_unwatch $DRAWINFO
-exit
+ _unwatch $DRAWINFO
+ exit
+}
+
+_emergency_exit
 fi
 
 unset HP
