@@ -15,7 +15,7 @@ echo " Or removes interactively from GIT    if not added to SYSTEM."
 echo "diff -qs both files AND continues if zero return value."
 echo "Asks to add to GIT or to SYSTEM."
 echo "Options:"
-echo "-D DIRECTORY ie -d \$PWD"
+echo "-D DIRECTORY ie -D \$PWD"
 echo "to just diff the files of a directory."
 echo
 echo "TODO: AUTO_UPDATE_GIT variable"
