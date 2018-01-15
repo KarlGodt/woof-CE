@@ -49,7 +49,8 @@ _sleep
 
 case $NUMBER in $one) break 1;; esac
 
-_drop_chest
+#_drop_chest
+_drop chest
 _sleep
 
 done

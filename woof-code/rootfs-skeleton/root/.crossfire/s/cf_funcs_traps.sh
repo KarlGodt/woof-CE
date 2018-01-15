@@ -280,6 +280,8 @@ _debug "FOUND_TRAP=$FOUND_TRAP TRAPS_ALL_OLD=$TRAPS_ALL_OLD"
 _unwatch $DRAWINFO
 _sleep
 
+test "$MULTIPLE_TRAPS" || {
+    test "$TRAPS_ALL" -ge 1 && break 1; }
 
 cnt=$((cnt-1))
 test "$cnt" -gt 0 || break 1

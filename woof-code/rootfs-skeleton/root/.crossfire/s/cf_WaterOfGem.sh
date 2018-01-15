@@ -117,7 +117,7 @@ $FUNCTION_CHECK_FOR_SPACE
 # *** Check if cauldron is empty *** #
 _check_empty_cauldron
 # *** Unreadying rod of word of recall - just in case *** #
-_prepare_rod_of_recall
+_unapply_rod_of_recall
 
 # *** Actual script to alch the desired water of gem *** #
 test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution

@@ -114,7 +114,7 @@ _check_empty_cauldron
 #sleep ${SLEEP}s
 
 # *** Unreadying rod of word of recall - just in case *** #
-_prepare_rod_of_recall
+_unapply_rod_of_recall
 
 
 # *** Now LOOPING *** #
