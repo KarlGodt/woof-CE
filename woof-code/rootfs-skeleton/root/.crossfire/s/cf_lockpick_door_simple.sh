@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/bash
 
 # Who:
 # Created by Karl Reimer Godt
@@ -42,6 +42,7 @@ VERSION=1.2 # bugfixes in regards to unexpected
 # settings of variables
 VERSION=1.3 # Recognize *help and *version options
 VERSION=2.0 # use sourced functions files
+VERSION=2.1 # bugfixes for calls to _move_* functions
 
 LOCKPICK_ATTEMPTS_DEFAULT=9
 SEARCH_ATTEMPTS_DEFAULT=9
@@ -59,6 +60,8 @@ DEBUG=1
 LOGGING=1
 MSGLEVEL=6 # Message Levels 1-7 to print to the msg pane
 
+#. $HOME/cf/s/cf_functions.sh || exit 2
+
 . $HOME/cf/s/cf_funcs_common.sh || exit 4
 . $HOME/cf/s/cf_funcs_traps.sh  || exit 5
 . $HOME/cf/s/cf_funcs_move.sh   || exit 6
@@ -69,12 +72,16 @@ _draw 6  "$MY_BASE"
 _draw 7  "Script to search for traps,"
 _draw 7  "disarming them,"
 _draw 7  "and lockpick a door."
+_draw 6  "Syntax:"
+_draw 7  "$0 <<Options>>"
 _draw 8  "Options:"
 _draw 9  "-S # :Number of search attempts, default $SEARCH_ATTEMPTS_DEFAULT"
 _draw 9  "-L # :Number of lockpick attempts, deflt $LOCKPICK_ATTEMPTS_DEFAULT"
 _draw 9  "-D # :Direction [0-8] to go"
 _draw 10 "-I   :Do infinte attempts to lockpick door,"
 _draw 10 "      use scriptkill command to terminate."
+_draw 9  "-M   :Do not break search when found first trap,"
+_draw 9  "      usefull if doors have more than one trap."
 _draw 11 "-V   :Print version information."
 _draw 12 "-c   :cast spell disarm"
 _draw 12 "-i   :invoke spell disarm"
@@ -391,16 +398,16 @@ test "$DIRECTION" || return 0
 
 DIRECTION=`echo "$DIRECTION" | tr '[A-Z]' '[a-z]'`
 case $DIRECTION in
-0|center|centre|c) DIRECTION=0;;
-1|north|n)         DIRECTION=1;;
-2|northeast|ne)    DIRECTION=2;;
-3|east|e)          DIRECTION=3;;
-4|southeast|se)    DIRECTION=4;;
-5|south|s)         DIRECTION=5;;
-6|southwest|sw)    DIRECTION=6;;
-7|west|w)          DIRECTION=7;;
-8|northwest|nw)    DIRECTION=8;;
-*) ERROR=1 _error "Not recognized: '$DIRECTION'"
+0|center|centre|c) DIRECTION=0; DIRB=;          DIRF=;;
+1|north|n)         DIRECTION=1; DIRB=south;     DIRF=north;;
+2|northeast|ne)    DIRECTION=2; DIRB=southwest; DIRF=northeast;;
+3|east|e)          DIRECTION=3; DIRB=west;      DIRF=east;;
+4|southeast|se)    DIRECTION=4; DIRB=northwest; DIRF=southeast;;
+5|south|s)         DIRECTION=5; DIRB=north;     DIRF=south;;
+6|southwest|sw)    DIRECTION=6; DIRB=northeast; DIRF=southwest;;
+7|west|w)          DIRECTION=7; DIRB=east;      DIRF=west;;
+8|northwest|nw)    DIRECTION=8; DIRB=southeast; DIRF=northwest;;
+*) ERROR=1 _error "Not recognized: '$DIRECTION'";;
 esac
 }
 
@@ -409,16 +416,16 @@ DIRECTION=${1:-$DIRECTION}
 test "$DIRECTION" || return 0
 DIRECTION=`echo "$DIRECTION" | tr '[A-Z]' '[a-z]'`
 case $DIRECTION in
-0|center|centre|c) DIRECTION=center;;
-1|north|n)         DIRECTION=north;;
-2|northeast|ne)    DIRECTION=northeast;;
-3|east|e)          DIRECTION=east;;
-4|southeast|se)    DIRECTION=southeast;;
-5|south|s)         DIRECTION=south;;
-6|southwest|sw)    DIRECTION=southwest;;
-7|west|w)          DIRECTION=west;;
-8|northwest|nw)    DIRECTION=northwest;;
-*) ERROR=1 _error "Not recognized: '$DIRECTION'"
+0|center|centre|c) DIRECTION=center;    DIRB=;          DIRF=;;
+1|north|n)         DIRECTION=north;     DIRB=south;     DIRF=north;;
+2|northeast|ne)    DIRECTION=northeast; DIRB=southwest; DIRF=northeast;;
+3|east|e)          DIRECTION=east;      DIRB=west;      DIRF=east;;
+4|southeast|se)    DIRECTION=southeast; DIRB=northwest; DIRF=southeast;;
+5|south|s)         DIRECTION=south;     DIRB=north;     DIRF=south;;
+6|southwest|sw)    DIRECTION=southwest; DIRB=northeast; DIRF=southwest;;
+7|west|w)          DIRECTION=west;      DIRB=east;      DIRF=west;;
+8|northwest|nw)    DIRECTION=northwest; DIRB=southeast; DIRF=northwest;;
+*) ERROR=1 _error "Not recognized: '$DIRECTION'";;
 esac
 }
 
@@ -444,7 +451,7 @@ esac
 # S # :Search attempts
 # D # :Direction to open door
 # I   :Infinte lockpick attempts
-while getopts S:D:L:IVhabcdefgijklmnopqrstuvwxyzABCEFGHJKMNOPQRTUWXYZ oneOPT
+while getopts S:D:L:IVMhabcdefgijklmnopqrstuvwxyzABCEFGHJKNOPQRTUWXYZ oneOPT
 do
 case $oneOPT in
 D) DIRECTION=${OPTARG:-0};;
@@ -464,7 +471,7 @@ h) _say_help 0;;
 V) _say_version 0;;
 
 '') _draw 2 "FIXME: Empty positional parameter ...?";;
-*) _draw 3 "Unrecognized parameter '$oneOPT' ."
+*) _draw 3 "Unrecognized parameter '$oneOPT' .";;
 esac
 
 sleep 0.1
@@ -478,10 +485,12 @@ _say_start_msg $*
 _do_parameters $*
 
 _get_player_speed
-_set_sync_sleep
+#_set_sync_sleep ${PL_SPEED1:-$PL_SPEED}
+test "$PL_SPEED1" && __set_sync_sleep ${PL_SPEED1} || _set_sync_sleep "$PL_SPEED"
 
 #__turn_direction $DIRECTION cast "show invisible"
   _turn_direction $DIRECTION ready_skill "literacy"
+unset DIRB DIRF
 
 #__search_traps
   _search_traps
