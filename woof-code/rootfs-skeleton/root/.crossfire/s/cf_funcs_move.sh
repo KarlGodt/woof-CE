@@ -2,40 +2,41 @@
 
 [ "$HAVE_FUNCS_MOVE" ] && return 0
 
-_direction_to_number(){
-DIRECTION=${1:-$DIRECTION}
-test "$DIRECTION" || return 0
+___direction_to_number(){ # cf_funcs_common.sh
+local lDIRECTION=${1:-$DIRECTION}
+test "$lDIRECTION" || return 0
 
-DIRECTION=`echo "$DIRECTION" | tr '[A-Z]' '[a-z]'`
-case $DIRECTION in
-0|center|centre|c) DIRECTION=0;;
-1|north|n)         DIRECTION=1;;
-2|northeast|ne)    DIRECTION=2;;
-3|east|e)          DIRECTION=3;;
-4|southeast|se)    DIRECTION=4;;
-5|south|s)         DIRECTION=5;;
-6|southwest|sw)    DIRECTION=6;;
-7|west|w)          DIRECTION=7;;
-8|northwest|nw)    DIRECTION=8;;
-*) ERROR=1 _error "Not recognized: '$DIRECTION'"
+lDIRECTION=`echo "$lDIRECTION" | tr '[A-Z]' '[a-z]'`
+case $lDIRECTION in
+0|center|centre|c) DIRECTION=0; DIRB=;          DIRF=;;
+1|north|n)         DIRECTION=1; DIRB=south;     DIRF=north;;
+2|northeast|ne)    DIRECTION=2; DIRB=southwest; DIRF=northeast;;
+3|east|e)          DIRECTION=3; DIRB=west;      DIRF=east;;
+4|southeast|se)    DIRECTION=4; DIRB=northwest; DIRF=southeast;;
+5|south|s)         DIRECTION=5; DIRB=north;     DIRF=south;;
+6|southwest|sw)    DIRECTION=6; DIRB=northeast; DIRF=southwest;;
+7|west|w)          DIRECTION=7; DIRB=east;      DIRF=west;;
+8|northwest|nw)    DIRECTION=8; DIRB=southeast; DIRF=northwest;;
+*) ERROR=1 _error "Not recognized: '$lDIRECTION'";;
 esac
 }
 
-_number_to_direction(){
-DIRECTION=${1:-$DIRECTION}
-test "$DIRECTION" || return 0
-DIRECTION=`echo "$DIRECTION" | tr '[A-Z]' '[a-z]'`
-case $DIRECTION in
-0|center|centre|c) DIRECTION=center;;
-1|north|n)         DIRECTION=north;;
-2|northeast|ne)    DIRECTION=northeast;;
-3|east|e)          DIRECTION=east;;
-4|southeast|se)    DIRECTION=southeast;;
-5|south|s)         DIRECTION=south;;
-6|southwest|sw)    DIRECTION=southwest;;
-7|west|w)          DIRECTION=west;;
-8|northwest|nw)    DIRECTION=northwest;;
-*) ERROR=1 _error "Not recognized: '$DIRECTION'"
+___number_to_direction(){ # cf_funcs_common.sh
+local lDIRECTION=${1:-$DIRECTION}
+test "$lDIRECTION" || return 0
+
+lDIRECTION=`echo "$lDIRECTION" | tr '[A-Z]' '[a-z]'`
+case $lDIRECTION in
+0|center|centre|c) DIRECTION=center;    DIRB=;          DIRF=;;
+1|north|n)         DIRECTION=north;     DIRB=south;     DIRF=north;;
+2|northeast|ne)    DIRECTION=northeast; DIRB=southwest; DIRF=northeast;;
+3|east|e)          DIRECTION=east;      DIRB=west;      DIRF=east;;
+4|southeast|se)    DIRECTION=southeast; DIRB=northwest; DIRF=southeast;;
+5|south|s)         DIRECTION=south;     DIRB=north;     DIRF=south;;
+6|southwest|sw)    DIRECTION=southwest; DIRB=northeast; DIRF=southwest;;
+7|west|w)          DIRECTION=west;      DIRB=east;      DIRF=west;;
+8|northwest|nw)    DIRECTION=northwest; DIRB=southeast; DIRF=northwest;;
+*) ERROR=1 _error "Not recognized: '$lDIRECTION'";;
 esac
 }
 
@@ -51,15 +52,16 @@ _is 0 0 fire_stop
 
 _open_door_with_standard_key(){
 #DEBUG=1 _debug "_open_door_with_standard_key:$*"
-DIRECTION=${1:-$DIRECTION}
+local lDIRECTION=${1:-$DIRECTION}
 #DEBUG=1 _debug "DIRECTION=$DIRECTION"
-test "$DIRECTION" || return 0
-_number_to_direction "$DIRECTION"
+test "$lDIRECTION" || return 0
+_number_to_direction "$lDIRECTION"
 #DEBUG=1 _debug "DIRECTION=$DIRECTION"
 _is 0 0 $DIRECTION
 }
 
 _move_back(){  ##+++2018-01-08
+test "$DIRB" || return 0
 for i in `seq 1 1 ${1:-1}`
 do
 _is 1 1 $DIRB
@@ -68,6 +70,7 @@ done
 }
 
 _move_forth(){  ##+++2018-01-08
+test "$DIRF" || return 0
 for i in `seq 1 1 ${1:-1}`
 do
 _is 1 1 $DIRF
@@ -77,6 +80,9 @@ done
 
 _move_back_and_forth(){  ##+++2018-01-08
 STEPS=${1:-1}
+
+#test "$DIRB" -a "$DIRF" || return 0
+test "$DIRB" || return 0
 for i in `seq 1 1 $STEPS`
 do
 _is 1 1 $DIRB
@@ -102,6 +108,7 @@ if test "$2"; then shift
  done
 fi
 
+test "$DIRF" || return 0
 for i in `seq 1 1 $STEPS`
 do
 _is 1 1 $DIRF
