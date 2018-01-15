@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/bash
 
 # 2018-01-10 : Code overhaul,
 # made duplicate code in functions.
@@ -6,6 +6,9 @@
 export PATH=/bin:/usr/bin
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
+
+DEBUG=1
+MSGLEVEL=7
 
 #test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
 #_set_global_variables "$@"
@@ -51,10 +54,6 @@ esac
 shift
 sleep 0.1
 done
-
-
-# *** Getting Player's Speed *** #
-_get_player_speed
 
 # functions:
 _mark_item(){
@@ -104,6 +103,11 @@ _say_count(){
 case $SUCC in [0-9]*) _draw 7 "You had smolten $SUCC icecubes.";; esac
 case $FAIL in [0-9]*) _draw 4 "You tried $FAIL times and failed.";; esac
 }
+
+# *** Getting Player's Speed *** #
+_get_player_speed
+#_set_sync_sleep ${PL_SPEED1:-$PL_SPEED}
+test "$PL_SPEED1" && __set_sync_sleep ${PL_SPEED1} || _set_sync_sleep "$PL_SPEED"
 
 # *** Actual script to pray multiple times *** #
 # MAIN
