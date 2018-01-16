@@ -181,6 +181,12 @@ done
 
 #***
 _is(){
+# issue <repeat> <must_send> <command> - send
+#  <command> to server on behalf of client.
+#  <repeat> is the number of times to execute command
+#  <must_send> tells whether or not the command must sent at all cost (1 or 0).
+#  <repeat> and <must_send> are optional parameters.
+
     _debug "issue $*"
     echo issue "$@"
     sleep 0.2
@@ -204,7 +210,7 @@ case $* in
 6|southwest|sw) readonly DIRECTION_NUMBER=6;;
 7|west|w)       readonly DIRECTION_NUMBER=7;;
 8|northwest|nw) readonly DIRECTION_NUMBER=8;;
-*) _error 2 "Invalid direction '$*'"
+*) _error 2 "Invalid direction '$*'";;
 esac
 }
 
@@ -602,20 +608,19 @@ _do_emergency_recall(){
 # *   alternatively one could apply rod of heal, scroll of restoration
 # *   and ommit exit ( comment 'exit 5' line by setting a '#' before it)
 # *   - something like that
-RETURN_ITEM=${*:-"$RETURN_ITEM"}
-if test "$RETURN_ITEM"; then
- case $RETURN_ITEM in
+lRETURN_ITEM=${*:-"$RETURN_ITEM"}
+if test "$lRETURN_ITEM"; then
+ case $lRETURN_ITEM in
  *rod*|*staff*|*wand*|*horn*)
-  _is 1 1 apply -u "$RETURN_ITEM"
-  _is 1 1 apply -a "$RETURN_ITEM"
+  _is 1 1 apply -u "$lRETURN_ITEM"
+  _is 1 1 apply -a "$lRETURN_ITEM"
   _is 1 1 fire 0
   ;;
  *scroll*)
-  _is 1 1 apply "$RETURN_ITEM"
+  _is 1 1 apply "$lRETURN_ITEM"
   ;;
- *) invoke "$RETURN_ITEM";; # assuming spell
+ *) invoke "$lRETURN_ITEM";; # assuming spell
  esac
- # _is 1 1 fire 0
 fi
   _is 1 1 fire_stop
 
@@ -1253,12 +1258,6 @@ do
 
 # user could change range attack while pausing ...
  _set_spell
-
-# issue <repeat> <must_send> <command> - send
-#  <command> to server on behalf of client.
-#  <repeat> is the number of times to execute command
-#  <must_send> tells whether or not the command must sent at all cost (1 or 0).
-#  <repeat> and <must_send> are optional parameters.
 
  _is 1 1 $COMMAND $DIRECTION_NUMBER
  _is 1 1 $COMMAND_STOP
