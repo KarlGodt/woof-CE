@@ -21,7 +21,7 @@ ITEM_DEFAULT='horn of plenty'
 COMMAND=fire
 COMMAND_PAUSE=3  # seconds
 COMMAND_STOP=fire_stop
-FOOD_STAT_MIN=100
+FOOD_STAT_MIN=300
 FOOD=waybread
 
 # early functions
@@ -67,9 +67,10 @@ echo "$*" >>"$LOG_FILE"
 
 _debug(){
 test "$DEBUG" || return
+case $1 in -s) shift; sleep 0.5;; esac
 echo draw 3 "$*"
-sleep 0.5
 }
+
 __debug(){  ##+++2018-01-10
 test "$DEBUG" || return 0
 dcnt=0
@@ -93,6 +94,12 @@ exit ${RV:-1}
 
 #***
 _is(){
+# issue <repeat> <must_send> <command> - send
+#  <command> to server on behalf of client.
+#  <repeat> is the number of times to execute command
+#  <must_send> tells whether or not the command must sent at all cost (1 or 0).
+#  <repeat> and <must_send> are optional parameters.
+
     _debug "issue $*"
     echo issue "$@"
     sleep 0.2
@@ -111,9 +118,8 @@ case $* in
 6|southwest|sw) DIRECTION_NUMBER=6;;
 7|west|w)       DIRECTION_NUMBER=7;;
 8|northwest|nw) DIRECTION_NUMBER=8;;
-*) _error 2 "Invalid direction '$*'"
+*) _error 2 "Invalid direction '$*'";;
 esac
-
 }
 
 _parse_parameters(){
@@ -204,8 +210,8 @@ unset oldITEM oneITEM
 echo "$ITEMSA" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es"
 }
 
-_apply_needed_item(){
-#_debug "_apply_needed_item:issue 0 0 apply $ITEM"
+_apply_item(){
+#_debug "_apply_item:issue 0 0 apply $ITEM"
  _is 0 0 apply ${*:-"$ITEM"}
 }
 
@@ -224,7 +230,7 @@ read -t ${TMOUT:-1} REPLY_RANGE
  test "`echo "$REPLY_RANGE" | grep -i "$lITEM"`" && break
  test "$oldREPLY_RANGE" = "$REPLY_RANGE" && break
  test "$REPLY_RANGE" || break
- #_debug "issue 1 1 rotateshoottype"
+
     _is 1 1 rotateshoottype
  oldREPLY_RANGE="$REPLY_RANGE"
 sleep 2.1
@@ -239,10 +245,11 @@ read -t ${TMOUT:-1} statHP
  _debug "__watch_food:$statHP"
  FOOD_STAT=`echo $statHP | awk '{print $NF}'`
  _debug "__watch_food:FOOD_STAT=$FOOD_STAT"
+
  if test "$FOOD_STAT" -lt $FOOD_STAT_MIN; then
-  #_debug "issue 0 0 apply $FOOD"
-     _is 0 0 apply $FOOD
+   _is 0 0 apply $FOOD
    sleep 1
+ else true
  fi
 }
 
@@ -253,7 +260,7 @@ __do_emergency_recall(){
   _is 1 1 fire 0
   _is 1 1 fire_stop
 ## apply bed of reality
-# sleep 10
+# sleep 6
 # _is 1 1 apply
 exit 5
 }
@@ -265,20 +272,19 @@ _do_emergency_recall(){
 # *   alternatively one could apply rod of heal, scroll of restoration
 # *   and ommit exit ( comment 'exit 5' line by setting a '#' before it)
 # *   - something like that
-RETURN_ITEM=${*:-"$RETURN_ITEM"}
-if test "$RETURN_ITEM"; then
- case $RETURN_ITEM in
+lRETURN_ITEM=${*:-"$RETURN_ITEM"}
+if test "$lRETURN_ITEM"; then
+ case $lRETURN_ITEM in
  *rod*|*staff*|*wand*|*horn*)
-  _is 1 1 apply -u "$RETURN_ITEM"
-  _is 1 1 apply -a "$RETURN_ITEM"
+  _is 1 1 apply -u "$lRETURN_ITEM"
+  _is 1 1 apply -a "$lRETURN_ITEM"
   _is 1 1 fire 0
   ;;
  *scroll*)
-  _is 1 1 apply "$RETURN_ITEM"
+  _is 1 1 apply "$lRETURN_ITEM"
   ;;
- *) invoke "$RETURN_ITEM";; # assuming spell
+ *) invoke "$lRETURN_ITEM";; # assuming spell
  esac
-  #_is 1 1 fire 0
 fi
   _is 1 1 fire_stop
 
@@ -296,11 +302,11 @@ echo request stat hp
 read -t ${TMOUT:-1} r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD
  _debug "_watch_food:FOOD=$FOOD HP=$HP"
  if test "$FOOD" -lt $FOOD_STAT_MIN; then
-  #_debug "issue 0 0 apply $FOOD"
      _is 0 0 apply $FOOD
    sleep 1
+ else true
  fi
- if test $HP -lt $((HP_MAX/10)); then
+ if test "$HP" -lt $((HP_MAX/10)); then
   _do_emergency_recall
  else true
  fi
@@ -313,6 +319,7 @@ _draw 2 "$0 started <$*> with pid $$ $PPID"
 _do_loop(){
 NUMBER=${1:-1}
 _debug "_do_loop:$*:NUMBER=$NUMBER"
+
 for one in `seq 1 1 $NUMBER`
 do
 
@@ -323,9 +330,9 @@ do
 # <repeat> is the number of times to execute command
 # <must_send> tells whether or not the command must sent at all cost (1 or 0).
 # <repeat> and <must_send> are optional parameters.
- #_debug "_do_loop:issue 1 1 $COMMAND $DIRECTION_NUMBER"
-             _is 1 1 $COMMAND $DIRECTION_NUMBER
-             _is 1 1 $COMMAND_STOP
+
+ _is 1 1 $COMMAND $DIRECTION_NUMBER
+ _is 1 1 $COMMAND_STOP
  sleep $COMMAND_PAUSE
 
  _watch_food
@@ -338,23 +345,24 @@ do
  _draw 4 "Elapsed $TIME s, still '$TRIES_STILL' to go ($MINUTES:$SECONDS minutes) ..."
 
 done
-#_debug "_do_loop:issue 0 0 $COMMAND_STOP"
-            _is 0 0 $COMMAND_STOP
+
+_is 0 0 $COMMAND_STOP
 }
 
 _do_program(){
 _parse_parameters "$@"
 
-ITEM=${ITEM:-"$ITEM_DEFAULT"}
+     ITEM=${ITEM:-"$ITEM_DEFAULT"}
 DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
-NUMBER=${NUMBER:-"$NUMBER_DEFAULT"}
+   NUMBER=${NUMBER:-"$NUMBER_DEFAULT"}
+
 #_check_have_needed_item_in_inventory || _error 1 "Item $ITEM not in inventory"
 _check_have_needed_item_applied
 case $? in
 0) :;;
 *) _check_have_needed_item_in_inventory
    case $? in
-   0) _apply_needed_item;;
+   0) _apply_item;;
    *) _error 1 "Item $ITEM not in inventory";;
    esac
 ;;
