@@ -22,7 +22,7 @@
 _set_global_variables(){
 LOGGING=${LOGGING:-''}  #bool, set to ANYTHING ie "1" to enable, empty to disable
 #DEBUG=${DEBUG:-''}      #bool, set to ANYTHING ie "1" to enable, empty to disable
-MSGLEVEL=${MSGLEVEL:-7} #integer 1 emergency - 7 debug
+MSGLEVEL=${MSGLEVEL:-6} #integer 1 emergency - 7 debug
 #case $MSGLEVEL in
 #7) DEBUG=${DEBUG:-1};; 6) INFO=${INFO:-1};; 5) NOTICE=${NOTICE:-1};; 4) WARN=${WARN:-1};;
 #3) ERROR=${ERROR:-1};; 2) ALERT=${ALERT:-1};; 1) EMERG=${EMERG:-1};;
@@ -58,7 +58,7 @@ esac
 COUNT_CHECK_FOOD=${COUNT_CHECK_FOOD:-10} # number between attempts to check foodlevel.
                     #  1 would mean check every single time, which is too much
 EAT_FOOD=${EAT_FOOD:-waybread}   # set to desired food to eat ie food, mushroom, booze, .. etc.
-FOOD_DEF=$EAT_FOOD     # default
+FOOD_DEF=haggis     # default
 MIN_FOOD_LEVEL_DEF=${MIN_FOOD_LEVEL_DEF:-300} # default minimum. 200 starts to beep.
                        # waybread has foodvalue of 500
                        # 999 is max foodlevel
@@ -103,15 +103,29 @@ echo unwatch ${*:-$DRAWINFO}
 }
 
 _sleep(){
+SLEEP=${SLEEP//,/.}
 sleep ${SLEEP:-1}
 }
 
 _draw(){
-    local COLOUR="$1"
-    COLOUR=${COLOUR:-1} #set default
+    local lCOLOUR="${1:-$COLOUR}"
+    lCOLOUR=${lCOLOUR:-1} #set default
     shift
     local MSG="$@"
-    echo draw $COLOUR "$MSG"
+    echo draw $lCOLOUR "$MSG"
+}
+
+__draw(){
+case $1 in [0-9]|1[0-2])
+    lCOLOUR="$1"; shift;; esac
+    local lCOLOUR=${lCOLOUR:-1} #set default
+dcnt=0
+echo "$*" | while read line
+do
+dcnt=$((dcnt+1))
+    echo draw $lCOLOUR "$line"
+done
+unset dcnt line
 }
 
 __msg(){  ##+++2018-01-08
@@ -281,14 +295,14 @@ _draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL ($TIM
 #** the messages in the msgpane may pollute **#
 #** need to catch msg to discard them into an unused variable **#
 _empty_message_stream(){
-local REPLY
+local lREPLY
 while :;
 do
-read -t $TMOUT
-_log "$REPLY_LOG" "_empty_message_stream:$REPLY"
-test "$REPLY" || break
-_msg 7 "_empty_message_stream:$REPLY"
-unset REPLY
+read -t $TMOUT lREPLY
+_log "$REPLY_LOG" "_empty_message_stream:$lREPLY"
+test "$lREPLY" || break
+_msg 7 "_empty_message_stream:$lREPLY"
+unset lREPLY
  sleep 0.01
 #sleep 0.1
 done
@@ -297,7 +311,7 @@ done
 _check_drawinfo(){  ##+++2018-01-08
 _debug "_check_drawinfo:$*"
 
-oDEBUG=$DEBUG;       DEBUG=${DEBUG:-'1'}
+oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
 oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
 
 _draw 2 "Checking drawinfo ..."
@@ -379,23 +393,29 @@ exit ${1:-0}
 }
 
 _emergency_exit(){
+RV=${1:-4}; shift
+local lRETURN_ITEM=${*:-"$RETURN_ITEM"}
 
-case $RETURN_ITEM in
+case $lRETURN_ITEM in
 ''|*rod*|*staff*|*wand*|*horn*)
-_is 1 1 apply -u ${RETURN_ITEM:-'rod of word of recall'}
-_is 1 1 apply -a ${RETURN_ITEM:-'rod of word of recall'}
+_is 1 1 apply -u ${lRETURN_ITEM:-'rod of word of recall'}
+_is 1 1 apply -a ${lRETURN_ITEM:-'rod of word of recall'}
 _is 1 1 fire center
 _is 1 1 fire_stop
 ;;
-*scroll*) -is 1 1 apply ${RETURN_ITEM};;
-*) :;;
+*scroll*) _is 1 1 apply ${lRETURN_ITEM};;
+*) invoke "$lRETURN_ITEM";; # assuming spell
 esac
 
 _draw 3 "Emergency Exit $0 !"
 _unwatch
 
+# apply bed of reality
+ sleep 6
+_is 1 1 apply
+
 beep -l 1000 -f 700
-exit ${1:-0}
+exit ${RV:-0}
 }
 
 _exit_no_space(){
@@ -787,8 +807,6 @@ hpcnt=$((hpcnt+1))
 test "$hpcnt" -lt $COUNT_CHECK_FOOD && return
 hpcnt=0
 
-local REPLY
-
 local currHP currHPMin
 currHP=${1:-$HP}
 currHPMin=${2:-$HP_MIN_DEF}
@@ -817,7 +835,85 @@ fi
 unset HP
 }
 
+_check_if_on_item(){
+_debug "_check_if_on_item:$*"
+
+local DO_LOOP TOPMOST
+unset DO_LOOP TOPMOST
+case $1 in
+-l) DO_LOOP=1; shift;;
+-t) TOPMOST=1; shift;;
+-lt|-tl) DO_LOOP=1; TOPMOST=1;;
+esac
+
+local lITEM=${*:-"$ITEM"}
+test "$lITEM" || return 254
+
+_draw 5 "Checking if standing on $lITEM ..."
+UNDER_ME='';
+UNDER_ME_LIST='';
+echo request items on
+
+while :; do
+read -t $TMOUT UNDER_ME
+_log "$ON_LOG" "_check_if_on_item:$UNDER_ME"
+_msg 7 "$UNDER_ME"
+
+case $UNDER_ME in
+'') continue;;
+*request*items*on*end*) break 1;;
+*scripttell*break*)     break 1;;
+*scripttell*exit*)      _exit 1;;
+esac
+
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+
+unset UNDER_ME
+sleep 0.1s
+done
+
+UNDER_ME_LIST=`echo "$UNDER_ME_LIST" | sed 's%^$%%'`
+
+__debug "UNDER_ME_LIST='$UNDER_ME_LIST'"
+
+NUMBER_ITEM=`echo "$UNDER_ME_LIST" | grep -iE " $lITEM| ${lITEM}s | ${lITEM}es" | wc -l`
+
+if test "$TOPMOST"; then
+test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -iE " $lITEM| ${lITEM}s| ${lITEM}es" | grep -E 'cursed|damned'`" && {
+ beep -l 1000 -f 700
+ test "$DO_LOOP" && return 1 || _exit 1 "Topmost $lITEM appears to be cursed!"
+}
+
+test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -iE " $lITEM| ${lITEM}s| ${lITEM}es"`" || {
+beep -l 1000 -f 700
+test "$DO_LOOP" && return 1 || _exit 1 "$lITEM appears not to be topmost!"
+}
+else true
+fi
+
+case "$UNDER_ME_LIST" in
+*"$lITEM"*cursed*|*"${lITEM}s"*cursed*|*"${lITEM}es"*cursed*)
+ beep -l 1000 -f 700
+ test "$DO_LOOP" && return 1 || _exit 1 "You appear to stand upon some cursed $lITEM!";;
+*"$lITEM"*damned*|*"${lITEM}s"*damned*|*"${lITEM}es"*damned*)
+ beep -l 1000 -f 700
+ test "$DO_LOOP" && return 1 || _exit 1 "You appear to stand upon some damned $lITEM!";;
+*"$lITEM"|*"${lITEM}s"|*"${lITEM}es") :;;
+*)
+ beep -l 1000 -f 700
+ test "$DO_LOOP" && return 1 || _exit 1 "You appear not to stand on some $lITEM!";;
+esac
+
+return 0
+}
+
 _is(){
+# issue <repeat> <must_send> <command> - send
+#  <command> to server on behalf of client.
+#  <repeat> is the number of times to execute command
+#  <must_send> tells whether or not the command must sent at all cost (1 or 0).
+#  <repeat> and <must_send> are optional parameters.
     _debug "issue $*"
     echo issue "$@"
     sleep 0.2
