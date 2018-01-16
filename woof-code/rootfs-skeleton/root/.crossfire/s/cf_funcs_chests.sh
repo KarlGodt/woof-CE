@@ -19,18 +19,23 @@ _move_back_and_forth 2
 _watch
 _is 1 1 apply
 #_sleep
+unset OPEN_COUNT
  while :; do unset REPLY
  read -t ${TMOUT:-1}
  _log "_open_chests:$REPLY"
  _msg 7 "$REPLY"
  case $REPLY in
+ *'You find'*)   OPEN_COUNT=1;;
+ *empty*)        OPEN_COUNT=1;;
  *'You open chest.'*) break 2;;
+ *scripttell*break*)  break 1;;
+ *scripttell*exit*)   _exit 1;;
  '') break 1;;
  esac
  sleep 0.01
  done
 _unwatch
-
+test "$OPEN_COUNT" && CHEST_COUNT=$((CHEST_COUNT+1))
 # TODO : You find*Rune of*
 #You find Blades trap in the chest.
 #You set off a Blades trap!
@@ -71,7 +76,7 @@ case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
 *scripttell*break*)     break 1;;
-*scripttell*exit*)    _exit 1;;
+*scripttell*exit*)      _exit 1;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME
@@ -149,6 +154,9 @@ _sleep
  *'The door has no lock!'*)   RV=0; break 2;; #return 0;;
 
  *'You fail to pick the lock.'*) break 1;;
+
+ *scripttell*break*)   break 1;;
+ *scripttell*exit*)    _exit 1;;
  '') break 1;; # :;;
  *)  :;;
  esac
