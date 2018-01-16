@@ -5,7 +5,8 @@
 # except to support infinte looping.
 
 export PATH=/bin:/usr/bin
-
+export LC_NUMERIC=de_DE
+export LC_ALL=de_DE
 
 # Global variables
 
@@ -15,7 +16,7 @@ MY_BASE=${MY_SELF##*/}
 #test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
 #_set_global_variables $*
 
-test -f "${MY_SELF%/*}"/cf_funcs_common.sh   && . "${MY_SELF%/*}"/cf_funcs_common.sh
+test -f "${MY_SELF%/*}"/cf_funcs_common.sh && . "${MY_SELF%/*}"/cf_funcs_common.sh
 _set_global_variables $*
 
 test -f "${MY_SELF%/*}"/cf_funcs_food.sh   && . "${MY_SELF%/*}"/cf_funcs_food.sh
@@ -225,7 +226,13 @@ _msg 7 "SLEEP=$SLEEP:PL_SPEED=$PL_SPEED"
 #SLEEP_T=`dc $SLEEP 10 \/p`
 #SLEEP=`dc $SLEEP $SLEEP_T \- p`
 
-_msg 6 "Sleeping $SLEEP sleep seconds between praying"
+#_msg 6 "Sleeping $SLEEP sleep seconds between praying"
+
+USLEEP=`dc $SLEEP 1000000 \* p`
+SLEEP=${SLEEP//,/.}  #_check_food_level uses _sleep and sleep does not like 1,2 but 1.2
+USLEEP=${USLEEP%.*}
+USLEEP=${USLEEP%,*}
+_msg 6 "Sleeping $USLEEP usleep micro-seconds between praying"
 }
 
 #  ___get_player_speed_and_set_usleep
@@ -237,7 +244,8 @@ usleep ${USLEEP:-1000000}
 }
 
 # *** Actual script to pray multiple times *** #
-test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
+ test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
+#case $NUMBER in *[0-9]*) test $NUMBER -ge 1 || NUMBER=1;; esac #paranoid precaution
 
 c=0; one=0
 while :
@@ -246,18 +254,18 @@ one=$((one+1))
 
 _is 1 1 "use_skill" "praying"
 #usleep $USLEEP
-#_usleep
-_sleep
+_usleep
+#_sleep
 
 _check_food_level
 _check_hp_and_return_home $HP
 
-c=$((c+1))
-test $c -ge $COUNT_CHECK_FOOD && {
-c=0
+ckc=$((ckc+1))
+test "$ckc" -ge $COUNT_CHECK_FOOD && {
+ckc=0
 case $NUMBER in
-'') _draw 5 "$one praying attempts done.";;
-*)  _draw 5 "$((NUMBER-one)) prayings left.";;
+'') _draw 5 "$one praying attempt(s) done.";;
+*)  _draw 5 "$((NUMBER-one)) praying(s) left.";;
 esac
 }
 
