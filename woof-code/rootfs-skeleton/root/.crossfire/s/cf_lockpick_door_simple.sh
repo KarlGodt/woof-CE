@@ -43,6 +43,7 @@ VERSION=1.2 # bugfixes in regards to unexpected
 VERSION=1.3 # Recognize *help and *version options
 VERSION=2.0 # use sourced functions files
 VERSION=2.1 # bugfixes for calls to _move_* functions
+VERSION=2.1.1 # bugfixes
 
 LOCKPICK_ATTEMPTS_DEFAULT=9
 SEARCH_ATTEMPTS_DEFAULT=9
@@ -141,6 +142,8 @@ _sleep
  *'You spot a Rune of Ball Lightning!'*) _just_exit 0;;
  *' spot '*) FOUND_TRAP=$((FOUND_TRAP+1));;
  *'You search the area.'*) break 1;;
+ *scripttell*break*)  break 1;;
+ *scripttell*exit*)   _exit 1;;
  '') break 1;;
  *) :;;
  esac
@@ -204,6 +207,8 @@ _turn_direction $DIRECTION cast disarm
  *'You successfully disarm'*) TRAPS=$((TRAPS-1)); break 1;;
  *'You fail to disarm'*) break 1;;
  *"There's nothing there!"*) _just_exit 1;;
+ *scripttell*break*)  break 1;;
+ *scripttell*exit*)   _exit 1;;
  *) :;;
  esac
 
@@ -250,6 +255,8 @@ _sleep
  *'You successfully disarm'*) TRAPS=$((TRAPS-1)); break 1;;
  *'You fail to disarm'*) break 1;;
  *"There's nothing there!"*) _just_exit 1;;
+ *scripttell*break*)  break 1;;
+ *scripttell*exit*)   _exit 1;;
  *) :;;
  esac
  done
@@ -297,6 +304,8 @@ _sleep
  *'In fact, you set it off!'*) TRAPS=$((TRAPS-1));;
  *'You detonate'*) _just_exit 1;;
  *'You are pricked'*) :;;
+ *scripttell*break*)  break 1;;
+ *scripttell*exit*)   _exit 1;;
  *) :;;
  esac
 
@@ -360,6 +369,9 @@ _sleep
  *'The door has no lock!'*)   RV=0; break 2;; #return 0;;
 
  *'You fail to pick the lock.'*) break 1;;
+
+ *scripttell*break*)  break 1;;
+ *scripttell*exit*)   _exit 1;;
  '') break 1;; # :;;
  *)  :;;
  esac
