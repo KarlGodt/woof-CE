@@ -58,6 +58,7 @@ VERSION=1.3 # handle chest as permanent container: exit.
 VERSION=1.3.1 # count opened chests
 VERSION=2.0 # use sourced functions files
 VERSION=2.1 # implement -M option
+VERSION=2.1.1 # bugfixes
 
 SEARCH_ATTEMPTS_DEFAULT=9
 #DISARM variable set to skill, invokation OR cast
@@ -292,6 +293,8 @@ _sleep
  *'You spot a Rune of Ball Lightning!'*) _just_exit 0;;
  *' spot '*) FOUND_TRAP=$((FOUND_TRAP+1));;
  *'You search the area.'*) SEARCH_MSG=$((SEARCH_MSG+1));; # break 1;;
+ *scripttell*break*)   break 1;;
+ *scripttell*exit*)    _exit 1;;
  '') break 1;;
  *) :;;
  esac
@@ -353,6 +356,8 @@ _sleep
  *'You successfully disarm'*) TRAPS=$((TRAPS-1)); break 1;;
  *'You fail to disarm'*) break 1;;
  *"There's nothing there!"*) break 2;; #_just_exit 1;;
+ *scripttell*break*)   break 1;;
+ *scripttell*exit*)    _exit 1;;
  *) :;;
  esac
 
@@ -406,6 +411,8 @@ _sleep
  # so invoking disarm towards the stack of chests would not
  # work to disarm the traps elsewhere on tiles around
  *"There's nothing there!"*) break 2;; #_just_exit 1;;
+ *scripttell*break*)   break 1;;
+ *scripttell*exit*)    _exit 1;;
  *) :;;
  esac
  done
@@ -458,6 +465,8 @@ _sleep
  *'A portal opens up, and screaming hordes pour'*) _just_exit 1;;
  *'through!'*)     _just_exit 1;;
  *'You are pricked'*) :;;
+ *scripttell*break*)  break 1;;
+ *scripttell*exit*)   _exit 1;;
  '') break 1;;
  *) :;;
  esac
@@ -515,6 +524,8 @@ _is 1 1 apply
  *'You find'*)   OPEN_COUNT=1;;
  *empty*)        OPEN_COUNT=1;;
  *'You open chest.'*) break 2;; # permanent container
+ *scripttell*break*)  break 1;;
+ *scripttell*exit*)   _exit 1;;
  '') break 1;;
  esac
  sleep 0.01
