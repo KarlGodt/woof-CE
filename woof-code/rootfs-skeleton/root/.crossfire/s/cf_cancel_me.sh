@@ -1,6 +1,12 @@
 #!/bin/bash
 
 export PATH=/bin:/usr/bin
+export LC_NUMERIC=de_DE
+export LC_ALL=de_DE
+
+
+CANCEL_ITEM='rod of cancellation' # may set to scroll,
+# staff, heavy rod or just rod of cancellation
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
@@ -8,12 +14,13 @@ MY_BASE=${MY_SELF##*/}
 #test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
 #_set_global_variables "$@"
 
-test -f "${MY_SELF%/*}"/cf_funcs_common.sh   && . "${MY_SELF%/*}"/cf_funcs_common.sh
+test -f "${MY_SELF%/*}"/cf_funcs_common.sh && . "${MY_SELF%/*}"/cf_funcs_common.sh
 _set_global_variables "$@"
 
-ROD='heavy rod of cancellation' # may set to scroll or staff or just rod
+test -f "${MY_SELF%/*}"/cf_funcs_food.sh   && . "${MY_SELF%/*}"/cf_funcs_food.sh
+
 # *** Override any VARIABLES in cf_functions.sh *** #
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf  && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 
 
 # *** Here begins program *** #
@@ -27,8 +34,11 @@ PARAM_1="$1"
 case "$PARAM_1" in -h|*"help"*)
 
 _draw 5 "Script to "
-_draw 5 "apply $ROD"
+_draw 5 "apply $CANCEL_ITEM"
 _draw 5 "and then to fire center on oneself."
+_draw 2 "Syntax:"
+_draw 2 "$0 NUMBER"
+_draw 7 "$0 5 would fire center 5 times."
 
         exit 0
 ;; esac
@@ -106,107 +116,131 @@ EoI
 }
 
 __check_if_item_is_active(){
+_debug "__check_if_item_is_active:$*"
 
-local lITEM="$*" oR tmpR
-test "$lITEM" || { echo "draw 3 \$lITEM missing"; exit 1; }
+local lITEM="$*" oR tmpR lRV=1
+#test "$lITEM" || { echo "draw 3 \$lITEM missing"; exit 1; }
+test "$lITEM" || _exit 1 "\$lITEM missing."
 
-#_watch
+unset HAVE_ITEM_APPLIED oR tmpR
 sleep 0.1
 echo request items actv
 while :; do
-read -t 1 tmpR
-case $tmpR in
-*"$lITEM"*) HAVE_ITEM_APPLIED=YES; break;;
-'')  break;;
-$oR) break;;
-esac
+ unset tmpR
+ read -t 1 tmpR
+ _log "__check_if_item_is_active:$tmpR"
+ _msg 7 "__check_if_item_is_active:$tmpR"
+
+ case $tmpR in
+ *"$lITEM"*) HAVE_ITEM_APPLIED=YES; lRV=0; break;;
+ '')  break;;
+ #$oR) break;;
+ esac
 #test "$oR" = "$tmpR" && break
-oR="$tmpR"
-sleep 0.1
+
+#oR="$tmpR"
+sleep 0.01
 done
 
-#_unwatch
+return ${lRV:-1}
 }
 
-_simple_apply_item(){
-local lROD=${*:-"$ROD"}
+__force_apply_item(){
+_debug "__force_apply_item:$*"
 
-test "$lROD" || return 254
+local lITEM=${*:-"$CANCEL_ITEM"}
+test "$lITEM" || return 254
 
-_is 1 1 apply -u "$lROD"
-sleep 2
-_is 1 1 apply -a "$lROD"
+_draw 4 "Forcing applying of '$lITEM' ..."
+_draw 3 'If that fails, use scriptkill to abort!'
+_is 1 1 apply -u "$lITEM"
+#sleep 2
+_is 1 1 apply -a "$lITEM"
 }
-
 
 __check_range_attack(){
+_debug "__check_range_attack:$*"
 
-local lITEM="$*" oR tmpR c
-test "$lITEM" || { _draw 3 '$lITEM missing.'; exit 1; }
+local lITEM="${*:-$ITEM}" oR tmpR c lRV=1
+#test "$lITEM" || { _draw 3 '$lITEM missing.'; exit 1; }
+test "$lITEM" || _exit 1 '$lITEM missing.'
 
-
-local c=0
-#_watch
+unset RANGE_ITEM_APPLIED oR tmpR c
+c=0
 while :;
 do
-test $c = 5 && break
+test "$c" = 5 && break
 
 sleep 0.1
 echo request range
  while :;
  do
+ unset tmpR
  read -t 1 tmpR
- case $tmpR in
- *"$lITEM"*) RANGE_ITEM_APPLIED=YES; break 2;;
- '')  break;;
- $oR) break;;
- esac
- #test "$oR" = "$tmpR" && break
- oR="$tmpR"
+ _log "__check_range_attack:$tmpR"
+ _msg 7 "__check_range_attack:$tmpR"
 
+ case $tmpR in
+ *"$lITEM"*) RANGE_ITEM_APPLIED=YES; lRV=0; break 2;;
+ '')  break;;
+ #$oR) break;;
+ esac
+ #oR="$tmpR"
+ sleep 0.01
  done
+
 c=$((c+1))
 sleep 0.1
 test "$RANGE_ITEM_APPLIED" || _is 1 1 rotateshoottype
 done
 
-#_unwatch
+return ${lRV:-1}
 }
 
 # MAIN:
-__check_if_item_is_active "$ROD"
 
-#test "$HAVE_ITEM_APPLIED" || { _is 1 1 "apply -a $ROD"; sleep 1s; }
-test "$HAVE_ITEM_APPLIED" || _simple_apply_item "$ROD"
+_get_player_speed
+test "$PL_SPEED1" && __set_sync_sleep ${PL_SPEED1} || _set_sync_sleep "$PL_SPEED"
 
+#__check_if_item_is_active "$CANCEL_ITEM"
+#test "$HAVE_ITEM_APPLIED" || __force_apply_item "$CANCEL_ITEM"
 
 while :
 do
 one=$((one+1))
 
-__check_range_attack "$ROD"
+#__check_if_item_is_active "$CANCEL_ITEM"
+#test "$HAVE_ITEM_APPLIED" || __force_apply_item "$CANCEL_ITEM"
+__check_if_item_is_active "$CANCEL_ITEM" || __force_apply_item "$CANCEL_ITEM"
 
-if test "$RANGE_ITEM_APPLIED"; then
-
-#while : #for one in `seq 1 1 $NUMBER`
-#do
-#one=$((one+1))
-
+__check_range_attack "$CANCEL_ITEM"
+#if test "$RANGE_ITEM_APPLIED"; then
+if test "$?" = 0; then
 _is 1 1 fire "center"
 _is 1 1 fire_stop
+else
+ __force_apply_item "$CANCEL_ITEM"
 fi
 
+case $NUMBER in $one) break 1;; esac
+
+_check_food_level
+_check_hp_and_return_home $HP
+
+ckc=$((ckc+1))
+test "$ckc" -ge $COUNT_CHECK_FOOD && {
+ckc=0
+case $NUMBER in
+'') _draw 5 "$one firing attempt(s) done.";;
+*)  _draw 5 "$((NUMBER-one)) firings(s) left.";;
+esac
+}
+
 _sleep
-
-#test "$NUMBER" && { test "$NUMBER" = "$one" && break 1; }
- case $NUMBER in $one) break 1;; esac
-
 done
-#fi
 
 _is 1 1 fire_stop
 
 # *** Here ends program *** #
-#_draw 2 "$0 is finished."
 _say_end_msg
 ###END###
