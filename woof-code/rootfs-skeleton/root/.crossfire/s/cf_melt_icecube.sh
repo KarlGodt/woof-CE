@@ -4,6 +4,10 @@
 # made duplicate code in functions.
 
 export PATH=/bin:/usr/bin
+
+MARK_ITEM='icecube'
+ITEM='flint and steel'
+
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 
@@ -13,7 +17,7 @@ MSGLEVEL=7
 #test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
 #_set_global_variables "$@"
 
-test -f "${MY_SELF%/*}"/cf_funcs_common.sh   && . "${MY_SELF%/*}"/cf_funcs_common.sh
+test -f "${MY_SELF%/*}"/cf_funcs_common.sh && . "${MY_SELF%/*}"/cf_funcs_common.sh
 _set_global_variables "$@"
 
 # *** Override any VARIABLES in cf_functions.sh *** #
@@ -57,18 +61,25 @@ done
 
 # functions:
 _mark_item(){
-local lITEM=${*:-icecube}
+_debug "_mark_item:$*"
+local lITEM=${*:-"$MARK_ITEM"}
+lITEM=${lITEM:-"$ITEM"}
+lITEM=${lITEM:-icecube}
+test "$lITEM" || return 254
+
 local lRV=0
+
 _is 1 1 mark "$lITEM"
 
  while [ 1 ]; do
+ unset REPLY
  read -t $TMOUT
- _log "$REPLY"
+ _log "_mark_item:$REPLY"
  case $REPLY in
  *Could*not*find*an*object*that*matches*) lRV=1;break 1;;
  '') break;;
  esac
- unset REPLY
+ #unset REPLY
  sleep 0.1s
  done
 
@@ -76,13 +87,18 @@ return ${lRV:-0}
 }
 
 _apply_item(){
-local lITEM=${*:-"flint and steel"}
+_debug "_apply_item:$*"
+local lITEM=${*:-"$ITEM"}
+lITEM=${lITEM:-"flint and steel"}
+test "$lITEM" || return 254
+
 local lRV=0
 _is 1 1 apply "$lITEM"
 
  while [ 1 ]; do
+ unset REPLY
  read -t $TMOUT
- _log "$REPLY"
+ _log "_apply_item:$REPLY"
  case $REPLY in
  *used*up*flint*and*steel*) lRV=5; break 1;;
  *Could*not*find*any*match*to*the*flint*and*steel*) lRV=6; break 1;;
@@ -92,7 +108,7 @@ _is 1 1 apply "$lITEM"
  *You*light*the*icecube*with*the*flint*and*steel.*) lRV=0; SUCC=$((SUCC+1)); break 1;;
  *) :;;
  esac
- unset REPLY
+ #unset REPLY
  sleep 0.1s
  done
 
@@ -100,8 +116,8 @@ return ${lRV:-0}
 }
 
 _say_count(){
-case $SUCC in [0-9]*) _draw 7 "You had smolten $SUCC icecubes.";; esac
-case $FAIL in [0-9]*) _draw 4 "You tried $FAIL times and failed.";; esac
+case $SUCC in [0-9]*) _draw 7 "You had smolten $SUCC icecube(s).";; esac
+case $FAIL in [0-9]*) _draw 4 "You tried $FAIL time(s) and failed.";; esac
 }
 
 # *** Getting Player's Speed *** #
@@ -119,10 +135,10 @@ test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
 _debug "NUMBER='$NUMBER'"
 _watch
 
-unset cnt
+unset one
 while :
 do
-cnt=$((cnt+1))
+one=$((one+1))
 
 _mark_item icecube || break 2
 
@@ -152,14 +168,12 @@ _sleep
  done #NO_FAIL
 
 #test "$NUMBER" && { test "$NUMBER" = "$cnt" && break 1; }
-case $NUMBER in $cnt) break 1;; esac
+case $NUMBER in $one) break 1;; esac
 
 done #main while loop
 
 
 # *** Here ends program *** #
-#_draw 2 "$0 is finished."
-
 _say_count
 _say_end_msg
 ###END###
