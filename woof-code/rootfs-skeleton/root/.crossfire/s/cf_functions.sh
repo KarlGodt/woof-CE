@@ -91,17 +91,35 @@ exec 2>>"$ERROR_LOG"
 }
 
 _is(){
+# issue <repeat> <must_send> <command> - send
+#  <command> to server on behalf of client.
+#  <repeat> is the number of times to execute command
+#  <must_send> tells whether or not the command must sent at all cost (1 or 0).
+#  <repeat> and <must_send> are optional parameters.
     _debug "issue $*"
     echo issue "$@"
     sleep 0.2
 }
 
 _draw(){
-    local COLOUR="$1"
-    COLOUR=${COLOUR:-1} #set default
+    local lCOLOUR="${1:-$COLOUR}"
+    lCOLOUR=${lCOLOUR:-1} #set default
     shift
     local MSG="$@"
-    echo draw $COLOUR "$MSG"
+    echo draw ${lCOLOUR} "$MSG"
+}
+
+__draw(){
+case $1 in [0-9]|1[0-2])
+    lCOLOUR="$1"; shift;; esac
+    local lCOLOUR=${lCOLOUR:-1} #set default
+dcnt=0
+echo "$*" | while read line
+do
+dcnt=$((dcnt+1))
+    echo draw $lCOLOUR "$line"
+done
+unset dcnt line
 }
 
 __msg(){  ##+++2018-01-08
@@ -358,23 +376,29 @@ exit ${1:-0}
 }
 
 _emergency_exit(){
+RV=${1:-4}; shift
+local lRETURN_ITEM=${*:-"$RETURN_ITEM"}
 
-case $RETURN_ITEM in
+case $lRETURN_ITEM in
 ''|*rod*|*staff*|*wand*|*horn*)
-_is 1 1 apply -u ${RETURN_ITEM:-'rod of word of recall'}
-_is 1 1 apply -a ${RETURN_ITEM:-'rod of word of recall'}
+_is 1 1 apply -u ${lRETURN_ITEM:-'rod of word of recall'}
+_is 1 1 apply -a ${lRETURN_ITEM:-'rod of word of recall'}
 _is 1 1 fire center
 _is 1 1 fire_stop
 ;;
-*scroll*) -is 1 1 apply ${RETURN_ITEM};;
-*) :;;
+*scroll*) _is 1 1 apply ${lRETURN_ITEM};;
+*) invoke "$lRETURN_ITEM";; # assuming spell
 esac
 
 _draw 3 "Emergency Exit $0 !"
 _unwatch
 
+# apply bed of reality
+ sleep 6
+_is 1 1 apply
+
 beep -l 1000 -f 700
-exit ${1:-0}
+exit ${RV:-0}
 }
 
 _exit_no_space(){
@@ -518,11 +542,11 @@ _info "Setting SLEEP=$SLEEP ,TMOUT=$TMOUT ,DELAY_DRAWINFO=$DELAY_DRAWINFO"
 _get_player_speed(){
 _debug "_get_player_speed:$*"
 
-if test "$1" = '-l'; then
+case "$1" in -l)
  spdcnt=$((spdcnt+1))
  test "$spdcnt" -ge ${COUNT_CHECK_FOOD:-10} || return 1
- spdcnt=0
-fi
+ spdcnt=0;;
+esac
 
 _draw 5 "Processing Player's speed..."
 
@@ -1467,8 +1491,6 @@ _debug "_check_hp_and_return_home:$*"
 hpcnt=$((hpcnt+1))
 test "$hpcnt" -lt $COUNT_CHECK_FOOD && return
 hpcnt=0
-
-local REPLY
 
 local currHP currHPMin
 currHP=$1
