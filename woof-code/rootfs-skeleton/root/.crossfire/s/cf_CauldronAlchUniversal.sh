@@ -137,6 +137,7 @@ _draw 3 "or script $0 balm_of_first_aid 20 'water_of_the_wise' 1 'mandrake_root'
 
 # *** Getting Player's Speed *** #
 _get_player_speed
+test "$PL_SPEED1" && __set_sync_sleep ${PL_SPEED1} || _set_sync_sleep "$PL_SPEED"
 # *** Check if standing on a cauldron *** #
 #_is 1 1 pickup 0  # precaution
 _check_if_on_cauldron

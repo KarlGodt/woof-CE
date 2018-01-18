@@ -1,9 +1,12 @@
 #!/bin/bash
 
-export PATH=/bin:/usr/bin
-export LC_NUMERIC=de_DE
-export LC_ALL=de_DE
+#export PATH=/bin:/usr/bin
+#export LC_NUMERIC=de_DE
+#export LC_ALL=de_DE
 
+VERSION=0.0 # initial version
+VERSION=2.0 # add a check for food level and to eat
+VERSION=2.1 # recognize -V and -d options
 
 CANCEL_ITEM='rod of cancellation' # may set to scroll,
 # staff, heavy rod or just rod of cancellation
@@ -27,7 +30,8 @@ test -f "${MY_SELF%/*}"/"${MY_BASE}".conf  && . "${MY_SELF%/*}"/"${MY_BASE}".con
 _say_start_msg "$@"
 
 # *** Check for parameters *** #
-[ "$*" ] && {
+until [ "$#" = 0 ];
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
@@ -41,104 +45,59 @@ _draw 2 "$0 NUMBER"
 _draw 7 "$0 5 would fire center 5 times."
 
         exit 0
-;; esac
-
+;;
+-d) DEBUG=$((DEBUG+1));;
+-V) _say_version;;
+*)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
 echo draw 3 "Only :digit: numbers as first option allowed."
         exit 1 #exit if other input than letters
         }
-
 NUMBER=$PARAM_1
+;;
+esac
 
-} || {
+shift
+sleep 0.1
+done
+
+test "$NUMBER" || {
 _draw 3 "Script needs number of cancellation attempts as argument."
         exit 1
 }
 
-test "$1" || {
-_draw 3 "Need <number> ie: script $0 50 ."
-        exit 1
-}
+#test "$1" || {
+#_draw 3 "Need <number> ie: script $0 50 ."
+#        exit 1
+#}
 
 
 # *** Actual script to cancel multiple times *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
-
-__say_apply_params(){
-cat >&1 <<EoI
- void command_apply(object *op, const char *params) {
-    int aflag = 0;
-    object *inv = op->inv;
-    object *item;
-
-    if (*params == '\0') {
-        apply_by_living_below(op);
-        return;
-    }
-
-    while (*params == ' ')
-        params++;
-    if (!strncmp(params, "-a ", 3)) {
-        aflag = AP_APPLY;
-        params += 3;
-    }
-    if (!strncmp(params, "-u ", 3)) {
-        aflag = AP_UNAPPLY;
-        params += 3;
-    }
-    if (!strncmp(params, "-b ", 3)) {
-        params += 3;
-        if (op->container)
-            inv = op->container->inv;
-        else {
-            inv = op;
-            while (inv->above)
-                inv = inv->above;
-        }
-    }
-    while (*params == ' ')
-        params++;
-
-    item = find_best_apply_object_match(inv, op, params, aflag);
-    if (item == NULL)
-        item = find_best_apply_object_match(inv, op, params, AP_NULL);
-    if (item) {
-        apply_by_living(op, item, aflag, 0);
-    } else
-        draw_ext_info_format(NDI_UNIQUE, 0, op, MSG_TYPE_COMMAND, MSG_TYPE_COMMAND_ERROR,
-                             "Could not find any match to the %s.",
-                             params);
-}
-EoI
-
-}
+test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
 __check_if_item_is_active(){
 _debug "__check_if_item_is_active:$*"
 
 local lITEM="$*" oR tmpR lRV=1
-#test "$lITEM" || { echo "draw 3 \$lITEM missing"; exit 1; }
 test "$lITEM" || _exit 1 "\$lITEM missing."
 
 unset HAVE_ITEM_APPLIED oR tmpR
-sleep 0.1
+#sleep 0.1
+
 echo request items actv
 while :; do
  unset tmpR
  read -t 1 tmpR
- _log "__check_if_item_is_active:$tmpR"
+   _log "__check_if_item_is_active:$tmpR"
  _msg 7 "__check_if_item_is_active:$tmpR"
 
  case $tmpR in
  *"$lITEM"*) HAVE_ITEM_APPLIED=YES; lRV=0; break;;
  '')  break;;
- #$oR) break;;
  esac
-#test "$oR" = "$tmpR" && break
 
-#oR="$tmpR"
 sleep 0.01
 done
 
@@ -154,7 +113,6 @@ test "$lITEM" || return 254
 _draw 4 "Forcing applying of '$lITEM' ..."
 _draw 3 'If that fails, use scriptkill to abort!'
 _is 1 1 apply -u "$lITEM"
-#sleep 2
 _is 1 1 apply -a "$lITEM"
 }
 
@@ -162,7 +120,6 @@ __check_range_attack(){
 _debug "__check_range_attack:$*"
 
 local lITEM="${*:-$ITEM}" oR tmpR c lRV=1
-#test "$lITEM" || { _draw 3 '$lITEM missing.'; exit 1; }
 test "$lITEM" || _exit 1 '$lITEM missing.'
 
 unset RANGE_ITEM_APPLIED oR tmpR c
@@ -177,15 +134,14 @@ echo request range
  do
  unset tmpR
  read -t 1 tmpR
- _log "__check_range_attack:$tmpR"
+   _log "__check_range_attack:$tmpR"
  _msg 7 "__check_range_attack:$tmpR"
 
  case $tmpR in
  *"$lITEM"*) RANGE_ITEM_APPLIED=YES; lRV=0; break 2;;
  '')  break;;
- #$oR) break;;
  esac
- #oR="$tmpR"
+
  sleep 0.01
  done
 
@@ -197,44 +153,42 @@ done
 return ${lRV:-1}
 }
 
+_say_progress(){
+#ckc=$((ckc+1))
+#test "$ckc" -ge $COUNT_CHECK_FOOD || return 1
+#ckc=0
+case $NUMBER in
+'') _draw 5 "$one firing attempt(s) done.";;
+*)  _draw 5 "$((NUMBER-one)) firings(s) left.";;
+esac
+}
+
 # MAIN:
 
 _get_player_speed
 test "$PL_SPEED1" && __set_sync_sleep ${PL_SPEED1} || _set_sync_sleep "$PL_SPEED"
 
-#__check_if_item_is_active "$CANCEL_ITEM"
-#test "$HAVE_ITEM_APPLIED" || __force_apply_item "$CANCEL_ITEM"
-
 while :
 do
 one=$((one+1))
 
-#__check_if_item_is_active "$CANCEL_ITEM"
-#test "$HAVE_ITEM_APPLIED" || __force_apply_item "$CANCEL_ITEM"
 __check_if_item_is_active "$CANCEL_ITEM" || __force_apply_item "$CANCEL_ITEM"
 
 __check_range_attack "$CANCEL_ITEM"
-#if test "$RANGE_ITEM_APPLIED"; then
 if test "$?" = 0; then
-_is 1 1 fire "center"
-_is 1 1 fire_stop
+ _is 1 1 fire "center"
+ _is 1 1 fire_stop
 else
  __force_apply_item "$CANCEL_ITEM"
 fi
 
 case $NUMBER in $one) break 1;; esac
 
+if _check_counter; then
 _check_food_level
 _check_hp_and_return_home $HP
-
-ckc=$((ckc+1))
-test "$ckc" -ge $COUNT_CHECK_FOOD && {
-ckc=0
-case $NUMBER in
-'') _draw 5 "$one firing attempt(s) done.";;
-*)  _draw 5 "$((NUMBER-one)) firings(s) left.";;
-esac
-}
+_say_progress
+fi
 
 _sleep
 done

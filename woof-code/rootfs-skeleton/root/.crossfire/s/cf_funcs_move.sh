@@ -117,7 +117,7 @@ done
 }
 
 _check_for_space(){
-# *** Check for 4 empty space to DIRB ***#
+# *** Check for [4] empty space to DIRB ***#
 _debug "_check_for_space:$*"
 
 local REPLY_MAP OLD_REPLY NUMBERT
@@ -184,7 +184,7 @@ echo request map pos
 while :; do
 read -t $TMOUT REPLY_MAP
 #echo "request map pos:$REPLY_MAP" >>"$REPLY_LOG"
-_log "$REPLY_LOG" "request map pos:$REPLY_MAP"
+_log "$REPLY_LOG" "_check_for_space:request map pos:$REPLY_MAP"
 test "$REPLY_MAP" || break
 test "$REPLY_MAP" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY_MAP"
@@ -325,7 +325,7 @@ echo request map $R_X $R_Y
 
 while :; do
 read -t $TMOUT
-_log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
+_log "$REPLY_LOG" "_check_for_space:request map '$R_X' '$R_Y':$REPLY"
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 
 _log "$REPLY_LOG" "IS_WALL=$IS_WALL"
@@ -338,20 +338,12 @@ done
 
 done
 
-else
-
-__error 1 "Received Incorrect X Y parameters from server."
-#_draw 3 "Received Incorrect X Y parameters from server."
-#exit 1
-
-fi
+ else
+  _exit 1 "Received Incorrect X Y parameters from server."
+ fi
 
 else
-
-__error 1 "Could not get X and Y position of player."
-#_draw 3 "Could not get X and Y position of player."
-#exit 1
-
+ _exit 1 "Could not get X and Y position of player."
 fi
 
 _draw 7 "OK."
@@ -426,7 +418,7 @@ cm=0
 while :; do
 cm=$((cm+1))
 read -t $TMOUT REPLY_MAP
-_log "$REPLY_LOG" "request map near:$REPLY_MAP"
+_log "$REPLY_LOG" "_check_for_space_old_client:request map near:$REPLY_MAP"
 test "$cm" = 5 && break
 test "$REPLY_MAP" || break
 test "$REPLY_MAP" = "$OLD_REPLY" && break
@@ -570,7 +562,7 @@ echo request map $R_X $R_Y
 
 while :; do
 read -t $TMOUT
-_log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
+_log "$REPLY_LOG" "_check_for_space_old_client:request map '$R_X' '$R_Y':$REPLY"
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 
 _log "$REPLY_LOG" "IS_WALL=$IS_WALL"
@@ -583,20 +575,12 @@ done
 
 done
 
-else
-
-__error 1 "Received Incorrect X Y parameters from server."
-#_draw 3 "Received Incorrect X Y parameters from server."
-#exit 1
-
-fi
+ else
+  _exit 1 "Received Incorrect X Y parameters from server."
+ fi
 
 else
-
-__error 1 "Could not get X and Y position of player."
-#_draw 3 "Could not get X and Y position of player."
-#exit 1
-
+ _exit 1 "Could not get X and Y position of player."
 fi
 
 _draw 7 "OK."

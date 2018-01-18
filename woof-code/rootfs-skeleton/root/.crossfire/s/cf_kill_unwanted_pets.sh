@@ -164,7 +164,7 @@ _draw 3 "Killing $onePET .."
 _is 1 1 killpets "$onePET"
 sleep 1s
 
-done<<EoI
+done <<EoI
 `echo "$PETS_KILL"`
 EoI
 

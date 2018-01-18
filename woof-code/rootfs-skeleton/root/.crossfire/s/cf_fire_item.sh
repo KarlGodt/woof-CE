@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/bash
 
 # 2018-01-10 : Code reorderings,
 # recognize :punct: given to parameters as
@@ -7,6 +7,11 @@
 # from sleep 0.1 to sleep 0.01 (now 4 sec inst 29 sec)
 
 export PATH=/bin:/usr/bin
+
+VERSION=0.0 # initial version
+VERSION=1.0 # do more checks
+VERSION=2.0 # code overhaul
+VERSION=3.0 # use external function files
 
 DEBUG=1
 LOGGING=1
@@ -23,6 +28,18 @@ COMMAND_PAUSE=3  # seconds
 COMMAND_STOP=fire_stop
 FOOD_STAT_MIN=300
 FOOD=waybread
+
+#test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+#_set_global_variables $*
+
+test -f "${MY_SELF%/*}"/cf_funcs_common.sh && . "${MY_SELF%/*}"/cf_funcs_common.sh
+_set_global_variables $*
+
+test -f "${MY_SELF%/*}"/cf_funcs_food.sh   && . "${MY_SELF%/*}"/cf_funcs_food.sh
+
+# *** Override any VARIABLES in cf_functions.sh *** #
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf  && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+
 
 # early functions
 _draw(){
@@ -60,6 +77,7 @@ _say_version(){
 _draw 2 "$0 Version:${VERSION:-'1.0'}"
 exit 0
 }
+
 _log(){
 test "$LOGGING" || return
 echo "$*" >>"$LOG_FILE"
@@ -118,7 +136,7 @@ case $* in
 6|southwest|sw) DIRECTION_NUMBER=6;;
 7|west|w)       DIRECTION_NUMBER=7;;
 8|northwest|nw) DIRECTION_NUMBER=8;;
-*) _error 2 "Invalid direction '$*'";;
+*) _exit 2 "Invalid direction '$*'";;
 esac
 }
 
@@ -141,7 +159,7 @@ esac
 shift
 done
 _debug "_parse_parameters:ITEM=$ITEM DIR=$DIRECTION NUMBER=$NUMBER"
-test "$NUMBER" -a "$DIRECTION" -a "$ITEM" || _error 1 "Missing ITEM -o DIRECTION -o NUMBER"
+test "$NUMBER" -a "$DIRECTION" -a "$ITEM" || _exit 1 "Missing ITEM -o DIRECTION -o NUMBER"
 }
 
 _check_have_needed_item_in_inventory(){
@@ -158,12 +176,15 @@ echo request items inv
 while :;
 do
 read -t ${TMOUT:-1} oneITEM
- _log "$oneITEM"
+ _log "_check_have_needed_item_in_inventory:$oneITEM"
+ _debug "$oneITEM"
  #test "$oldITEM" = "$oneITEM" && break
  #test "$oneITEM" || break
  case $oneITEM in
  $oldITEM|'') break;;
  *"$lITEM"*) _draw 7 "Got that item $lITEM in inventory.";;
+ *scripttell*break*)  break ${oneITEM##* break };;
+ *scripttell*exit*)   _exit 1;;
  esac
  ITEMS="${ITEMS}${oneITEM}\n"
 #$oneITEM"
@@ -198,8 +219,15 @@ echo request items actv
 while :;
 do
 read -t ${TMOUT:-1} oneITEM
- test "$oldITEM" = "$oneITEM" && break
- test "$oneITEM" || break
+ _log "_check_have_needed_item_applied:$oneITEM"
+ _debug "$oneITEM"
+ #test "$oldITEM" = "$oneITEM" && break
+ #test "$oneITEM" || break
+ case $oneITEM in
+ $oldITEM|'') break;;
+ #*"$lITEM"*) _draw 7 "Got that item $lITEM in inventory.";;
+ *scripttell*break*)  break ${oneITEM##* break };;
+ *scripttell*exit*)   _exit 1;;
  ITEMSA="$ITEMSA
 $oneITEM"
  oldITEM="$oneITEM"
@@ -213,6 +241,7 @@ echo "$ITEMSA" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es"
 _apply_item(){
 #_debug "_apply_item:issue 0 0 apply $ITEM"
  _is 0 0 apply ${*:-"$ITEM"}
+# TODO: Something blocks the magic of your item.
 }
 
 _rotate_range_attack(){
@@ -226,11 +255,17 @@ do
 echo request range
 sleep 1
 read -t ${TMOUT:-1} REPLY_RANGE
- _log "REPLY_RANGE=$REPLY_RANGE"
- test "`echo "$REPLY_RANGE" | grep -i "$lITEM"`" && break
- test "$oldREPLY_RANGE" = "$REPLY_RANGE" && break
- test "$REPLY_RANGE" || break
-
+ _log "_rotate_range_attack:REPLY_RANGE=$REPLY_RANGE"
+ _debug "$REPLY_RANGE"
+ #test "`echo "$REPLY_RANGE" | grep -i "$lITEM"`" && break
+ #test "$oldREPLY_RANGE" = "$REPLY_RANGE" && break
+ #test "$REPLY_RANGE" || break
+ case $REPLY_RANGE in
+ $oldREPLY_RANGE|'') break 1;;
+ *"$lITEM"*)         break 1;;
+ *scripttell*break*) break ${REPLY##* break };;
+ *scripttell*exit*)  _exit 1;;
+ esac
     _is 1 1 rotateshoottype
  oldREPLY_RANGE="$REPLY_RANGE"
 sleep 2.1
@@ -334,6 +369,7 @@ do
  _is 1 1 $COMMAND $DIRECTION_NUMBER
  _is 1 1 $COMMAND_STOP
  sleep $COMMAND_PAUSE
+ # TODO: Something blocks the magic of your item.
 
  _watch_food
 
@@ -356,14 +392,14 @@ _parse_parameters "$@"
 DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
    NUMBER=${NUMBER:-"$NUMBER_DEFAULT"}
 
-#_check_have_needed_item_in_inventory || _error 1 "Item $ITEM not in inventory"
+#_check_have_needed_item_in_inventory || _exit 1 "Item $ITEM not in inventory"
 _check_have_needed_item_applied
 case $? in
 0) :;;
 *) _check_have_needed_item_in_inventory
    case $? in
    0) _apply_item;;
-   *) _error 1 "Item $ITEM not in inventory";;
+   *) _exit 1 "Item $ITEM not in inventory";;
    esac
 ;;
 esac
@@ -375,7 +411,8 @@ _do_loop $NUMBER
 }
 
 case $@ in
--h|*help*) _usage;;
+-h|*help) _usage;;
+-V) _say_version;;
 '') _draw 3 "Script needs <item> <direction> and <number of $COMMAND attempts> as argument.";;
 *) _do_program "$@";;
 esac

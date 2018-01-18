@@ -2,7 +2,6 @@
 
 export PATH=/bin:/usr/bin
 
-# *** PARAMETERS *** #
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
@@ -23,6 +22,7 @@ test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 # *** Here begins program *** #
 _say_start_msg "$@"
 
+# *** PARAMETERS *** #
 while :;
 do
 case "$1" in
@@ -101,6 +101,7 @@ rm -f "$ON_LOG"
 
 # *** Getting Player's Speed *** #
 _get_player_speed
+test "$PL_SPEED1" && __set_sync_sleep ${PL_SPEED1} || _set_sync_sleep "$PL_SPEED"
 # *** Check if standing on a cauldron *** #
 #_is 1 1 pickup 0  # precaution
 _check_if_on_cauldron

@@ -2,6 +2,9 @@
 
 [ "$HAVE_FUNCS_COMMON" ] && return 0
 
+export LC_NUMERIC=de_DE
+export LC_ALL=de_DE
+
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
 #define NDI_WHITE       1
@@ -90,6 +93,11 @@ REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
      ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
   ERROR_LOG="$TMP_DIR"/"$MY_BASE".$$.err
 exec 2>>"$ERROR_LOG"
+}
+
+_say_version(){
+_draw 6 "$MY_BASE Version:${VERSION:-0.0}"
+exit ${1:-2}
 }
 
 _watch(){
@@ -212,7 +220,7 @@ _log(){
 
 _sound(){
     local lDUR
-test "$2" && { DUR="$1"; shift; }
+test "$2" && { lDUR="$1"; shift; }
 lDUR=${lDUR:-0}
 test -e "$SOUND_DIR"/${1}.raw && \
            aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw
@@ -703,13 +711,22 @@ read -t $TMOUT lANSWER
 ANSWER="$lANSWER"
 }
 
+_check_counter(){
+ckc=$((ckc+1))
+test "$ckc" -lt $COUNT_CHECK_FOOD && return 1
+ckc=0
+return 0
+}
+
 _get_player_speed(){
 _debug "_get_player_speed:$*"
 
 if test "$1" = '-l'; then # loop counter
- spdcnt=$((spdcnt+1))
- test "$spdcnt" -ge ${COUNT_CHECK_FOOD:-10} || return 1
- spdcnt=0
+ #spdcnt=$((spdcnt+1))
+ #test "$spdcnt" -ge ${COUNT_CHECK_FOOD:-10} || return 1
+ #spdcnt=0
+ _check_counter || return 1
+ shift
 fi
 
  __old_req(){
@@ -803,9 +820,13 @@ _draw 6 "Done."
 _check_hp_and_return_home(){
 _debug "_check_hp_and_return_home:$*"
 
-hpcnt=$((hpcnt+1))
-test "$hpcnt" -lt $COUNT_CHECK_FOOD && return
-hpcnt=0
+#if test "$1" = '-l'; then # loop counter
+# #hpcnt=$((hpcnt+1))
+# #test "$hpcnt" -lt $COUNT_CHECK_FOOD && return 0
+# #hpcnt=0
+# _check_counter || return 1
+# shift
+#fi
 
 local currHP currHPMin
 currHP=${1:-$HP}
@@ -862,7 +883,7 @@ _msg 7 "$UNDER_ME"
 case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
-*scripttell*break*)     break 1;;
+*scripttell*break*)     break ${REPLY##* break };;
 *scripttell*exit*)      _exit 1;;
 esac
 

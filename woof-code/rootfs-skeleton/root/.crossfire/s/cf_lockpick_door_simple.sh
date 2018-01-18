@@ -109,6 +109,8 @@ sleep 0.2
 
 
 __search_traps(){
+_debug "__search_traps:$*"
+
 cnt=${SEARCH_ATTEMPTS:-$SEARCH_ATTEMPTS_DEFAULT}
 _draw 5 "Searching traps ..."
 
@@ -128,7 +130,7 @@ _sleep
  do
  unset REPLY
  read -t $TMOUT
- _log "__search_traps:$REPLY"
+   _log "__search_traps:$REPLY"
  _msg 7 "$REPLY"
 
 #You spot a Rune of Burning Hands!
@@ -142,7 +144,7 @@ _sleep
  *'You spot a Rune of Ball Lightning!'*) _just_exit 0;;
  *' spot '*) FOUND_TRAP=$((FOUND_TRAP+1));;
  *'You search the area.'*) break 1;;
- *scripttell*break*)  break 1;;
+ *scripttell*break*)  break ${REPLY##* break };;
  *scripttell*exit*)   _exit 1;;
  '') break 1;;
  *) :;;
@@ -173,7 +175,8 @@ unset cnt
 }
 
 __cast_disarm(){
-#_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
+_debug "__cast_disarm:$*"
+
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
 test "$TRAPS_ALL" -gt 0     || return 0
@@ -200,14 +203,14 @@ _turn_direction $DIRECTION cast disarm
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log "__cast_disarm:$cnt0:$REPLY"
+   _log "__cast_disarm:$cnt0:$REPLY"
  _msg 7 "$cnt0:$REPLY"
 
  case $REPLY in
  *'You successfully disarm'*) TRAPS=$((TRAPS-1)); break 1;;
  *'You fail to disarm'*) break 1;;
  *"There's nothing there!"*) _just_exit 1;;
- *scripttell*break*)  break 1;;
+ *scripttell*break*)  break ${REPLY##* break };;
  *scripttell*exit*)   _exit 1;;
  *) :;;
  esac
@@ -223,7 +226,8 @@ done
 }
 
 __invoke_disarm(){ ## invoking does to a direction
-#_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
+_debug "__invoke_disarm:$*"
+
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
 test "$TRAPS_ALL" -gt 0     || return 0
@@ -248,14 +252,14 @@ _sleep
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log "__invoke_disarm:$cnt0:$REPLY"
+   _log "__invoke_disarm:$cnt0:$REPLY"
  _msg 7 "$cnt0:$REPLY"
 
  case $REPLY in
  *'You successfully disarm'*) TRAPS=$((TRAPS-1)); break 1;;
  *'You fail to disarm'*) break 1;;
  *"There's nothing there!"*) _just_exit 1;;
- *scripttell*break*)  break 1;;
+ *scripttell*break*)  break ${REPLY##* break };;
  *scripttell*exit*)   _exit 1;;
  *) :;;
  esac
@@ -270,7 +274,8 @@ done
 }
 
 __use_skill_disarm(){
-_draw 5 "Disarming ${TRAPS_ALL:-0} trap(s) ..."
+_debug "__use_skill_disarm:$*"
+
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
 test "$TRAPS_ALL" -gt 0     || return 0
@@ -289,7 +294,7 @@ _sleep
  while :
  do
  read -t $TMOUT
- _log "__use_skill_disarm:$REPLY"
+   _log "__use_skill_disarm:$REPLY"
  _msg 7 "$REPLY"
 
 #You fail to disarm the Rune of Burning Hands.
@@ -304,7 +309,7 @@ _sleep
  *'In fact, you set it off!'*) TRAPS=$((TRAPS-1));;
  *'You detonate'*) _just_exit 1;;
  *'You are pricked'*) :;;
- *scripttell*break*)  break 1;;
+ *scripttell*break*)  break ${REPLY##* break };;
  *scripttell*exit*)   _exit 1;;
  *) :;;
  esac
@@ -335,30 +340,32 @@ esac
 }
 
 __lockpick_door(){
-_draw 5 "Attempting to lockpick the door ..."
+_debug "__lockpick_door:$*"
 
-cnt=${LOCKPICK_ATTEMPTS:-$LOCKPICK_ATTEMPTS_DEFAULT}
-test "$cnt" -gt 0 || return 1  # to trigger _open_door_with_standard_key
+one=${LOCKPICK_ATTEMPTS:-$LOCKPICK_ATTEMPTS_DEFAULT}
+test "$one" -gt 0 || return 1  # to trigger _open_door_with_standard_key
+
+_draw 5 "Attempting to lockpick the door ..."
 
 unset RV cnt1
 while :
 do
 
 cnt1=$((cnt1+1))
-test "$INFINITE" && _draw 5 "${cnt1}. attempt .." || _draw 5 "$cnt attempts in lockpicking skill left .."
+test "$INFINITE" && _draw 5 "${cnt1}. attempt .." || _draw 5 "$one attempts in lockpicking skill left .."
 
 _watch $DRAWINFO
 #_sleep
 __is 1 1 use_skill lockpicking
 _sleep
 
- unset cnt0 REPLY
- while :
+ unset cnt0
+ while :;
  do
  cnt0=$((cnt0+1))
- #unset REPLY
+ unset REPLY
  read -t ${TMOUT:-1}
- _log "__lockpick_door:$REPLY"
+   _log "__lockpick_door:$REPLY"
  _msg 7 "__lockpick_door:$REPLY"
 
  case $REPLY in
@@ -370,7 +377,7 @@ _sleep
 
  *'You fail to pick the lock.'*) break 1;;
 
- *scripttell*break*)  break 1;;
+ *scripttell*break*)  break ${REPLY##* break };;
  *scripttell*exit*)   _exit 1;;
  '') break 1;; # :;;
  *)  :;;
@@ -383,8 +390,8 @@ _sleep
 _unwatch $DRAWINFO
 
 test "$INFINITE" || {
-    cnt=$((cnt-1))
-    test "$cnt" -gt 0 || break 1
+    one=$((one-1))
+    test "$one" -gt 0 || break 1
 }
 
 _sleep
@@ -452,7 +459,7 @@ _is 0 0 fire_stop
 }
 
 _do_parameters(){
-# dont forget to pass parameters when invoking this function
+# don't forget to pass parameters when invoking this function
 test "$*" || return 0
 
 case $1 in

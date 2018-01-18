@@ -28,7 +28,7 @@ unset OPEN_COUNT
  *'You find'*)   OPEN_COUNT=1;;
  *empty*)        OPEN_COUNT=1;;
  *'You open chest.'*) break 2;;
- *scripttell*break*)  break 1;;
+ *scripttell*break*)  break ${REPLY##* break };;
  *scripttell*exit*)   _exit 1;;
  '') break 1;;
  esac
@@ -48,6 +48,11 @@ test "$OPEN_COUNT" && CHEST_COUNT=$((CHEST_COUNT+1))
 #11:50 You close chest (open) (active).
 
 _move_back_and_forth 2 "_pickup 4;_sleep;"
+
+if _check_counter; then
+_check_food_level
+_check_hp_and_return_home $HP
+fi
 
 _pickup 0
 _sleep
@@ -75,7 +80,7 @@ _msg 7 "$UNDER_ME"
 case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
-*scripttell*break*)     break 1;;
+*scripttell*break*)     break ${REPLY##* break };;
 *scripttell*exit*)      _exit 1;;
 esac
 
@@ -122,15 +127,15 @@ return 0
 _lockpick_door(){
 _draw 5 "Attempting to lockpick the door ..."
 
-cnt=${LOCKPICK_ATTEMPTS:-$LOCKPICK_ATTEMPTS_DEFAULT}
-test "$cnt" -gt 0 || return 1  # to trigger _open_door_with_standard_key
+one=${LOCKPICK_ATTEMPTS:-$LOCKPICK_ATTEMPTS_DEFAULT}
+test "$one" -gt 0 || return 1  # to trigger _open_door_with_standard_key
 
-unset RV cn1
+unset RV cnt1
 while :
 do
 
 cnt1=$((cnt1+1))
-test "$INFINITE" && _draw 5 "${cnt1}. attempt .." || _draw 5 "$cnt attempts in lockpicking skill left .."
+test "$INFINITE" && _draw 5 "${cnt1}. attempt .." || _draw 5 "$one attempts in lockpicking skill left .."
 
 _watch $DRAWINFO
 #_sleep
@@ -143,7 +148,7 @@ _sleep
  cnt0=$((cnt0+1))
  #unset REPLY
  read -t ${TMOUT:-1}
- _log "_lockpick_door:$REPLY"
+   _log "_lockpick_door:$REPLY"
  _msg 7 "_lockpick_door:$REPLY"
 
  case $REPLY in
@@ -155,7 +160,7 @@ _sleep
 
  *'You fail to pick the lock.'*) break 1;;
 
- *scripttell*break*)   break 1;;
+ *scripttell*break*)   break ${REPLY##* break };;
  *scripttell*exit*)    _exit 1;;
  '') break 1;; # :;;
  *)  :;;
@@ -168,14 +173,18 @@ _sleep
 _unwatch $DRAWINFO
 
 test "$INFINITE" || {
-    cnt=$((cnt-1))
-    test "$cnt" -gt 0 || break 1
+    one=$((one-1))
+    test "$one" -gt 0 || break 1
 }
+
+if _check_counter; then
+_check_food_level
+_check_hp_and_return_home $HP
+fi
 
 _sleep
 done
 
-#DEBUG=1 _debug "RV=$RV"
 return ${RV:-1}
 }
 

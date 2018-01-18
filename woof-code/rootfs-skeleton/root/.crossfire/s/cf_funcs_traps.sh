@@ -33,7 +33,7 @@ _sleep
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log "_use_skill_skill:$cnt0:$REPLY"
+   _log "_use_skill_skill:$cnt0:$REPLY"
  _msg 7 "$cnt0:$REPLY"
 
 #You fail to disarm the Rune of Burning Hands.
@@ -48,7 +48,7 @@ _sleep
  *'In fact, you set it off!'*) TRAPS=$((TRAPS-1));;
  *'You detonate'*) _just_exit 1;;
  *'You are pricked'*) :;;
- *scripttell*break*)  break 1;;
+ *scripttell*break*)  break ${REPLY##* break };;
  *scripttell*exit*)   _exit 1;;
  '') break 1;;
  *) :;;
@@ -64,14 +64,14 @@ _unwatch $DRAWINFO
 _move_back_and_forth 2
 _sleep
 
-#test "$TRAPS" -gt 0 || break 1
 done
 
 unset OLD_REPLY
 }
 
 _use_skill_disarm(){
-#_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
+_debug "_use_skill_disarm:$*"
+
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
 test "$TRAPS_ALL" -gt 0     || return 0
@@ -107,7 +107,7 @@ _sleep
  *'In fact, you set it off!'*) TRAPS=$((TRAPS-1));;
  *'You detonate'*) _just_exit 1;;
  *'You are pricked'*) :;;
- *scripttell*break*)  break 1;;
+ *scripttell*break*)  break ${REPLY##* break };;
  *scripttell*exit*)   _exit 1;;
  '') break 1;;
  *) :;;
@@ -130,7 +130,8 @@ unset OLD_REPLY
 }
 
 _invoke_disarm(){ ## invoking does to a direction
-#_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
+_debug "_invoke_disarm:$*"
+
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
 test "$TRAPS_ALL" -gt 0     || return 0
@@ -157,7 +158,7 @@ _sleep
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log "_invoke_disarm:$cnt0:$REPLY"
+   _log "_invoke_disarm:$cnt0:$REPLY"
  _msg 7 "$cnt0:$REPLY"
 
  case $REPLY in
@@ -166,8 +167,8 @@ _sleep
  # Here there could be a trap next to the stack of chests ...
  # so invoking disarm towards the stack of chests would not
  # work to disarm the traps elsewhere on tiles around
- *"There's nothing there!"*) break 2;; #_just_exit 1;;
- *scripttell*break*)  break 1;;
+ *"There's nothing there!"*) break 2;;
+ *scripttell*break*)  break ${REPLY##* break };;
  *scripttell*exit*)   _exit 1;;
  *) :;;
  esac
@@ -184,7 +185,8 @@ _move_forth 1
 }
 
 _cast_disarm(){
-#_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
+_debug "_cast_disarm:$*"
+
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
 test "$TRAPS_ALL" -gt 0     || return 0
@@ -208,14 +210,14 @@ _sleep
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log "_cast_disarm:$cnt0:$REPLY"
+   _log "_cast_disarm:$cnt0:$REPLY"
  _msg 7 "$cnt0:$REPLY"
 
  case $REPLY in
  *'You successfully disarm'*) TRAPS=$((TRAPS-1)); break 1;;
  *'You fail to disarm'*) break 1;;
- *"There's nothing there!"*) break 2;; #_just_exit 1;;
- *scripttell*break*)  break 1;;
+ *"There's nothing there!"*) break 2;;
+ *scripttell*break*)  break ${REPLY##* break };;
  *scripttell*exit*)   _exit 1;;
  *) :;;
  esac
@@ -233,8 +235,9 @@ _unwatch $DRAWINFO
 }
 
 _search_traps(){
+_debug "_search_traps:$*"
 cnt=${SEARCH_ATTEMPTS:-$SEARCH_ATTEMPTS_DEFAULT}
-_draw 5 "Searching traps ..."
+#_draw 5 "Searching traps ..."
 test "$cnt" -gt 0 || return 0
 
 TRAPS_ALL_OLD=0
@@ -248,7 +251,7 @@ _draw 5 "Searching traps $cnt time(s) ..."
 echo watch ${DRAWINFO}
 _sleep
 _is 0 0 search
-_sleep
+#_sleep
 
  unset cnt0 FOUND_TRAP
  while :
@@ -256,7 +259,7 @@ _sleep
  cnt0=$((cnt0+1))
  unset REPLY
  read -t $TMOUT
- _log "_search_traps:$cnt0:$REPLY"
+   _log "_search_traps:$cnt0:$REPLY"
  _msg 7 "$cnt0:$REPLY"
 
 #You spot a Rune of Burning Hands!
@@ -270,7 +273,7 @@ _sleep
  *'You spot a Rune of Ball Lightning!'*) _just_exit 0;;
  *' spot '*) FOUND_TRAP=$((FOUND_TRAP+1));;
  *'You search the area.'*) SEARCH_MSG=$((SEARCH_MSG+1));; # break 1;;
- *scripttell*break*)  break 1;;
+ *scripttell*break*)  break ${REPLY##* break };;
  *scripttell*exit*)   _exit 1;;
  '') break 1;;
  *) :;;

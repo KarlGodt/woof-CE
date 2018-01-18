@@ -24,11 +24,14 @@ read -t ${TMOUT:-1}
  _debug "MANA_NEEDED=$MANA_NEEDED"
  test "$SP" -ge "$MANA_NEEDED" && return 0 || break 1
  ;;
+ *'Something blocks your spellcasting.') _exit 1;;
+ *scripttell*break*) break ${REPLY##* break };;
+ *scripttell*exit*)  _exit 1;;
  '') break 1;;
- *) sleep 0.01; continue;;
+ *) :;;
  esac
 
-sleep 0.1
+sleep 0.01
 unset REPLY
 done
 
@@ -54,6 +57,7 @@ _is 1 1 pickup 0
 _empty_message_stream
 
 _watch $DRAWINFO
+
 unset HAVE_NOT_SPELL
 # TODO: Check MANA
 _is 1 1 cast create food $lEAT_FOOD
@@ -63,8 +67,10 @@ while :;
  read -t $TMOUT
  case $REPLY in
  *Cast*what*spell*) HAVE_NOT_SPELL=1; break 1;; #Cast what spell?  Choose one of:
- *ready*the*spell*) break 1;;                   #You ready the spell create food
- '') break 1;;
+ *ready*the*spell*)  break 1;;                  #You ready the spell create food
+ '')                 break 1;;
+ *scripttell*break*) break ${REPLY##* break };;
+ *scripttell*exit*)  _exit 1;;
  *) :;;
  esac
 sleep 0.01
@@ -73,7 +79,7 @@ done
 test "$HAVE_NOT_SPELL" && return 253
 
 _empty_message_stream
-#_watch $DRAWINFO
+
 while :;
 do
 _is 1 1 fire_stop
@@ -96,6 +102,7 @@ _is 1 1 fire_stop
   case $BUNGLE in
   *bungle*|*fumble*) break 1;;
   '')break 2;;
+
   *) :;;
   esac
  sleep 0.01
@@ -115,7 +122,7 @@ _empty_message_stream
 
 _apply_horn_of_plenty_and_eat(){
 _debug "_apply_horn_of_plenty_and_eat:$*"
-local REPLY
+#local REPLY
 
 #read -t $TMOUT
 _is 1 1 apply -u Horn of Plenty
@@ -172,9 +179,13 @@ _is 1 1 apply -b $lEAT_FOOD
 _check_food_level(){
 _debug "_check_food_level:$*"
 
-fcnt=$((fcnt+1))
-test "$fcnt" -lt $COUNT_CHECK_FOOD && return 0
-fcnt=0
+#if test "$1" = '-l'; then # loop counter
+# #fcnt=$((fcnt+1))
+# #test "$fcnt" -lt $COUNT_CHECK_FOOD && return 0
+# #fcnt=0
+# _check_counter || return 1
+# shift
+#fi
 
 test "$*" && MIN_FOOD_LEVEL="$@"
 MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
@@ -183,9 +194,10 @@ MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-300}
 local FOOD_LVL=''
 local REPLY
 
-read -t $TMOUT  # empty the stream of messages
-
+#read -t $TMOUT  # empty the stream of messages
+_empty_message_stream
 _sleep
+
 echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
 while :;
 do

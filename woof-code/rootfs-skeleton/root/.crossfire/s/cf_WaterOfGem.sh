@@ -15,14 +15,13 @@ test -f "${MY_SELF%/*}"/cf_funcs_move.sh    && . "${MY_SELF%/*}"/cf_funcs_move.s
 test -f "${MY_SELF%/*}"/cf_funcs_food.sh    && . "${MY_SELF%/*}"/cf_funcs_food.sh
 test -f "${MY_SELF%/*}"/cf_funcs_alchemy.sh && . "${MY_SELF%/*}"/cf_funcs_alchemy.sh
 
-# *** PARAMETERS *** #
-
 # *** Setting defaults *** #
 GEM='';  #set empty default
 NUMBER=0 #set zero as default
 # *** Override any VARIABLES in cf_functions.sh *** #
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 
+# *** PARAMETERS *** #
 while :;
 do
 case "$1" in
@@ -108,6 +107,7 @@ exit 1
 
 # *** Getting Player's Speed *** #
 _get_player_speed
+test "$PL_SPEED1" && __set_sync_sleep ${PL_SPEED1} || _set_sync_sleep "$PL_SPEED"
 # *** Check if standing on a cauldron *** #
 #_is 1 1 pickup 0  # precaution
 _check_if_on_cauldron

@@ -8,6 +8,13 @@ export PATH=/bin:/usr/bin
 export LC_NUMERIC=de_DE
 export LC_ALL=de_DE
 
+VERSION=0.0 # initial version
+VERSION=1.0 # set a sleep value between use_skill praying
+# to sync the messages 5 times You pray in the msgpane
+VERSION=2.0 # refine the setting of sleep values
+VERSION=3.0 # add a check for food level and to eat
+VERSION=3.1 # recognize -V and -d options
+
 # Global variables
 
 MY_SELF=`realpath "$0"`
@@ -50,6 +57,8 @@ _draw 5 "will issue 50 times the use_skill praying command."
 _draw 2 "Without <number> will loop forever,"
 _draw 2 "use scriptkill to terminate."
         exit 0;;
+-d) DEBUG=$((DEBUG+1));;
+-V) _say_version;;
 *)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
@@ -66,45 +75,9 @@ shift
 sleep 0.1
 done
 
-___get_player_speed_and_set_usleep(){
-
-_empty_message_stream
-
-echo request stat cmbt
-#read REQ_CMBT
-#snprintf(buf, sizeof(buf), "request stat cmbt %d %d %d %d %d\n",
-# cpl.stats.wc, cpl.stats.ac, cpl.stats.dam, cpl.stats.speed, cpl.stats.weapon_sp);
-read -t 1 Req Stat Cmbt WC AC DAM SPEED W_SPEED
-_msg 7 "wc=$WC:ac=$AC:dam=$DAM:speed=$SPEED:weaponspeed=$W_SPEED"
-case $SPEED in
-                [0-9]) USLEEP=5000000;;
-           [0-9][0-9]) USLEEP=4000000;;
-      [0-9][0-9][0-9]) USLEEP=3000000;;
- [0-9][0-9][0-9][0-9]) USLEEP=2000000;;
-1[0-4][0-9][0-9][0-9]) USLEEP=1800000;; # 0.10
-1[5-9][0-9][0-9][0-9]) USLEEP=1700000;;
-2[0-4][0-9][0-9][0-9]) USLEEP=1600000;;
-2[5-9][0-9][0-9][0-9]) USLEEP=1500000;;
-3[0-4][0-9][0-9][0-9]) USLEEP=1400000;;
-3[5-9][0-9][0-9][0-9]) USLEEP=1300000;;
-4[0-4][0-9][0-9][0-9]) USLEEP=1200000;;
-4[5-9][0-9][0-9][0-9]) USLEEP=1100000;;
-5[0-4][0-9][0-9][0-9]) USLEEP=1000000;;
-5[5-9][0-9][0-9][0-9]) USLEEP=900000;;
-6[0-4][0-9][0-9][0-9]) USLEEP=800000;;
-6[5-9][0-9][0-9][0-9]) USLEEP=700000;;
-7[0-4][0-9][0-9][0-9]) USLEEP=600000;;
-7[5-9][0-9][0-9][0-9]) USLEEP=500000;;
-8[0-4][0-9][0-9][0-9]) USLEEP=400000;;
-8[5-9][0-9][0-9][0-9]) USLEEP=300000;;
-9[0-4][0-9][0-9][0-9]) USLEEP=200000;;
-9[5-9][0-9][0-9][0-9]) USLEEP=100000;;
-*) USLEEP=50000;;
-esac
-_msg 7 "USLEEP=$USLEEP:SPEED=$SPEED"
-
-USLEEP=$(( USLEEP - ( (SPEED/10000) * 1000 ) ))
-_msg 6 "Sleeping $USLEEP usleep micro-seconds between praying"
+# *** functions *** #
+_usleep(){
+usleep ${USLEEP:-1000000}
 }
 
 _get_multiplicator(){
@@ -169,9 +142,6 @@ _get_player_speed_and_set_usleep(){
 _empty_message_stream
 
 echo request stat cmbt
-#read REQ_CMBT
-#snprintf(buf, sizeof(buf), "request stat cmbt %d %d %d %d %d\n",
-# cpl.stats.wc, cpl.stats.ac, cpl.stats.dam, cpl.stats.speed, cpl.stats.weapon_sp);
 read -t 1 Req Stat Cmbt WC AC DAM PL_SPEED W_SPEED
 _msg 7 "wc=$WC:ac=$AC:dam=$DAM:speed=$PL_SPEED:weaponspeed=$W_SPEED"
 
@@ -226,26 +196,32 @@ _msg 7 "SLEEP=$SLEEP:PL_SPEED=$PL_SPEED"
 #SLEEP_T=`dc $SLEEP 10 \/p`
 #SLEEP=`dc $SLEEP $SLEEP_T \- p`
 
-#_msg 6 "Sleeping $SLEEP sleep seconds between praying"
 
 USLEEP=`dc $SLEEP 1000000 \* p`
-SLEEP=${SLEEP//,/.}  #_check_food_level uses _sleep and sleep does not like 1,2 but 1.2
-USLEEP=${USLEEP%.*}
+SLEEP=${SLEEP//,/.}  # _check_food_level uses _sleep and sleep does not like 1,2 but 1.2
+USLEEP=${USLEEP%.*}  # usleep does not like floats
 USLEEP=${USLEEP%,*}
-_msg 6 "Sleeping $USLEEP usleep micro-seconds between praying"
+_msg 6 "Sleeping $USLEEP usleep micro-sec. / $SLEEP sec. between praying."
 }
 
-#  ___get_player_speed_and_set_usleep
+_say_progress(){
+#ckc=$((ckc+1))
+#test "$ckc" -lt $COUNT_CHECK_FOOD && return 0
+#ckc=0
+case $NUMBER in
+'') _draw 5 "$one praying attempt(s) done.";;
+*)  _draw 5 "$((NUMBER-one)) praying(s) left.";;
+esac
+}
+
+
 #   __get_player_speed_and_set_usleep
      _get_player_speed_and_set_usleep
-
-_usleep(){
-usleep ${USLEEP:-1000000}
-}
 
 # *** Actual script to pray multiple times *** #
  test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
 #case $NUMBER in *[0-9]*) test $NUMBER -ge 1 || NUMBER=1;; esac #paranoid precaution
+#case $NUMBER in [1-9]*) :;; *) NUMBER=1;; esac
 
 c=0; one=0
 while :
@@ -253,23 +229,14 @@ do
 one=$((one+1))
 
 _is 1 1 "use_skill" "praying"
-#usleep $USLEEP
 _usleep
-#_sleep
 
-_check_food_level
-_check_hp_and_return_home $HP
+if _check_counter; then
+ _check_food_level
+ _check_hp_and_return_home $HP
+ _say_progress
+fi
 
-ckc=$((ckc+1))
-test "$ckc" -ge $COUNT_CHECK_FOOD && {
-ckc=0
-case $NUMBER in
-'') _draw 5 "$one praying attempt(s) done.";;
-*)  _draw 5 "$((NUMBER-one)) praying(s) left.";;
-esac
-}
-
-#test "$NUMBER" && { test "$NUMBER" = "$one" && break 1; }
  case $NUMBER in $one) break 1;; esac
 done
 

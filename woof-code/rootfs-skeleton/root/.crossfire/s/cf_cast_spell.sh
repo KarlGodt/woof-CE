@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/bash
 # *** script to cast wizard spell - does not handle praying spells regeneration (yet)
 # *   written May 2015 by Karl Reimer Godt
 # * Uses busybox almquist shell as interpreter - should work with bash
@@ -35,13 +35,26 @@
 #  This seems related switching the character without
 #  closing and restarting the client.
 
-# TODO: Check if FOOD is in inventory
-VERSION=1.0 # initial versions
-VERSION=2.0 # added -o parameter option to spells
-VERSION=3.0 # recognize more options
+VERSION=0.0 # initial versions
+VERSION=1.0 # usung readonly variables
+VERSION=1.1 # added -o parameter option to spells
+VERSION=2.0 # recognize more options
 # switch cleric/wizzard spells by SPELL_KIND
+VERSION=3.0 # use external function files
 
 export PATH=/bin:/usr/bin
+
+#test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+#_set_global_variables $*
+
+test -f "${MY_SELF%/*}"/cf_funcs_common.sh && . "${MY_SELF%/*}"/cf_funcs_common.sh
+_set_global_variables $*
+
+test -f "${MY_SELF%/*}"/cf_funcs_food.sh   && . "${MY_SELF%/*}"/cf_funcs_food.sh
+
+# *** Override any VARIABLES in cf_functions.sh *** #
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf  && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+
 
 # *** Variables : Most are set or unset ( set meaning have content ( even " " ) , unset no content
 # *** common editable variables
@@ -66,10 +79,10 @@ readonly COMMAND=fire
 readonly COMMAND_PAUSE_DEFAULT=4  # seconds
 readonly COMMAND_STOP=fire_stop
 readonly FOOD_STAT_MIN=400
-readonly FOOD=waybread
-
+readonly FOOD=waybread # TODO: Check if FOOD is in inventory
 RETURN_ITEM='rod of word of recall'
  PROBE_ITEM='rod of probe'
+
 
 # early functions
 _draw(){
@@ -560,6 +573,7 @@ _set_spell(){
 # *** apply the spell that was given as parameter
 # *   does not cast - actual casting is done by 'fire'
  _is 1 1 cast ${1:-"$SPELL"} ${2:-$SPELL_OPTION}
+# TODO: Something blocks your spellcasting.
 }
 
 # *** unused
@@ -576,6 +590,7 @@ read -t ${TMOUT:-1} statHP
  if test "$FOOD_STAT" -lt $FOOD_STAT_MIN; then
    _is 0 0 apply $FOOD
    sleep 1
+ else true
  fi
 }
 
@@ -754,7 +769,7 @@ $REPLY"
  #*request*items*inv*$lITEM)    lRV=0; break 1;;
  #*request*items*inv*${lITEM}s) lRV=0; break 1;;
  ''|*request*end)    break 1;;
- *scripttell*break*) break;;
+ *scripttell*break*) break 1;;
  *scripttell*exit*)  _exit 1;;
  esac
 
@@ -821,7 +836,7 @@ do
  *request*items*inv*${lITEM}s)  lRV=0; break 1;;
  *request*items*inv*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*inv*end)   break 1;;
- *scripttell*break*)     break;;
+ *scripttell*break*)   break 1;;
  *scripttell*exit*)    _exit 1;;
  esac
 sleep 0.01
@@ -848,7 +863,7 @@ do
  *request*items*cont*${lITEM}s)  lRV=0; break 1;;
  *request*items*cont*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*cont*end)   break 1;;
- *scripttell*break*)     break;;
+ *scripttell*break*)   break 1;;
  *scripttell*exit*)    _exit 1;;
  esac
 sleep 0.01
@@ -873,7 +888,7 @@ do
  *request*items*inv*${FOOD}s)  lRV=0; break 1;;
  *request*items*inv*${FOOD}es) lRV=0; break 1;;  # tomato tomatoes
  ''|*request*items*inv*end)   break 1;;
- *scripttell*break*)     break;;
+ *scripttell*break*)   break 1;;
  *scripttell*exit*)    _exit 1;;
  esac
 sleep 0.01
@@ -898,7 +913,7 @@ do
  *request*items*on*${FOOD}s)  lRV=0; break 1;;
  *request*items*on*${FOOD}es) lRV=0; break 1;;  # tomato tomatoes
  ''|*request*items*on*end)   break 1;;
- *scripttell*break*)     break;;
+ *scripttell*break*)   break 1;;
  *scripttell*exit*)    _exit 1;;
  esac
 sleep 0.01
@@ -929,7 +944,7 @@ $REPLY"
  *request*items*on*${lITEM}s)  lRV=0; break 1;;
  *request*items*on*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*on*end)   break 1;;
- *scripttell*break*)     break;;
+ *scripttell*break*)   break 1;;
  *scripttell*exit*)    _exit 1;;
  esac
 
@@ -963,7 +978,7 @@ $REPLY"
  *request*items*on*${lITEM}s)  lRV=0; break 1;;
  *request*items*on*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*on*end)   break 1;;
- *scripttell*break*)     break;;
+ *scripttell*break*)   break 1;;
  *scripttell*exit*)    _exit 1;;
  esac
 
@@ -995,7 +1010,7 @@ $REPLY"
  *request*items*on*${FOOD}s)  lRV=0; break 1;;
  *request*items*on*${FOOD}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*on*end)   break 1;;
- *scripttell*break*)     break;;
+ *scripttell*break*)   break 1;;
  *scripttell*exit*)    _exit 1;;
  esac
 
@@ -1258,14 +1273,14 @@ do
 
 # user could change range attack while pausing ...
  _set_spell
-
+# TODO: Something blocks your spellcasting.
  _is 1 1 $COMMAND $DIRECTION_NUMBER
  _is 1 1 $COMMAND_STOP
  sleep $COMMAND_PAUSE
 
  if test "$STATS"; then
   if _counter_for_checks; then
-  _watch_food
+   _watch_food
    case $? in 6) _regenerate_spell_points;;
    esac
   fi

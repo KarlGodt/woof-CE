@@ -77,9 +77,10 @@ MSGLEVEL=6 # Message Levels 1-7 to print to the msg pane
 #. $HOME/cf/s/cf_functions.sh || exit 2
 
 . $HOME/cf/s/cf_funcs_common.sh || exit 4
-. $HOME/cf/s/cf_funcs_traps.sh  || exit 5
-. $HOME/cf/s/cf_funcs_move.sh   || exit 6
-. $HOME/cf/s/cf_funcs_chests.sh || exit 7
+. $HOME/cf/s/cf_funcs_food.sh   || exit 5
+. $HOME/cf/s/cf_funcs_traps.sh  || exit 6
+. $HOME/cf/s/cf_funcs_move.sh   || exit 7
+. $HOME/cf/s/cf_funcs_chests.sh || exit 8
 
 _say_help(){
 _draw 6  "$MY_BASE"
@@ -219,7 +220,7 @@ UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 
 unset UNDER_ME
-sleep 0.1s
+sleep 0.01s
 done
 
 UNDER_ME_LIST=`echo "$UNDER_ME_LIST" | sed 's%^$%%'`
@@ -356,7 +357,8 @@ _sleep
  *'You successfully disarm'*) TRAPS=$((TRAPS-1)); break 1;;
  *'You fail to disarm'*) break 1;;
  *"There's nothing there!"*) break 2;; #_just_exit 1;;
- *scripttell*break*)   break 1;;
+ *'Something blocks your spellcasting.') _exit 1;;
+ *scripttell*break*)   break 2;;
  *scripttell*exit*)    _exit 1;;
  *) :;;
  esac
@@ -410,8 +412,9 @@ _sleep
  # Here there could be a trap next to the stack of chests ...
  # so invoking disarm towards the stack of chests would not
  # work to disarm the traps elsewhere on tiles around
- *"There's nothing there!"*) break 2;; #_just_exit 1;;
- *scripttell*break*)   break 1;;
+ *"There's nothing there!"*) break 2;;
+ *'Something blocks your spellcasting.') _exit 1;;
+ *scripttell*break*)   break 2;;
  *scripttell*exit*)    _exit 1;;
  *) :;;
  esac

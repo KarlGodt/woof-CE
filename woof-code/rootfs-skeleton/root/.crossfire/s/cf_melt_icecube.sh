@@ -35,7 +35,7 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in -h|*"help"*)
 
-_draw 5 "Script to melt icecube."
+_draw 5 "Script to melt icecubes in inventory."
 _draw 5 "Syntax:"
 _draw 5 "script $0 [number]"
 _draw 5 "For example: 'script $0 5'"
@@ -43,6 +43,8 @@ _draw 5 "will issue 5 times mark icecube and apply flint and steel."
 
         exit 0
 ;;
+-d) DEBUG=$((DEBUG+1));;
+-V) _say_version;;
 *)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
@@ -75,8 +77,11 @@ _is 1 1 mark "$lITEM"
  unset REPLY
  read -t $TMOUT
  _log "_mark_item:$REPLY"
+ _debug "$REPLY"
  case $REPLY in
  *Could*not*find*an*object*that*matches*) lRV=1;break 1;;
+ *scripttell*break*) break ${REPLY##* break };;
+ *scripttell*exit*)  _exit 1;;
  '') break;;
  esac
  #unset REPLY
@@ -99,6 +104,7 @@ _is 1 1 apply "$lITEM"
  unset REPLY
  read -t $TMOUT
  _log "_apply_item:$REPLY"
+ _debug "$REPLY"
  case $REPLY in
  *used*up*flint*and*steel*) lRV=5; break 1;;
  *Could*not*find*any*match*to*the*flint*and*steel*) lRV=6; break 1;;
@@ -106,6 +112,8 @@ _is 1 1 apply "$lITEM"
  '')     lRV=1; break 1;;
  *fail*) lRV=1; FAIL=$((FAIL+1)); break 1;;
  *You*light*the*icecube*with*the*flint*and*steel.*) lRV=0; SUCC=$((SUCC+1)); break 1;;
+ *scripttell*break*) break ${REPLY##* break };;
+ *scripttell*exit*)  _exit 1;;
  *) :;;
  esac
  #unset REPLY
