@@ -370,8 +370,25 @@ test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -E 'chest$|chests$'`" || lRV=8
 return ${lRV:-0}
 }
 
-__check_if_on_chest(){  ###+++2018-01-19
-_debug "__check_if_on_chest:$*"
+__eval_check_if_on_chest_request_items_on(){
+_debug "__eval_check_if_on_chest_request_items_on:$*"
+
+  __check_if_on_chest_request_items_on
+  local lRV=$?
+case $lRV in
+5) _draw 3 "You appear to stand upon some cursed chest!";;
+6) _draw 3 "You appear not to stand on some chest!";;
+7) _draw 3 "Topmost chest appears to be cursed!";;
+8) _draw 3 "Chest appears not topmost!";;
+0) return 0;;
+*) _warn "_eval_check_if_on_chest_request_items_on:Unhandled return value '$lRV'";;
+esac
+beep -l 1000 -f 700
+test "$1" && return 1 || exit 1
+}
+
+__check_if_on_chest__(){  ###+++2018-01-19
+_debug "__check_if_on_chest__:$*"
 
 #local DO_LOOP TOPMOST
 #unset DO_LOOP TOPMOST
@@ -399,11 +416,35 @@ case $lRV in
 7) _draw 3 "Topmost chest appears to be cursed!";;
 8) _draw 3 "Chest appears not topmost!";;
 0) return 0;;
-*) _warn "_check_if_on_chest:Unhandled return value '$lRV'";;
+*) _warn "__check_if_on_chest__:Unhandled return value '$lRV'";;
 esac
 beep -l 1000 -f 700
 test "$1" && return 1 || exit 1
 }
+
+__check_if_on_chest(){
+_debug "__check_if_on_chest:$*"
+
+#local DO_LOOP TOPMOST
+#unset DO_LOOP TOPMOST
+#
+#while [ "$1" ]; do
+#case $1 in
+#-l) DO_LOOP=1;;
+#-t) TOPMOST=1;;
+#-lt|-tl) DO_LOOP=1; TOPMOST=1;;
+#*) break;;
+#esac
+#shift
+#done
+
+_draw 5 "Checking if standing on chests ..."
+
+#__check_if_on_item_examine__ $1 chest
+#__check_if_on_chest_request_items_on__ $1
+__eval_check_if_on_chest_request_items_on $1
+}
+
 
 __search_traps(){
 _debug "__search_traps:$*"
@@ -815,7 +856,8 @@ __open_chests
 #__check_if_on_chest_request_items_on && __main_open_chests
 # _check_if_on_chest_request_items_on &&  _main_open_chests
 
-_check_if_on_chest && _main_open_chests
+#_check_if_on_chest && _main_open_chests
+__check_if_on_chest && __main_open_chests
 
 _draw 8 "You opened ${CHEST_COUNT:-0} chest(s)."
 

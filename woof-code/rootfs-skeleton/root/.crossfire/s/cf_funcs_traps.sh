@@ -48,6 +48,8 @@ _sleep
  *'You fail to disarm'*) :;;
  *'In fact, you set it off!'*) TRAPS=$((TRAPS-1));;
  *'You detonate'*) _just_exit 1;;
+ *'A portal opens up, and screaming hordes pour'*) _just_exit 1;;
+ *'through!'*)     _just_exit 1;;
  *'You are pricked'*) :;;
  *scripttell*break*)  break ${REPLY##*?break};;
  *scripttell*exit*)   _exit 1;;
@@ -108,6 +110,8 @@ _sleep
  *'You fail to disarm'*) :;;
  *'In fact, you set it off!'*) TRAPS=$((TRAPS-1));;
  *'You detonate'*) _just_exit 1;;
+ *'A portal opens up, and screaming hordes pour'*) _just_exit 1;;
+ *'through!'*)     _just_exit 1;;
  *'You are pricked'*) :;;
  *scripttell*break*)  break ${REPLY##*?break};;
  *scripttell*exit*)   _exit 1;;
@@ -171,6 +175,8 @@ _sleep
  # so invoking disarm towards the stack of chests would not
  # work to disarm the traps elsewhere on tiles around
  *"There's nothing there!"*) break 2;;
+ *'A portal opens up, and screaming hordes pour'*) _just_exit 1;;
+ *'through!'*)     _just_exit 1;;
  *scripttell*break*)  break ${REPLY##*?break};;
  *scripttell*exit*)   _exit 1;;
  *) :;;
@@ -221,6 +227,8 @@ _sleep
  *'You successfully disarm'*) TRAPS=$((TRAPS-1)); break 1;;
  *'You fail to disarm'*) break 1;;
  *"There's nothing there!"*) break 2;;
+ *'A portal opens up, and screaming hordes pour'*) _just_exit 1;;
+ *'through!'*)     _just_exit 1;;
  *scripttell*break*)  break ${REPLY##*?break};;
  *scripttell*exit*)   _exit 1;;
  *) :;;

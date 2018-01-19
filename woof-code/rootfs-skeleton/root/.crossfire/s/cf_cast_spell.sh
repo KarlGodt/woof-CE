@@ -41,6 +41,7 @@ VERSION=1.1 # added -o parameter option to spells
 VERSION=2.0 # recognize more options
 # switch cleric/wizzard spells by SPELL_KIND
 VERSION=3.0 # use external function files
+VERSION=3.1 # smaller code overhauling
 
 export PATH=/bin:/usr/bin
 
@@ -410,6 +411,7 @@ _debug "_check_have_needed_spell_in_inventory:$*"
 
 TIMEB=`date +%s`
 
+_empty_message_stream
 echo request spells
 while :;
 do
@@ -464,8 +466,8 @@ local cnt=0
 while :
 do
 cnt=$((cnt+1))
-#echo watch request
 
+_empty_message_stream
 echo request spells
 while :;
 do
@@ -527,6 +529,7 @@ _check_have_needed_spell_applied(){
 # ***
 _debug "_check_have_needed_spell_applied:$*"
 
+_empty_message_stream
 echo request spells
 while :;
 do
@@ -551,17 +554,19 @@ _probe_enemy(){
 # ***
 _debug "_probe_enemy:$*"
 
-PROBE_ITEM=${*:-"$PROBE_ITEM"}
-test "$PROBE_ITEM" || return 0
+local lPROBE_ITEM=${*:-"$PROBE_ITEM"}
+test "$lPROBE_ITEM" || return 0
 
-case $PROBE_ITEM in
+case $lPROBE_ITEM in
 *rod*|*staff*|*wand*|*horn*)
-   _is 1 1 apply -u $PROBE_ITEM
-   _is 1 1 apply -a $PROBE_ITEM
+   _is 1 1 apply -u $lPROBE_ITEM
+   _is 1 1 apply -a $lPROBE_ITEM
    _is 1 1 fire $DIRECTION_NUMBER
 ;;
 *scroll*)
-  _is 1 1 apply $PROBE_ITEM
+   _is 1 1 apply $lPROBE_ITEM
+;;
+*) _is 1 1 invoke $lPROBE_ITEM # assuming spell
 ;;
 esac
 
@@ -580,7 +585,9 @@ _set_spell(){
 __watch_food(){
 # *** watch food and spellpoint level
 # *   apply FOOD if under threshold FOOD_STAT_MIN
+_debug "__watch_food:$*"
 
+_empty_message_stream
 echo request stat hp
 read -t ${TMOUT:-1} statHP
  _debug "_watch_food:$statHP"
@@ -598,6 +605,7 @@ _rotate_range_attack(){
 _debug "_rotate_range_attack:$*"
 local REPLY_RANGE oldREPLY_RANGE
 
+_empty_message_stream
 while :;
 do
 _debug "_rotate_range_attack:request range"
@@ -623,6 +631,8 @@ _do_emergency_recall(){
 # *   alternatively one could apply rod of heal, scroll of restoration
 # *   and ommit exit ( comment 'exit 5' line by setting a '#' before it)
 # *   - something like that
+_debug "_do_emergency_recall:$*"
+
 lRETURN_ITEM=${*:-"$RETURN_ITEM"}
 if test "$lRETURN_ITEM"; then
  case $lRETURN_ITEM in
@@ -747,13 +757,12 @@ done
 
 test "$lREQUEST" || return 253
 
-_empty_message_stream
-
 #[ "$INV_LIST" ] && return 0
 
 local rcnt=0
 unset INV_LIST
 
+_empty_message_stream
 echo request $lREQUEST
 while :
 do
@@ -769,7 +778,7 @@ $REPLY"
  #*request*items*inv*$lITEM)    lRV=0; break 1;;
  #*request*items*inv*${lITEM}s) lRV=0; break 1;;
  ''|*request*end)    break 1;;
- *scripttell*break*) break 1;;
+ *scripttell*break*) break ${REPLY##*?break};;
  *scripttell*exit*)  _exit 1;;
  esac
 
@@ -825,6 +834,7 @@ local lITEM="$*"
 test "$lITEM" || return 254
 local lRV=1
 
+_empty_message_stream
 echo request items inv
 while :
 do
@@ -836,7 +846,7 @@ do
  *request*items*inv*${lITEM}s)  lRV=0; break 1;;
  *request*items*inv*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*inv*end)   break 1;;
- *scripttell*break*)   break 1;;
+ *scripttell*break*)   break ${REPLY##*?break};;
  *scripttell*exit*)    _exit 1;;
  esac
 sleep 0.01
@@ -852,6 +862,7 @@ local lITEM="$*"
 test "$lITEM" || return 254
 local lRV=1
 
+_empty_message_stream
 echo request items cont
 while :
 do
@@ -863,7 +874,7 @@ do
  *request*items*cont*${lITEM}s)  lRV=0; break 1;;
  *request*items*cont*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*cont*end)   break 1;;
- *scripttell*break*)   break 1;;
+ *scripttell*break*)   break ${REPLY##*?break};;
  *scripttell*exit*)    _exit 1;;
  esac
 sleep 0.01
@@ -877,6 +888,7 @@ _check_if_food_in_inventory(){
 _debug "_check_if_food_in_inventory:$*"
 local lRV=1
 
+_empty_message_stream
 echo request items inv
 while :
 do
@@ -888,7 +900,7 @@ do
  *request*items*inv*${FOOD}s)  lRV=0; break 1;;
  *request*items*inv*${FOOD}es) lRV=0; break 1;;  # tomato tomatoes
  ''|*request*items*inv*end)   break 1;;
- *scripttell*break*)   break 1;;
+ *scripttell*break*)   break ${REPLY##*?break};;
  *scripttell*exit*)    _exit 1;;
  esac
 sleep 0.01
@@ -902,6 +914,7 @@ _check_if_food_on_floor_simple(){
 _debug "_check_if_food_on_floor_simple:$*"
 local lRV=1
 
+_empty_message_stream
 echo request items on
 while :
 do
@@ -913,7 +926,7 @@ do
  *request*items*on*${FOOD}s)  lRV=0; break 1;;
  *request*items*on*${FOOD}es) lRV=0; break 1;;  # tomato tomatoes
  ''|*request*items*on*end)   break 1;;
- *scripttell*break*)   break 1;;
+ *scripttell*break*)   break ${REPLY##*?break};;
  *scripttell*exit*)    _exit 1;;
  esac
 sleep 0.01
@@ -929,12 +942,14 @@ local lITEM="$*"
 test "$lITEM" || return 254
 local lRV=1 ITEMS_ON=''
 
+_empty_message_stream
 echo request items on
 while :
 do
  unset REPLY
  read -t ${TMOUT:-1}
  _log "_check_if_item_on_floor:$REPLY"
+ _debug "$REPLY"
 
  ITEMS_ON="$ITEMS_ON
 $REPLY"
@@ -944,7 +959,7 @@ $REPLY"
  *request*items*on*${lITEM}s)  lRV=0; break 1;;
  *request*items*on*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*on*end)   break 1;;
- *scripttell*break*)   break 1;;
+ *scripttell*break*)   break ${REPLY##*?break};;
  *scripttell*exit*)    _exit 1;;
  esac
 
@@ -963,12 +978,14 @@ local lITEM="$*"
 test "$lITEM" || return 254
 local lRV=1 ITEMS_ON=''
 
+_empty_message_stream
 echo request items on
 while :
 do
  unset REPLY
  read -t ${TMOUT:-1}
  _log "_check_if_item_on_floor_topmost:$REPLY"
+ _debug "$REPLY"
 
  ITEMS_ON="$ITEMS_ON
 $REPLY"
@@ -977,7 +994,7 @@ $REPLY"
  *request*items*on*$lITEM)     lRV=0; break 1;;
  *request*items*on*${lITEM}s)  lRV=0; break 1;;
  *request*items*on*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
- ''|*request*items*on*end)   break 1;;
+ ''|*request*items*on*end)   break ${REPLY##*?break};;
  *scripttell*break*)   break 1;;
  *scripttell*exit*)    _exit 1;;
  esac
@@ -995,6 +1012,7 @@ _check_if_food_on_floor(){
 _debug "_check_if_food_on_floor:$*"
 local lRV=1 ITEMS_ON=''
 
+_empty_message_stream
 echo request items on
 while :
 do
@@ -1010,7 +1028,7 @@ $REPLY"
  *request*items*on*${FOOD}s)  lRV=0; break 1;;
  *request*items*on*${FOOD}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*on*end)   break 1;;
- *scripttell*break*)   break 1;;
+ *scripttell*break*)   break ${REPLY##*?break};;
  *scripttell*exit*)    _exit 1;;
  esac
 
@@ -1046,6 +1064,7 @@ return 0
 
 __check_if_item_available(){
 _debug "__check_if_item_available:$*"
+
 local lITEM="$*"
 test "$lITEM" || return 254
 
@@ -1076,18 +1095,16 @@ _do_eat(){
 
 __do_eat(){
     _debug "__do_eat:$*"
-     #unset INV_LIST
+
        if _check_if_item_available -t -o $FOOD; then _is 0 0 apply
      elif _check_if_item_available    -o $FOOD; then _is 0 0 get $FOOD; _is 0 0 apply $FOOD
      else false
        fi
      case $? in 0) _draw 8 "OK, should have eaten $FOOD.";;
-     *) #unset INV_LIST
+     *)
       if _check_if_item_available   -i $FOOD; then _is 0 0 apply $FOOD
-       #else unset INV_LIST; if
       elif _check_if_item_available -c $FOOD; then _is 0 0 apply -b $FOOD
       else _do_emergency_recall
-       #fi
       fi;;
      esac
      #unset INV_LIST
@@ -1134,6 +1151,7 @@ return $?
 # ***
 __regenerate_spell_points(){
 # ***
+_debug "__regenerate_spell_points:$*"
 
 case $SPELL_KIND in
  cleric)    _draw 4 "Regenerating grace points..";;
@@ -1164,6 +1182,7 @@ done
 
 ___regenerate_spell_points(){
 # ***
+_debug "___regenerate_spell_points:$*"
 
 case $SPELL_KIND in
  cleric)    _draw 4 "Regenerating grace points.."
@@ -1191,6 +1210,7 @@ esac
 
 ____regenerate_spell_points(){
 # ***
+_debug "____regenerate_spell_points:$*"
  _draw 4 "Regenerating grace and spell points.."
 
 while :;
@@ -1221,14 +1241,14 @@ _regenerate_spell_points(){
 # *** both STATS and PROBE
 _counter_for_checks(){
 # ***
-_debug "_counter_for_checks:$*:$PROBE:$STATS:$check_c"
-check_c=$((check_c + 1))
+_debug "_counter_for_checks:$*:$PROBE:$STATS:$ckc"
+ckc=$((ckc + 1))
 
 if test "$PROBE" -a "$STATS"; then
-#test $check_c -eq $(( (CHECK_COUNT*2) - 1)) || { test $check_c -eq $((CHECK_COUNT*2)) && unset check_c; }
- test $check_c -ge $(( (CHECK_COUNT*2) - 1)) && unset check_c
+#test $ckc -eq $(( (CHECK_COUNT*2) - 1)) || { test $ckc -eq $((CHECK_COUNT*2)) && unset ckc; }
+ test $ckc -ge $(( (CHECK_COUNT*2) - 1)) && unset ckc
 elif test "$PROBE" -o "$STATS"; then
- test $check_c -eq $CHECK_COUNT && unset check_c
+ test $ckc -eq $CHECK_COUNT && unset ckc
 else false
 fi
 }
@@ -1236,15 +1256,15 @@ fi
 # *** STATS
 __counter_for_checks(){
 # ***
-check_c=$((check_c+1))
-test $check_c -eq $CHECK_COUNT && unset check_c
+ckc=$((ckc+1))
+test $ckc -eq $CHECK_COUNT && unset ckc
 }
 
 # *** PROBE
 __counter_for_checks2(){
 # ***
-check_c2=$((check_c2+1))
-test $check_c2 -eq $CHECK_COUNT && unset check_c2
+ckc2=$((ckc2+1))
+test $ckc2 -eq $CHECK_COUNT && unset ckc2
 }
 
 # *** Here begins program *** #
@@ -1255,6 +1275,7 @@ _draw 2 "$0 started <$*> with pid $$ $PPID"
 # ***
 _do_loop(){  # by _do_program
 # ***
+_debug "_do_loop:$*"
 
 TIMES=`date +%s`
 
@@ -1304,6 +1325,7 @@ _is 0 0 $COMMAND_STOP
 
 _do_program(){
 # ***
+_debug "_do_program:$*"
 
 _parse_parameters "$@"
 readonly SPELL=${SPELL:-"$SPELL_DEFAULT"}

@@ -7,13 +7,12 @@
 _drop_in_cauldron(){
 _debug "_drop_in_cauldron:$*"
 
+test "$*" || return 254
+
 _watch $DRAWINFO
 _drop "$@"
-
 _check_drop_or_exit
-
 _unwatch $DRAWINFO
-
 }
 
 _check_if_on_cauldron(){
@@ -23,11 +22,14 @@ _draw 5 "Checking if on a cauldron..."
 
 UNDER_ME='';
 UNDER_ME_LIST='';
+
+_empty_message_stream
 echo request items on
 
 while :; do
 read -t $TMOUT UNDER_ME
 _log "$ON_LOG" "_check_if_on_cauldron:$UNDER_ME"
+_debug "$UNDER_ME"
 
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
@@ -42,16 +44,16 @@ unset UNDER_ME
 sleep 0.1s
 done
 
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron.*cursed'`" && {
-_draw 3 "You stand upon a cursed cauldron!"
-beep -l 1000 -f 700
-exit 1
+test "`echo "$UNDER_ME_LIST" | grep -E 'cauldron.*cursed|cauldron.*damned'`" && {
+#_draw 3 "You stand upon a cursed cauldron!"
+#_beep_std
+_exit 1 "You stand upon a cursed cauldron!"
 }
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-_draw 3 "Need to stand upon cauldron!"
-beep -l 1000 -f 700
-exit 1
+#_draw 3 "Need to stand upon cauldron!"
+#_beep_std
+_exit 1 "Need to stand upon cauldron!"
 }
 
 _draw 7 "OK."
@@ -65,20 +67,23 @@ _debug "_check_empty_cauldron:$*"
 
 local REPLY OLD_REPLY REPLY_ALL
 
-_is 1 1 pickup 0  # precaution otherwise might pick up cauldron
+#_is 1 1 pickup 0  # precaution otherwise might pick up cauldron
+_set_pickup 0
 sleep 0.5
-sleep ${SLEEP}s
+_sleep
 
 _draw 5 "Checking for empty cauldron..."
 
+# opening the cauldron:
 _is 1 1 apply
 sleep 0.5
-sleep ${SLEEP}s
+_sleep
 
 OLD_REPLY="";
 REPLY_ALL='';
 REPLY="";
 
+# getting items out of the cauldron
 _watch $DRAWINFO
 #sleep 0.5
 
@@ -104,27 +109,29 @@ _is 99 1 get
 # 'get  4 water' would get 4 water of every item containing water
 # 'take 4 water' ignores the number and would get all water from the topmost item containing water
 
-while :; do
+while :; do unset REPLY
 read -t $TMOUT
 _log "$REPLY_LOG" "take:$cr:$REPLY"
+_debug "$REPLY"
+
 REPLY_ALL="$REPLY
 $REPLY_ALL"
+
 test "$REPLY" || break
-unset REPLY
 sleep 0.1s
 done
 
 case $REPLY_ALL in
 *You*pick*up*the*cauldron*) _exit 1 "pickup 0 seems not to work in script..?";;
 *Nothing*to*take*) :;;
-*) _exit 1 "Cauldron NOT empty !!";;
+*) _exit 1 "Cauldron seems to be NOT empty !!";;
 esac
 
 _unwatch $DRAWINFO
 
-sleep ${SLEEP}s
+#_sleep
 _move_back_and_forth 2
-sleep ${SLEEP}s
+#_sleep
 
 _draw 7 "OK ! Cauldron IS empty."
 }
@@ -132,7 +139,7 @@ _draw 7 "OK ! Cauldron IS empty."
 _alch_and_get(){
 _debug "_alch_and_get:$*"
 
-_check_if_on_cauldron
+_check_if_on_cauldron || return 1
 
 local REPLY OLD_REPLY
 local HAVE_CAULDRON=1
@@ -146,9 +153,10 @@ _is 1 1 use_skill alchemy
 # *** TODO: The cauldron burps and then pours forth monsters!
 OLD_REPLY="";
 REPLY="";
-while :; do
+while :; do unset REPLY
 read -t $TMOUT
 _log "$REPLY_LOG" "alchemy:$REPLY"
+_debug "$REPLY"
 case $REPLY in
                                                        #(level < 25)  /* INGREDIENTS USED/SLAGGED */
                                                        #(level < 40)  /* MAKE TAINTED ITEM */
@@ -167,7 +175,6 @@ case $REPLY in
 '') break;;
 esac
 
-unset REPLY
 sleep 0.1s
 done
 
@@ -176,6 +183,7 @@ if test "$HAVE_CAULDRON" = 0; then
  test "$HAVE_CAULDRON" = 0 && _exit 1 "Destroyed cauldron." # :D
 fi
 
+# Now opening the cauldron
 _is 1 1 apply
 
 #issue <repeat> <must_send> <command>
@@ -207,31 +215,34 @@ REPLY="";
 NOTHING=0
 SLAG=0
 
-while :; do
+while :; do unset REPLY
 read -t $TMOUT
 _log "$REPLY_LOG" "take:$REPLY"
+_debug "$REPLY"
 case $REPLY in
 *Nothing*to*take*)   NOTHING=1;;
 *You*pick*up*the*slag*) SLAG=1;;
 '') break;;
 esac
 
-unset REPLY
 sleep 0.1s
 done
 
 _unwatch $DRAWINFO
-sleep ${SLEEP}s
+_sleep
 }
 
 _check_drop_or_exit(){
+_debug "_check_drop_or_exit:$*"
+
 local HAVE_PUT=0
 local OLD_REPLY="";
 local REPLY="";
 
-while :; do
+while :; do unset REPLY
 read -t $TMOUT
-_log "$REPLY_LOG" "drop:$REPLY"
+_log "$REPLY_LOG" "_check_drop_or_exit:$REPLY"
+_debug "$REPLY"
 case $REPLY in
 *Nothing*to*drop*)                _exit 1 "Missing in inventory";;
 *There*are*only*|*There*is*only*) _exit 1 "Not enough to drop." ;;
@@ -239,7 +250,6 @@ case $REPLY in
 '') break;;
 esac
 
-unset REPLY
 sleep 0.1s
 done
 
@@ -250,7 +260,7 @@ case "$HAVE_PUT" in
 *[[:alpha:][:punct:]]*) _exit 2 "_check_drop_or_exit:ERROR:Got no number.";;
 [2-9]*) _exit 1 "More than one stack put.";;
 esac
-sleep ${SLEEP}s
+_sleep
 }
 
 _close_cauldron(){

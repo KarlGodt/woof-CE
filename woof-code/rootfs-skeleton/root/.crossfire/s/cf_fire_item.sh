@@ -289,6 +289,7 @@ read -t ${TMOUT:-1} statHP
 }
 
 __do_emergency_recall(){
+_debug "__do_emergency_recall:$*"
 #_debug "issue 1 1 apply -a rod of word of recall"
   _is 1 1 apply -u "rod of word of recall"
   _is 1 1 apply -a "rod of word of recall"
@@ -307,6 +308,8 @@ _do_emergency_recall(){
 # *   alternatively one could apply rod of heal, scroll of restoration
 # *   and ommit exit ( comment 'exit 5' line by setting a '#' before it)
 # *   - something like that
+_debug "_do_emergency_recall:$*"
+
 lRETURN_ITEM=${*:-"$RETURN_ITEM"}
 if test "$lRETURN_ITEM"; then
  case $lRETURN_ITEM in
@@ -352,6 +355,7 @@ _draw 2 "$0 started <$*> with pid $$ $PPID"
 # MAIN
 
 _do_loop(){
+_debug "_do_loop:$*"
 NUMBER=${1:-1}
 _debug "_do_loop:$*:NUMBER=$NUMBER"
 

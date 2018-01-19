@@ -242,6 +242,10 @@ _unknown(){
  _sound 0 TowerClock
 }
 
+_beep_std(){
+beep -l 1000 -f 700
+}
+
 _say_start_msg(){
 # *** Here begins program *** #
 _draw 2 "$0 has started.."
@@ -386,10 +390,10 @@ esac
 
 _move_back_and_forth 2
 _sleep
-_draw 3 "Exiting $0. $@"
+_draw 3 "Exiting $0. $$ $@"
 #echo unwatch
 _unwatch ""
-beep -l 1000 -f 700
+_beep_std
 test ${RV//[0-9]/} && RV=3
 exit ${RV:-0}
 }
@@ -422,7 +426,7 @@ _unwatch
  sleep 6
 _is 1 1 apply
 
-beep -l 1000 -f 700
+_beep_std
 exit ${RV:-0}
 }
 
@@ -430,7 +434,7 @@ _exit_no_space(){
 _draw 3 "On position $nr $DIRB there is something ($IS_WALL)!"
 _draw 3 "Remove that item and try again."
 _draw 3 "If this is a wall, try on another place."
-beep -l 1000 -f 700
+_beep_std
 exit ${1:-0}
 }
 
@@ -910,12 +914,12 @@ NUMBER_ITEM=`echo "$UNDER_ME_LIST" | grep -iE " $lITEM| ${lITEM}s | ${lITEM}es" 
 
 if test "$TOPMOST"; then
 test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -iE " $lITEM| ${lITEM}s| ${lITEM}es" | grep -E 'cursed|damned'`" && {
- beep -l 1000 -f 700
+ _beep_std
  test "$DO_LOOP" && return 1 || _exit 1 "Topmost $lITEM appears to be cursed!"
 }
 
 test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -iE " $lITEM| ${lITEM}s| ${lITEM}es"`" || {
-beep -l 1000 -f 700
+_beep_std
 test "$DO_LOOP" && return 1 || _exit 1 "$lITEM appears not to be topmost!"
 }
 else true
@@ -923,14 +927,14 @@ fi
 
 case "$UNDER_ME_LIST" in
 *"$lITEM"*cursed*|*"${lITEM}s"*cursed*|*"${lITEM}es"*cursed*)
- beep -l 1000 -f 700
+ _beep_std
  test "$DO_LOOP" && return 1 || _exit 1 "You appear to stand upon some cursed $lITEM!";;
 *"$lITEM"*damned*|*"${lITEM}s"*damned*|*"${lITEM}es"*damned*)
- beep -l 1000 -f 700
+ _beep_std
  test "$DO_LOOP" && return 1 || _exit 1 "You appear to stand upon some damned $lITEM!";;
 *"$lITEM"|*"${lITEM}s"|*"${lITEM}es") :;;
 *)
- beep -l 1000 -f 700
+ _beep_std
  test "$DO_LOOP" && return 1 || _exit 1 "You appear not to stand on some $lITEM!";;
 esac
 
