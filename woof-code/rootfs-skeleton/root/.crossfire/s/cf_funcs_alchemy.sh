@@ -34,7 +34,7 @@ $UNDER_ME_LIST"
 
 case $UNDER_ME in
 *request*items*on*end*) break;;
-*scripttell*break*)     break;;
+*scripttell*break*)     break ${UNDER_ME##*?break};;
 *scripttell*exit*)    _exit 1;;
 esac
 

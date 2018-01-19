@@ -3,6 +3,7 @@
 [ "$HAVE_FUNCS_CHEST" ] && return 0
 
 _open_chests(){
+_debug "_open_chests:$*"
 _draw 5 "Opening chests ..."
 
 unset one
@@ -10,9 +11,12 @@ while :
 do
 one=$((one+1))
 
+#__check_if_on_item_examine -l chest
+#_check_if_on_chest_request_items_on -l || break 1
 _check_if_on_chest -l || break 1
+
 _sleep
-_draw 5 "$NUMBER_CHEST chest(s) to open ..."
+_draw 5 "${NUMBER_CHEST:-?} chest(s) to open ..."
 
 _move_back_and_forth 2
 
@@ -28,7 +32,7 @@ unset OPEN_COUNT
  *'You find'*)   OPEN_COUNT=1;;
  *empty*)        OPEN_COUNT=1;;
  *'You open chest.'*) break 2;;
- *scripttell*break*)  break ${REPLY##* break };;
+ *scripttell*break*)  break ${REPLY##*?break};;
  *scripttell*exit*)   _exit 1;;
  '') break 1;;
  esac
@@ -47,14 +51,14 @@ test "$OPEN_COUNT" && CHEST_COUNT=$((CHEST_COUNT+1))
 #11:50 You open chest.
 #11:50 You close chest (open) (active).
 
-_move_back_and_forth 2 "_pickup 4;_sleep;"
+_move_back_and_forth 2 "_set_pickup 4;_sleep;"
 
 if _check_counter; then
 _check_food_level
 _check_hp_and_return_home $HP
 fi
 
-_pickup 0
+_set_pickup 0
 _sleep
 
 case $NUMBER in $one) break 1;; esac
@@ -66,21 +70,38 @@ _sleep
 done
 }
 
-_check_if_on_chest(){
-_draw 5 "Checking if standing on chests ..."
+__check_if_on_chest_request_items_on(){
+_debug "__check_if_on_chest_request_items_on:$*"
+
+#local DO_LOOP TOPMOST
+#unset DO_LOOP TOPMOST
+
+#while [ "$1" ]; do
+#case $1 in
+#-l) DO_LOOP=1;;
+#-t) TOPMOST=1;;
+#-lt|-tl) DO_LOOP=1; TOPMOST=1;;
+#*) break;;
+#esac
+#shift
+#done
+
+#_draw 5 "Checking if standing on chests ..."
 UNDER_ME='';
 UNDER_ME_LIST='';
+
+_empty_message_stream
 echo request items on
 
 while :; do
 read -t $TMOUT UNDER_ME
-_log "$ON_LOG" "_check_if_on_chest:$UNDER_ME"
+_log "$ON_LOG" "__check_if_on_chest_request_items_on:$UNDER_ME"
 _msg 7 "$UNDER_ME"
 
 case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
-*scripttell*break*)     break ${REPLY##* break };;
+*scripttell*break*)     break ${REPLY##*?break};;
 *scripttell*exit*)      _exit 1;;
 esac
 
@@ -124,7 +145,130 @@ test "$1" && return 1 || exit 1
 return 0
 }
 
+_check_if_on_chest_request_items_on(){
+_debug "_check_if_on_chest_request_items_on:$*"
+
+#local DO_LOOP TOPMOST
+#unset DO_LOOP TOPMOST
+
+#while [ "$1" ]; do
+#case $1 in
+#-l) DO_LOOP=1;;
+#-t) TOPMOST=1;;
+#-lt|-tl) DO_LOOP=1; TOPMOST=1;;
+#*) break;;
+#esac
+#shift
+#done
+
+local lRV
+unset lRV
+
+#_draw 5 "Checking if standing on chests ..."
+UNDER_ME='';
+UNDER_ME_LIST='';
+
+_empty_message_stream
+echo request items on
+
+while :; do
+read -t $TMOUT UNDER_ME
+_log "$ON_LOG" "_check_if_on_chest_request_items_on:$UNDER_ME"
+_msg 7 "$UNDER_ME"
+
+case $UNDER_ME in
+'') continue;;
+*request*items*on*end*) break 1;;
+*scripttell*break*)     break ${REPLY##*?break};;
+*scripttell*exit*)      _exit 1;;
+esac
+
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+
+unset UNDER_ME
+sleep 0.1s
+done
+
+UNDER_ME_LIST=`echo "$UNDER_ME_LIST" | sed 's%^$%%'`
+
+__debug "UNDER_ME_LIST='$UNDER_ME_LIST'"
+
+NUMBER_CHEST=`echo "$UNDER_ME_LIST" | grep 'chest' | wc -l`
+
+test "`echo "$UNDER_ME_LIST" | grep 'chest.*cursed'`" && {
+#_draw 3 "You appear to stand upon some cursed chest!"
+#beep -l 1000 -f 700
+#test "$1" && return 1 || exit 1
+lRV=5
+}
+
+test "`echo "$UNDER_ME_LIST" | grep -E 'chest$|chests$'`" || {
+#_draw 3 "You appear not to stand on some chest!"
+#beep -l 1000 -f 700
+#test "$1" && return 1 || exit 1
+lRV=6
+}
+
+test "`echo "$UNDER_ME_LIST" | tail -n1 | grep 'chest.*cursed'`" && {
+#_draw 3 "Topmost chest appears to be cursed!"
+#beep -l 1000 -f 700
+#test "$1" && return 1 || exit 1
+lRV=7
+}
+
+test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -E 'chest$|chests$'`" || {
+#_draw 3 "Chest appears not topmost!"
+#beep -l 1000 -f 700
+#test "$1" && return 1 || exit 1
+lRV=8
+}
+
+return ${lRV:-0}
+}
+
+_eval_check_if_on_chest_request_items_on(){
+_debug "_eval_check_if_on_chest_request_items_on:$*"
+
+  _check_if_on_chest_request_items_on
+  local lRV=$?
+case $lRV in
+5) _draw 3 "You appear to stand upon some cursed chest!";;
+6) _draw 3 "You appear not to stand on some chest!";;
+7) _draw 3 "Topmost chest appears to be cursed!";;
+8) _draw 3 "Chest appears not topmost!";;
+0) return 0;;
+*) _warn "_eval_check_if_on_chest_request_items_on:Unhandled return value '$lRV'";;
+esac
+beep -l 1000 -f 700
+test "$1" && return 1 || exit 1
+}
+
+_check_if_on_chest(){
+_debug "_check_if_on_chest:$*"
+
+#local DO_LOOP TOPMOST
+#unset DO_LOOP TOPMOST
+#
+#while [ "$1" ]; do
+#case $1 in
+#-l) DO_LOOP=1;;
+#-t) TOPMOST=1;;
+#-lt|-tl) DO_LOOP=1; TOPMOST=1;;
+#*) break;;
+#esac
+#shift
+#done
+
+_draw 5 "Checking if standing on chests ..."
+
+#__check_if_on_item_examine $1 chest
+__check_if_on_chest_request_items_on $1
+#_eval_check_if_on_chest_request_items_on $1
+}
+
 _lockpick_door(){
+_debug "_lockpick_door:$*"
 _draw 5 "Attempting to lockpick the door ..."
 
 one=${LOCKPICK_ATTEMPTS:-$LOCKPICK_ATTEMPTS_DEFAULT}
@@ -160,7 +304,7 @@ _sleep
 
  *'You fail to pick the lock.'*) break 1;;
 
- *scripttell*break*)   break ${REPLY##* break };;
+ *scripttell*break*)   break ${REPLY##*?break};;
  *scripttell*exit*)    _exit 1;;
  '') break 1;; # :;;
  *)  :;;

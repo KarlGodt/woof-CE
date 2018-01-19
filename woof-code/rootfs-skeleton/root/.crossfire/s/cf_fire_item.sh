@@ -183,7 +183,7 @@ read -t ${TMOUT:-1} oneITEM
  case $oneITEM in
  $oldITEM|'') break;;
  *"$lITEM"*) _draw 7 "Got that item $lITEM in inventory.";;
- *scripttell*break*)  break ${oneITEM##* break };;
+ *scripttell*break*)  break ${oneITEM##*?break};;
  *scripttell*exit*)   _exit 1;;
  esac
  ITEMS="${ITEMS}${oneITEM}\n"
@@ -226,7 +226,7 @@ read -t ${TMOUT:-1} oneITEM
  case $oneITEM in
  $oldITEM|'') break;;
  #*"$lITEM"*) _draw 7 "Got that item $lITEM in inventory.";;
- *scripttell*break*)  break ${oneITEM##* break };;
+ *scripttell*break*)  break ${oneITEM##*?break};;
  *scripttell*exit*)   _exit 1;;
  ITEMSA="$ITEMSA
 $oneITEM"
@@ -263,7 +263,7 @@ read -t ${TMOUT:-1} REPLY_RANGE
  case $REPLY_RANGE in
  $oldREPLY_RANGE|'') break 1;;
  *"$lITEM"*)         break 1;;
- *scripttell*break*) break ${REPLY##* break };;
+ *scripttell*break*) break ${REPLY##*?break};;
  *scripttell*exit*)  _exit 1;;
  esac
     _is 1 1 rotateshoottype

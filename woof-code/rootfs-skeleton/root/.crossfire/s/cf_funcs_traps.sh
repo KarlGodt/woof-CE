@@ -24,7 +24,8 @@ while :
 do
 _draw 5 "Using skill $lSKILL ..."
 
-echo watch $DRAWINFO
+#echo watch $DRAWINFO
+_watch $DRAWINFO
 _is 0 0 use_skill $lSKILL
 _sleep
 
@@ -48,7 +49,7 @@ _sleep
  *'In fact, you set it off!'*) TRAPS=$((TRAPS-1));;
  *'You detonate'*) _just_exit 1;;
  *'You are pricked'*) :;;
- *scripttell*break*)  break ${REPLY##* break };;
+ *scripttell*break*)  break ${REPLY##*?break};;
  *scripttell*exit*)   _exit 1;;
  '') break 1;;
  *) :;;
@@ -82,7 +83,8 @@ while :
 do
 _draw 5 "${TRAPS:-0} trap(s) to disarm ..."
 
-echo watch $DRAWINFO
+#echo watch $DRAWINFO
+_watch $DRAWINFO
 _is 0 0 use_skill disarm
 _sleep
 
@@ -107,7 +109,7 @@ _sleep
  *'In fact, you set it off!'*) TRAPS=$((TRAPS-1));;
  *'You detonate'*) _just_exit 1;;
  *'You are pricked'*) :;;
- *scripttell*break*)  break ${REPLY##* break };;
+ *scripttell*break*)  break ${REPLY##*?break};;
  *scripttell*exit*)   _exit 1;;
  '') break 1;;
  *) :;;
@@ -146,7 +148,8 @@ while :
 do
 _draw 5 "${TRAPS:-0} trap(s) to disarm ..."
 
-echo watch $DRAWINFO
+#echo watch $DRAWINFO
+_watch $DRAWINFO
 _is 0 0 invoke disarm
 _sleep
 
@@ -168,7 +171,7 @@ _sleep
  # so invoking disarm towards the stack of chests would not
  # work to disarm the traps elsewhere on tiles around
  *"There's nothing there!"*) break 2;;
- *scripttell*break*)  break ${REPLY##* break };;
+ *scripttell*break*)  break ${REPLY##*?break};;
  *scripttell*exit*)   _exit 1;;
  *) :;;
  esac
@@ -198,7 +201,8 @@ do
 _draw 5 "${TRAPS:-0} trap(s) to disarm ..."
 
 # TODO: checks for enough mana
-echo watch $DRAWINFO
+#echo watch $DRAWINFO
+_watch $DRAWINFO
 _is 0 0 cast disarm
 _sleep
 _is 0 0 fire 0
@@ -217,7 +221,7 @@ _sleep
  *'You successfully disarm'*) TRAPS=$((TRAPS-1)); break 1;;
  *'You fail to disarm'*) break 1;;
  *"There's nothing there!"*) break 2;;
- *scripttell*break*)  break ${REPLY##* break };;
+ *scripttell*break*)  break ${REPLY##*?break};;
  *scripttell*exit*)   _exit 1;;
  *) :;;
  esac
@@ -248,7 +252,8 @@ do
 
 _draw 5 "Searching traps $cnt time(s) ..."
 
-echo watch ${DRAWINFO}
+#echo watch ${DRAWINFO}
+_watch ${DRAWINFO}
 _sleep
 _is 0 0 search
 #_sleep
@@ -273,7 +278,7 @@ _is 0 0 search
  *'You spot a Rune of Ball Lightning!'*) _just_exit 0;;
  *' spot '*) FOUND_TRAP=$((FOUND_TRAP+1));;
  *'You search the area.'*) SEARCH_MSG=$((SEARCH_MSG+1));; # break 1;;
- *scripttell*break*)  break ${REPLY##* break };;
+ *scripttell*break*)  break ${REPLY##*?break};;
  *scripttell*exit*)   _exit 1;;
  '') break 1;;
  *) :;;

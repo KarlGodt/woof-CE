@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 
 # Who:
 # Created by Karl Reimer Godt
@@ -59,6 +59,7 @@ VERSION=1.3.1 # count opened chests
 VERSION=2.0 # use sourced functions files
 VERSION=2.1 # implement -M option
 VERSION=2.1.1 # bugfixes
+VERSION=2.2 # more alternative functions
 
 SEARCH_ATTEMPTS_DEFAULT=9
 #DISARM variable set to skill, invokation OR cast
@@ -128,21 +129,24 @@ unset Z1 Z2
 sleep 0.2
 }
 
-_drop_chest(){
+__drop_chest(){
 local lITEM="$*"
 _is 0 0 drop ${lITEM:-chest}
 sleep 3
 }
 
-_pickup(){
+__set_pickup(){
 # TODO: Seems to pick up only
 # one piece of the item, if more than one
 # piece of the item, as 4 coins or 23 arrows
 # in _open_chests() ..?
-_is 0 0 pickup ${*:-0}
+#_is 0 0 pickup ${*:-0}
+#_is 1 0 pickup ${*:-0}
+#_is 0 1 pickup ${*:-0}
+ _is 1 1 pickup ${*:-0}
 }
 
-_move_back(){  ##+++2018-01-08
+__move_back(){  ##+++2018-01-08
 test "$DIRB" || return 0
 for i in `seq 1 1 ${1:-1}`
 do
@@ -151,7 +155,7 @@ _sleep
 done
 }
 
-_move_forth(){  ##+++2018-01-08
+__move_forth(){  ##+++2018-01-08
 test "$DIRF" || return 0
 for i in `seq 1 1 ${1:-1}`
 do
@@ -160,7 +164,7 @@ _sleep
 done
 }
 
-_move_back_and_forth(){  ##+++2018-01-08
+__move_back_and_forth(){  ##+++2018-01-08
 STEPS=${1:-1}
 
 #test "$DIRB" -a "$DIRF" || return 0
@@ -198,21 +202,86 @@ _sleep
 done
 }
 
-__check_if_on_chest(){
-_draw 5 "Checking if standing on chests ..."
+__check_if_on_item_examine(){
+# Using 'examine' directly after dropping
+# the item examines the bottommost tile
+# as 'That is marble'
+_debug "__check_if_on_item_examine:$*"
+
+local DO_LOOP TOPMOST
+unset DO_LOOP TOPMOST
+
+while [ "$1" ]; do
+case $1 in
+-l) DO_LOOP=1;;
+-t) TOPMOST=1;;
+-lt|-tl) DO_LOOP=1; TOPMOST=1;;
+*) break;;
+esac
+shift
+done
+
+local lITEM=${*:-"$ITEM"}
+test "$lITEM" || return 254
+
+_draw 5 "Checking if standing on $lITEM ..."
+
+_watch $DRAWINFO
+_is 0 0 examine
+while :; do unset REPLY
+read -t $TMOUT
+ _log "__check_if_on_item_examine:$REPLY"
+ _msg 7 "$REPLY"
+
+ case $REPLY in
+  *"That is"*"$lITEM"*|*"Those are"*"$lITEM"*) break 1;;
+  *"That is"*|*"Those are"*) break 1;;
+  *scripttell*break*)     break ${REPLY##*?break};;
+  *scripttell*exit*)    _exit 1;;
+  '') break 1;;
+  *) :;;
+ esac
+
+ sleep 0.01
+done
+
+_unwatch
+_empty_message_stream
+echo "$REPLY" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es"
+}
+
+__check_if_on_chest_request_items_on__(){
+_debug "__check_if_on_chest_request_items_on__:$*"
+
+#local DO_LOOP TOPMOST
+#unset DO_LOOP TOPMOST
+#
+#while [ "$1" ]; do
+#case $1 in
+#-l) DO_LOOP=1;;
+#-t) TOPMOST=1;;
+#-lt|-tl) DO_LOOP=1; TOPMOST=1;;
+#*) break;;
+#esac
+#shift
+#done
+
+#_draw 5 "Checking if standing on chests ..."
 UNDER_ME='';
 UNDER_ME_LIST='';
+
+_empty_message_stream
 echo request items on
 
 while :; do
 read -t $TMOUT UNDER_ME
-_log "$ON_LOG" "__check_if_on_chest:$UNDER_ME"
+_log "$ON_LOG" "__check_if_on_chest_request_items_on__:$UNDER_ME"
 _msg 7 "$UNDER_ME"
 
 case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
-*scripttell*break*)     break 1;;
+*scripttell*break*)     break ${REPLY##*?break};;
 *scripttell*exit*)    _exit 1;;
 esac
 
@@ -256,7 +325,89 @@ test "$1" && return 1 || exit 1
 return 0
 }
 
+_check_if_on_chest_request_items_on_(){
+_debug "_check_if_on_chest_request_items_on_:$*"
+local lRV
+unset lRV
+
+#_draw 5 "Checking if standing on chests ..."
+UNDER_ME='';
+UNDER_ME_LIST='';
+
+_empty_message_stream
+echo request items on
+
+while :; do
+read -t $TMOUT UNDER_ME
+_log "$ON_LOG" "_check_if_on_chest_request_items_on_:$UNDER_ME"
+_msg 7 "$UNDER_ME"
+
+case $UNDER_ME in
+'') continue;;
+*request*items*on*end*) break 1;;
+*scripttell*break*)     break ${REPLY##*?break};;
+*scripttell*exit*)      _exit 1;;
+esac
+
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+
+unset UNDER_ME
+sleep 0.1s
+done
+
+UNDER_ME_LIST=`echo "$UNDER_ME_LIST" | sed 's%^$%%'`
+
+__debug "UNDER_ME_LIST='$UNDER_ME_LIST'"
+
+NUMBER_CHEST=`echo "$UNDER_ME_LIST" | grep 'chest' | wc -l`
+
+test "`echo "$UNDER_ME_LIST" | grep 'chest.*cursed'`" && lRV=5
+test "`echo "$UNDER_ME_LIST" | grep -E 'chest$|chests$'`" || lRV=6
+test "`echo "$UNDER_ME_LIST" | tail -n1 | grep 'chest.*cursed'`" && lRV=7
+test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -E 'chest$|chests$'`" || lRV=8
+
+return ${lRV:-0}
+}
+
+__check_if_on_chest(){  ###+++2018-01-19
+_debug "__check_if_on_chest:$*"
+
+#local DO_LOOP TOPMOST
+#unset DO_LOOP TOPMOST
+#
+#while [ "$1" ]; do
+#case $1 in
+#-l) DO_LOOP=1;;
+#-t) TOPMOST=1;;
+#-lt|-tl) DO_LOOP=1; TOPMOST=1;;
+#*) break;;
+#esac
+#shift
+#done
+
+_draw 5 "Checking if standing on chests ..."
+
+#__check_if_on_item_examine $1 chest    && return 0
+#__check_if_on_chest_request_items_on__ && return 0
+
+  _check_if_on_chest_request_items_on_
+  local lRV=$?
+case $lRV in
+5) _draw 3 "You appear to stand upon some cursed chest!";;
+6) _draw 3 "You appear not to stand on some chest!";;
+7) _draw 3 "Topmost chest appears to be cursed!";;
+8) _draw 3 "Chest appears not topmost!";;
+0) return 0;;
+*) _warn "_check_if_on_chest:Unhandled return value '$lRV'";;
+esac
+beep -l 1000 -f 700
+test "$1" && return 1 || exit 1
+}
+
 __search_traps(){
+_debug "__search_traps:$*"
+
 cnt=${SEARCH_ATTEMPTS:-$SEARCH_ATTEMPTS_DEFAULT}
 _draw 5 "Searching traps ..."
 test "$cnt" -gt 0 || return 0
@@ -269,7 +420,8 @@ do
 
 _draw 5 "Searching traps $cnt time(s) ..."
 
-echo watch ${DRAWINFO}
+#echo watch ${DRAWINFO}
+_watch ${DRAWINFO}
 _sleep
 _is 0 0 search
 _sleep
@@ -294,7 +446,7 @@ _sleep
  *'You spot a Rune of Ball Lightning!'*) _just_exit 0;;
  *' spot '*) FOUND_TRAP=$((FOUND_TRAP+1));;
  *'You search the area.'*) SEARCH_MSG=$((SEARCH_MSG+1));; # break 1;;
- *scripttell*break*)   break 1;;
+ *scripttell*break*)   break ${REPLY##*?break};;
  *scripttell*exit*)    _exit 1;;
  '') break 1;;
  *) :;;
@@ -326,6 +478,7 @@ unset cnt
 }
 
 __cast_disarm(){
+_debug "__cast_disarm:$*"
 #_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -338,7 +491,8 @@ do
 _draw 5 "${TRAPS:-0} trap(s) to disarm ..."
 
 # TODO: checks for enough mana
-echo watch $DRAWINFO
+#echo watch $DRAWINFO
+_watch $DRAWINFO
 _is 0 0 cast disarm
 _sleep
 _is 0 0 fire 0
@@ -376,6 +530,7 @@ _unwatch $DRAWINFO
 }
 
 __invoke_disarm(){ ## invoking does to a direction
+_debug "__invoke_disarm:$*"
 #_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -391,7 +546,8 @@ while :
 do
 _draw 5 "${TRAPS:-0} trap(s) to disarm ..."
 
-echo watch $DRAWINFO
+#echo watch $DRAWINFO
+_watch $DRAWINFO
 _is 0 0 invoke disarm
 _sleep
 
@@ -431,6 +587,7 @@ _move_forth 1
 }
 
 __use_skill_disarm(){
+_debug "__use_skill_disarm:$*"
 #_draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -442,7 +599,8 @@ while :
 do
 _draw 5 "${TRAPS:-0} trap(s) to disarm ..."
 
-echo watch $DRAWINFO
+#echo watch $DRAWINFO
+_watch $DRAWINFO
 _is 0 0 use_skill disarm
 _sleep
 
@@ -468,7 +626,7 @@ _sleep
  *'A portal opens up, and screaming hordes pour'*) _just_exit 1;;
  *'through!'*)     _just_exit 1;;
  *'You are pricked'*) :;;
- *scripttell*break*)  break 1;;
+ *scripttell*break*)  break ${REPLY##*?break};;
  *scripttell*exit*)   _exit 1;;
  '') break 1;;
  *) :;;
@@ -491,6 +649,7 @@ unset OLD_REPLY
 }
 
 __disarm_traps(){
+_debug "__disarm_traps:$*"
 _draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
 case "$DISARM" in
 invokation) _invoke_disarm;;
@@ -502,6 +661,8 @@ esac
 }
 
 __open_chests(){
+_debug "__open_chests:$*"
+
 _draw 5 "Opening chests ..."
 
 unset one
@@ -509,9 +670,13 @@ while :
 do
 one=$((one+1))
 
-_check_if_on_chest -l || break 1
+#__check_if_on_item_examine -l chest || break 1
+#__check_if_on_chest_request_items_on__ -l || break 1
+# _check_if_on_chest_request_items_on_ -l || break 1
+__check_if_on_chest -l || break 1
+
 _sleep
-_draw 5 "$NUMBER_CHEST chest(s) to open ..."
+_draw 5 "${NUMBER_CHEST:-?} chest(s) to open ..."
 
 _move_back_and_forth 2
 
@@ -527,7 +692,7 @@ _is 1 1 apply
  *'You find'*)   OPEN_COUNT=1;;
  *empty*)        OPEN_COUNT=1;;
  *'You open chest.'*) break 2;; # permanent container
- *scripttell*break*)  break 1;;
+ *scripttell*break*)  break ${REPLY##*?break};;
  *scripttell*exit*)   _exit 1;;
  '') break 1;;
  esac
@@ -546,14 +711,14 @@ test "$OPEN_COUNT" && CHEST_COUNT=$((CHEST_COUNT+1))
 #11:50 You open chest.
 #11:50 You close chest (open) (active).
 
-_move_back_and_forth 2 "_pickup 4;_sleep;"
+_move_back_and_forth 2 "_set_pickup 4;_sleep;"
 
-_pickup 0
+_set_pickup 0
 _sleep
 
 case $NUMBER in $one) break 1;; esac
 
-#_drop_chest
+#__drop_chest
 _drop chest
 _sleep
 
@@ -561,6 +726,8 @@ done
 }
 
 _do_parameters(){
+_debug "_do_parameters:$*"
+
 # dont forget to pass parameters when invoking this function
 test "$*" || return 0
 
@@ -601,16 +768,18 @@ _say_start_msg $*
 _do_parameters $*
 
 #_check_for_space 2
-$FUNCTION_CHECK_FOR_SPACE 2
+test "$FUNCTION_CHECK_FOR_SPACE" && $FUNCTION_CHECK_FOR_SPACE 2
 _sleep
 
 _get_player_speed
 PL_SPEED2=$PL_SPEED1
 _sleep
 
-#_drop_chest
+#__drop_chest
 _drop chest
 _sleep
+_set_pickup 0
+_move_back_and_forth 2 # this is needed for __check_if_on_item_examine
 
 _get_player_speed
 PL_SPEED3=$PL_SPEED1
@@ -619,21 +788,34 @@ PL_SPEED4=$(( (PL_SPEED2+PL_SPEED3) / 2 ))
 #_set_sync_sleep ${PL_SPEED4:-$PL_SPEED}
 test "$PL_SPEED4" && __set_sync_sleep ${PL_SPEED4} || _set_sync_sleep "$PL_SPEED"
 
-#__check_if_on_chest
-  _check_if_on_chest
-
+_main_open_chests(){
+_debug "_main_open_chests:$*"
+#_sleep
+#_set_pickup 0
 _sleep
-_pickup 0
+
+_search_traps
+_disarm_traps
+_open_chests
+}
+
+__main_open_chests(){
+_debug "__main_open_chests:$*"
+#_sleep
+#__set_pickup 0
 _sleep
 
-#__search_traps
-  _search_traps
+__search_traps
+__disarm_traps
+__open_chests
+}
 
-#__disarm_traps
-  _disarm_traps
+#__check_if_on_item_examine chest && __main_open_chests
+#__check_if_on_item_examine chest &&  _main_open_chests
+#__check_if_on_chest_request_items_on && __main_open_chests
+# _check_if_on_chest_request_items_on &&  _main_open_chests
 
-#__open_chests
-  _open_chests
+_check_if_on_chest && _main_open_chests
 
 _draw 8 "You opened ${CHEST_COUNT:-0} chest(s)."
 

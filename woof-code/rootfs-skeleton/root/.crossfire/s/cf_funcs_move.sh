@@ -176,6 +176,7 @@ _draw 5 "Checking for space to move..."
 #                        );
 #         }
 
+_empty_message_stream
 echo request map pos
 
 # client v.1.70.0 request map pos:request map pos 280 231 ##cauldron adventurers guild stoneville
@@ -185,6 +186,7 @@ while :; do
 read -t $TMOUT REPLY_MAP
 #echo "request map pos:$REPLY_MAP" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "_check_for_space:request map pos:$REPLY_MAP"
+_debug "$REPLY_MAP"
 test "$REPLY_MAP" || break
 test "$REPLY_MAP" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY_MAP"
@@ -320,15 +322,17 @@ EoI
 EoI
     }
 
-
+_empty_message_stream
 echo request map $R_X $R_Y
 
 while :; do
 read -t $TMOUT
 _log "$REPLY_LOG" "_check_for_space:request map '$R_X' '$R_Y':$REPLY"
+_debug "$REPLY"
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 
 _log "$REPLY_LOG" "IS_WALL=$IS_WALL"
+_debug "IS_WALL=$IS_WALL"
 test "$IS_WALL" = 0 || _exit_no_space 1
 
 test "$REPLY" || break
@@ -350,7 +354,7 @@ _draw 7 "OK."
 }
 
 _check_for_space_old_client(){
-# *** Check for 4 empty space to DIRB ***#
+# *** Check for 4 empty space to DIRB *** #
 _debug "_check_for_space_old_client:$*"
 
 local REPLY_MAP OLD_REPLY NUMBERT cm
@@ -409,6 +413,7 @@ _draw 5 "Checking for space to move..."
 #                        );
 #         }
 
+_empty_message_stream
 echo request map near
 
 # client v.1.70.0 request map pos:request map pos 280 231 ##cauldron adventurers guild stoneville
@@ -419,6 +424,7 @@ while :; do
 cm=$((cm+1))
 read -t $TMOUT REPLY_MAP
 _log "$REPLY_LOG" "_check_for_space_old_client:request map near:$REPLY_MAP"
+_debug "$REPLY_MAP"
 test "$cm" = 5 && break
 test "$REPLY_MAP" || break
 test "$REPLY_MAP" = "$OLD_REPLY" && break
@@ -557,15 +563,17 @@ EoI
 EoI
     }
 
-
+_empty_message_stream
 echo request map $R_X $R_Y
 
 while :; do
 read -t $TMOUT
 _log "$REPLY_LOG" "_check_for_space_old_client:request map '$R_X' '$R_Y':$REPLY"
+_debug "$REPLY"
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 
 _log "$REPLY_LOG" "IS_WALL=$IS_WALL"
+_debug "IS_WALL=$IS_WALL"
 test "$IS_WALL" = 0 || _exit_no_space 1
 
 test "$REPLY" || break

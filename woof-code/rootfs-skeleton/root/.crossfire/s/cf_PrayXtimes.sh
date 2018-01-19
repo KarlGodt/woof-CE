@@ -35,12 +35,6 @@ test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 _say_start_msg "$@"
 
 # *** Check for parameters *** #
-#test "$1" || {
-#_draw 3 "Script needs number of praying attempts as argument."
-#        exit 1
-#_draw 3 "Need <number> ie: script $0 50 ."
-#        exit 1
-#}
 
 while [ "$1" ]
 do
@@ -205,9 +199,6 @@ _msg 6 "Sleeping $USLEEP usleep micro-sec. / $SLEEP sec. between praying."
 }
 
 _say_progress(){
-#ckc=$((ckc+1))
-#test "$ckc" -lt $COUNT_CHECK_FOOD && return 0
-#ckc=0
 case $NUMBER in
 '') _draw 5 "$one praying attempt(s) done.";;
 *)  _draw 5 "$((NUMBER-one)) praying(s) left.";;

@@ -1,12 +1,9 @@
 #!/bin/bash
 
-#export PATH=/bin:/usr/bin
-#export LC_NUMERIC=de_DE
-#export LC_ALL=de_DE
 
 VERSION=0.0 # initial version
-VERSION=2.0 # add a check for food level and to eat
-VERSION=2.1 # recognize -V and -d options
+VERSION=1.0 # add a check for food level and to eat
+VERSION=1.1 # recognize -V and -d options
 
 CANCEL_ITEM='rod of cancellation' # may set to scroll,
 # staff, heavy rod or just rod of cancellation
@@ -68,15 +65,7 @@ _draw 3 "Script needs number of cancellation attempts as argument."
         exit 1
 }
 
-#test "$1" || {
-#_draw 3 "Need <number> ie: script $0 50 ."
-#        exit 1
-#}
-
-
-# *** Actual script to cancel multiple times *** #
-test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
-
+# *** functions *** #
 __check_if_item_is_active(){
 _debug "__check_if_item_is_active:$*"
 
@@ -84,7 +73,6 @@ local lITEM="$*" oR tmpR lRV=1
 test "$lITEM" || _exit 1 "\$lITEM missing."
 
 unset HAVE_ITEM_APPLIED oR tmpR
-#sleep 0.1
 
 echo request items actv
 while :; do
@@ -140,6 +128,8 @@ echo request range
  case $tmpR in
  *"$lITEM"*) RANGE_ITEM_APPLIED=YES; lRV=0; break 2;;
  '')  break;;
+ *scripttell*break*) break ${REPLY##*?break};;
+ *scripttell*exit*)  _exit 1;;
  esac
 
  sleep 0.01
@@ -154,14 +144,15 @@ return ${lRV:-1}
 }
 
 _say_progress(){
-#ckc=$((ckc+1))
-#test "$ckc" -ge $COUNT_CHECK_FOOD || return 1
-#ckc=0
 case $NUMBER in
 '') _draw 5 "$one firing attempt(s) done.";;
 *)  _draw 5 "$((NUMBER-one)) firings(s) left.";;
 esac
 }
+
+
+# *** Actual script to cancel multiple times *** #
+test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
 # MAIN:
 

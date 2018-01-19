@@ -80,7 +80,7 @@ _is 1 1 mark "$lITEM"
  _debug "$REPLY"
  case $REPLY in
  *Could*not*find*an*object*that*matches*) lRV=1;break 1;;
- *scripttell*break*) break ${REPLY##* break };;
+ *scripttell*break*) break ${REPLY##*?break};;
  *scripttell*exit*)  _exit 1;;
  '') break;;
  esac
@@ -112,7 +112,7 @@ _is 1 1 apply "$lITEM"
  '')     lRV=1; break 1;;
  *fail*) lRV=1; FAIL=$((FAIL+1)); break 1;;
  *You*light*the*icecube*with*the*flint*and*steel.*) lRV=0; SUCC=$((SUCC+1)); break 1;;
- *scripttell*break*) break ${REPLY##* break };;
+ *scripttell*break*) break ${REPLY##*?break};;
  *scripttell*exit*)  _exit 1;;
  *) :;;
  esac

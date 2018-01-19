@@ -387,8 +387,8 @@ esac
 _move_back_and_forth 2
 _sleep
 _draw 3 "Exiting $0. $@"
-echo unwatch
-
+#echo unwatch
+_unwatch ""
 beep -l 1000 -f 700
 test ${RV//[0-9]/} && RV=3
 exit ${RV:-0}
@@ -623,6 +623,8 @@ _info "Setting SLEEP=$SLEEP ,TMOUT=$TMOUT ,DELAY_DRAWINFO=$DELAY_DRAWINFO"
 }
 
 _player_speed_to_human_readable(){
+_debug "_player_speed_to_human_readable:$*"
+
 local lPL_SPEED=${1:-$PL_SPEED}
 test "$lPL_SPEED" || return 254
 
@@ -669,6 +671,8 @@ LC_NUMERIC=$oLC_NUMERIC
 }
 
 __player_speed_to_human_readable(){
+_debug "__player_speed_to_human_readable:$*"
+
 local lPL_SPEED=${1:-$PL_SPEED}
 test "$lPL_SPEED" || return 254
 :  #TODO
@@ -681,6 +685,7 @@ local lANSWER lOLD_ANSWER
 lANSWER=
 lOLD_ANSWER=
 
+_empty_message_stream
 echo request $*
 while :; do
  read -t $TMOUT lANSWER
@@ -703,6 +708,7 @@ test "$*" || return 254
 
 local lANSWER=''
 
+_empty_message_stream
 echo request $*
 read -t $TMOUT lANSWER
  _log "$REQUEST_LOG" "_request $*:$lANSWER"
@@ -758,6 +764,7 @@ read -t $TMOUT r s c WC AC DAM PL_SPEED WP_SPEED
 }
 
 _use_old_funcs(){
+_empty_message_stream
 echo request stat cmbt # only one line
 #__old_req
 __new_req
@@ -765,6 +772,7 @@ __new_req
 
 _use_new_funcs(){
 #__request stat cmbt
+ _empty_message_stream
  _request stat cmbt
 test "$ANSWER" && PL_SPEED0=`echo "$ANSWER" | awk '{print $7}'`
 PL_SPEED=${PL_SPEED0:-$PL_SPEED}
@@ -795,6 +803,7 @@ RECALL=0
 OLD_REPLY="";
 REPLY="";
 
+_empty_message_stream
 echo request items actv
 
 while :; do
@@ -819,14 +828,6 @@ _draw 6 "Done."
 #** we may get attacked and die **#
 _check_hp_and_return_home(){
 _debug "_check_hp_and_return_home:$*"
-
-#if test "$1" = '-l'; then # loop counter
-# #hpcnt=$((hpcnt+1))
-# #test "$hpcnt" -lt $COUNT_CHECK_FOOD && return 0
-# #hpcnt=0
-# _check_counter || return 1
-# shift
-#fi
 
 local currHP currHPMin
 currHP=${1:-$HP}
@@ -861,11 +862,16 @@ _debug "_check_if_on_item:$*"
 
 local DO_LOOP TOPMOST
 unset DO_LOOP TOPMOST
+
+while [ "$1" ]; do
 case $1 in
--l) DO_LOOP=1; shift;;
--t) TOPMOST=1; shift;;
+-l) DO_LOOP=1;;
+-t) TOPMOST=1;;
 -lt|-tl) DO_LOOP=1; TOPMOST=1;;
+*) break;;
 esac
+shift
+done
 
 local lITEM=${*:-"$ITEM"}
 test "$lITEM" || return 254
@@ -873,6 +879,8 @@ test "$lITEM" || return 254
 _draw 5 "Checking if standing on $lITEM ..."
 UNDER_ME='';
 UNDER_ME_LIST='';
+
+_empty_message_stream
 echo request items on
 
 while :; do
@@ -883,7 +891,7 @@ _msg 7 "$UNDER_ME"
 case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
-*scripttell*break*)     break ${REPLY##* break };;
+*scripttell*break*)     break ${REPLY##*?break};;
 *scripttell*exit*)      _exit 1;;
 esac
 
@@ -929,6 +937,51 @@ esac
 return 0
 }
 
+_check_have_item_in_inventory(){
+_debug "_check_have_item_in_inventory:$*"
+
+local oneITEM oldITEM ITEMS ITEMSA lITEM
+lITEM=${*:-"$ITEM"}
+test "$lITEM" || return 254
+
+TIMEB=`date +%s`
+
+unset oneITEM oldITEM ITEMS ITEMSA
+
+_empty_message_stream
+echo request items inv
+while :;
+do
+read -t ${TMOUT:-1} oneITEM
+ _log "_check_have_item_in_inventory:$oneITEM"
+ _debug "$oneITEM"
+
+ case $oneITEM in
+ $oldITEM|'') break 1;;
+ *"$lITEM"*) _draw 7 "Got that item $lITEM in inventory.";;
+ *scripttell*break*)  break ${oneITEM##*?break};;
+ *scripttell*exit*)   _exit 1;;
+ esac
+ ITEMS="${ITEMS}${oneITEM}\n"
+#$oneITEM"
+ oldITEM="$oneITEM"
+sleep 0.01
+done
+unset oldITEM oneITEM
+
+
+TIMEE=`date +%s`
+TIME=$((TIMEE-TIMEB))
+_debug 4 "Fetching Inventory List: Elapsed $TIME sec."
+
+#_debug "lITEM=$lITEM"
+#_debug "head:`echo -e "$ITEMS" | head -n1`"
+#_debug "tail:`echo -e "$ITEMS" | tail -n2 | head -n1`"
+#HAVEIT=`echo "$ITEMS" | grep -E  " $lITEM| ${lITEM}s| ${lITEM}es"`
+#__debug "HAVEIT=$HAVEIT"
+echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es"
+}
+
 _is(){
 # issue <repeat> <must_send> <command> - send
 #  <command> to server on behalf of client.
@@ -944,6 +997,17 @@ _drop(){
  _sound 0 drip &
  #_is 1 1 drop "$@" #01:58 There are only 1 chests.
   _is 0 0 drop "$@"
+}
+
+_set_pickup(){
+# TODO: Seems to pick up only
+# one piece of the item, if more than one
+# piece of the item, as 4 coins or 23 arrows
+# in _open_chests() ..?
+#_is 0 0 pickup ${*:-0}
+#_is 1 0 pickup ${*:-0}
+#_is 0 1 pickup ${*:-0}
+ _is 1 1 pickup ${*:-0}
 }
 
 ###END###
