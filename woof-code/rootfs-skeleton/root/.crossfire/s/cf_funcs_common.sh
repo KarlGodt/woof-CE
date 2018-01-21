@@ -119,8 +119,8 @@ _draw(){
     local lCOLOUR="${1:-$COLOUR}"
     lCOLOUR=${lCOLOUR:-1} #set default
     shift
-    local MSG="$@"
-    echo draw $lCOLOUR "$MSG"
+    echo draw $lCOLOUR $@ # no double quotes here,
+# multiple lines are drawn using __draw below
 }
 
 __draw(){
@@ -128,7 +128,7 @@ case $1 in [0-9]|1[0-2])
     lCOLOUR="$1"; shift;; esac
     local lCOLOUR=${lCOLOUR:-1} #set default
 dcnt=0
-echo "$*" | while read line
+echo -e "$*" | while read line
 do
 dcnt=$((dcnt+1))
     echo draw $lCOLOUR "$line"
@@ -268,7 +268,7 @@ test "$TIMEA" || return 1
 }
 
 _say_script_time(){ ##+++2018-01-07
-TIME_ELAPSED=`ps -o pid,etime,args | grep -w "$$" | grep -vwE 'grep|ps'`
+TIME_ELAPSED=`ps -o pid,etime,args | grep -w "$$" | grep -vwE "grep|ps|${TMP_DIR:-/tmp}"`
 __debug "$TIME_ELAPSED"
 TIME_ELAPSED=`echo "$TIME_ELAPSED" | awk '{print $2}'`
 __debug "$TIME_ELAPSED"
@@ -390,7 +390,8 @@ esac
 
 _move_back_and_forth 2
 _sleep
-_draw 3 "Exiting $0. $$ $@"
+test "$*" && _draw 3 $@
+_draw 3 "Exiting $0. PID was $$"
 #echo unwatch
 _unwatch ""
 _beep_std
@@ -1004,10 +1005,24 @@ _drop(){
 }
 
 _set_pickup(){
-# TODO: Seems to pick up only
-# one piece of the item, if more than one
+# Usage: pickup <0-7> or <value_density> .
+# pickup 0:Don't pick up.
+# pickup 1:Pick up one item.
+# pickup 2:Pick up one item and stop.
+# pickup 3:Stop before picking up.
+# pickup 4:Pick up all items.
+# pickup 5:Pick up all items and stop.
+# pickup 6:Pick up all magic items.
+# pickup 7:Pick up all coins and gems
+#
+#TODO: In pickup 4 and 5 mode
+# seems to pick up only
+# one piece of the topmost item, if more than one
 # piece of the item, as 4 coins or 23 arrows
+# but all items below the topmost item get
+# picked up wholly
 # in _open_chests() ..?
+
 #_is 0 0 pickup ${*:-0}
 #_is 1 0 pickup ${*:-0}
 #_is 0 1 pickup ${*:-0}

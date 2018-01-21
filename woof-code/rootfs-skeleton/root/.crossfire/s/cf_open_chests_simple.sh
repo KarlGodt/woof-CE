@@ -60,10 +60,12 @@ VERSION=2.0 # use sourced functions files
 VERSION=2.1 # implement -M option
 VERSION=2.1.1 # bugfixes
 VERSION=2.2 # more alternative functions
+VERSION=2.2.1 # bugfixes
 
 SEARCH_ATTEMPTS_DEFAULT=9
 #DISARM variable set to skill, invokation OR cast
 DISARM=skill
+PICKUP_ALL_MODE=5  # set pickup 4 or 5
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -91,7 +93,8 @@ _draw 7  "and open chest(s)."
 _draw 6  "Syntax:"
 _draw 7  "$0 <<NUMBER>> <<Options>>"
 _draw 8  "Options:"
-_draw 10 "Simple number:Just open NUMBER chests."
+_draw 10 "Simple number as first parameter:Just open NUMBER chests."
+_draw 10 "-C # :like above, just open NUMBER chests."
 _draw 9  "-S # :Number of search attempts, default $SEARCH_ATTEMPTS_DEFAULT"
 _draw 10 "-M   :Do not break search when found first trap,"
 _draw 10 "      usefull if chests have more than one trap."
@@ -136,9 +139,22 @@ sleep 3
 }
 
 __set_pickup(){
-# TODO: Seems to pick up only
-# one piece of the item, if more than one
+# Usage: pickup <0-7> or <value_density> .
+# pickup 0:Don't pick up.
+# pickup 1:Pick up one item.
+# pickup 2:Pick up one item and stop.
+# pickup 3:Stop before picking up.
+# pickup 4:Pick up all items.
+# pickup 5:Pick up all items and stop.
+# pickup 6:Pick up all magic items.
+# pickup 7:Pick up all coins and gems
+#
+#TODO: In pickup 4 and 5 mode
+# seems to pick up only
+# one piece of the topmost item, if more than one
 # piece of the item, as 4 coins or 23 arrows
+# but all items below the topmost item get
+# picked up wholly
 # in _open_chests() ..?
 #_is 0 0 pickup ${*:-0}
 #_is 1 0 pickup ${*:-0}
@@ -373,7 +389,8 @@ return ${lRV:-0}
 __eval_check_if_on_chest_request_items_on(){
 _debug "__eval_check_if_on_chest_request_items_on:$*"
 
-  __check_if_on_chest_request_items_on
+ #__check_if_on_chest_request_items_on__ $1
+   _check_if_on_chest_request_items_on_
   local lRV=$?
 case $lRV in
 5) _draw 3 "You appear to stand upon some cursed chest!";;
@@ -381,7 +398,7 @@ case $lRV in
 7) _draw 3 "Topmost chest appears to be cursed!";;
 8) _draw 3 "Chest appears not topmost!";;
 0) return 0;;
-*) _warn "_eval_check_if_on_chest_request_items_on:Unhandled return value '$lRV'";;
+*) _warn "__eval_check_if_on_chest_request_items_on:Unhandled return value '$lRV'";;
 esac
 beep -l 1000 -f 700
 test "$1" && return 1 || exit 1
@@ -405,8 +422,8 @@ _debug "__check_if_on_chest__:$*"
 
 _draw 5 "Checking if standing on chests ..."
 
-#__check_if_on_item_examine $1 chest    && return 0
-#__check_if_on_chest_request_items_on__ && return 0
+#__check_if_on_item_examine $1 chest       && return 0
+#__check_if_on_chest_request_items_on__ $1 && return 0
 
   _check_if_on_chest_request_items_on_
   local lRV=$?
@@ -752,7 +769,15 @@ test "$OPEN_COUNT" && CHEST_COUNT=$((CHEST_COUNT+1))
 #11:50 You open chest.
 #11:50 You close chest (open) (active).
 
-_move_back_and_forth 2 "_set_pickup 4;_sleep;"
+_move_back_and_forth 2 "_set_pickup ${PICKUP_ALL_MODE:-4};_sleep;"
+
+if _check_counter; then
+_check_food_level
+_check_hp_and_return_home $HP
+fi
+
+#_is 1 1 get all
+_is 0 0 get all
 
 _set_pickup 0
 _sleep
@@ -772,9 +797,24 @@ _debug "_do_parameters:$*"
 # dont forget to pass parameters when invoking this function
 test "$*" || return 0
 
-case $1 in [0-9]*) NUMBER=$1; shift;;
+##for p in $@; do
+##case $p in [0-9]*) NUMBER=$p;; #shift;;
+#case $1 in [0-9]*) NUMBER=$p; shift;;
+#*help)    _say_help 0;;
+#*version) _say_version 0;;
+#esac
+##done
+
+case $1 in
 *help)    _say_help 0;;
 *version) _say_version 0;;
+--?*)  _exit 3 "No other long options than help and version recognized.";;
+--*)   _exit 3 "Unhandled first parameter '$1' .";;
+-?*) :;;
+[0-9]*) NUMBER=$1
+        test "${NUMBER//[[:digit:]]/}" && _exit 3 "NUMBER '$1' is not an integer digit."
+        shift;;
+*) _exit 3 "Unknown first parameter '$1' .";;
 esac
 
 # S # :Search attempts
@@ -782,9 +822,10 @@ esac
 # c   :cast disarm
 # i   :invoke disarm
 # d   :debugging output
-while getopts S:ciudMVhabdefgjklmnopqrstvwxyzABCDEFGHIJKLNOPQRTUWXYZ oneOPT
+while getopts C:S:ciudMVhabdefgjklmnopqrstvwxyzABCDEFGHIJKLNOPQRTUWXYZ oneOPT
 do
 case $oneOPT in
+C) NUMBER=$OPTARG;;
 S) SEARCH_ATTEMPTS=${OPTARG:-$SEARCH_ATTEMPTS_DEFAULT};;
 M) MULTIPLE_TRAPS=$((MULTIPLE_TRAPS+1));;
 c) DISARM=cast;;
