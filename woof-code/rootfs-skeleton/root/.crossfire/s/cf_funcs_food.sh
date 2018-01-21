@@ -64,7 +64,8 @@ lEAT_FOOD=${lEAT_FOOD:-food}
 #_check_mana_for_create_food && break || { sleep 10; continue; }
 #done
 
-_is 1 1 pickup 0
+#_is 1 1 pickup 0
+_set_pickup 0
 
 _unwatch $DRAWINFO
 _empty_message_stream
@@ -77,6 +78,8 @@ while :;
  do
  unset REPLY
  read -t $TMOUT
+ _log "_cast_create_food_and_eat:$REPLY"
+ _msg 7 "$REPLY"
  case $REPLY in
  *Cast*what*spell*) HAVE_NOT_SPELL=1; break 1;; #Cast what spell?  Choose one of:
  *ready*the*spell*)  break 1;;                  #You ready the spell create food
@@ -115,6 +118,8 @@ _is 1 1 fire_stop
  while :; do
   unset BUNGLE
   read -t $TMOUT BUNGLE
+  _log "_cast_create_food_and_eat:$BUNGLE"
+  _msg 7 "BUNGLE=$BUNGLE"
   case $BUNGLE in
   *bungle*|*fumble*) break 1;;
   '') break 2;;
@@ -150,7 +155,6 @@ _sleep
 
 _check_if_on_item -lt ${FOOD_DEF:-haggis} && _is 1 1 apply
 }
-
 
 _eat_food_from_inventory(){
 _debug "_eat_food_from_inventory:$*"

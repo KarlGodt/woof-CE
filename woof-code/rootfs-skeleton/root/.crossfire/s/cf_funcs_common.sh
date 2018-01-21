@@ -528,7 +528,7 @@ _round_up_and_down(){  ##+++2018-01-08
 echo "_round_up_and_down:$1" >&2
                #123
 STELLEN=${#1}  #3
-echo "STELLE=$STELLEN" >&2
+echo "STELLEN=$STELLEN" >&2
 
 LETZTSTELLE=${1:$((STELLEN-1))} #123:2
 echo "LETZTSTELLE=$LETZTSTELLE" >&2

@@ -117,7 +117,7 @@ done
 }
 
 _check_for_space(){
-# *** Check for [4] empty space to DIRB ***#
+# *** Check for [4] empty space to DIRB *** #
 _debug "_check_for_space:$*"
 
 local REPLY_MAP OLD_REPLY NUMBERT
