@@ -113,6 +113,79 @@ _draw_stdalone 6 "$MY_BASE Version:$VERSION"
 exit ${1:-2}
 }
 
+_set_global_variables_stdalone(){
+LOGGING=${LOGGING:-''}  #bool, set to ANYTHING ie "1" to enable, empty to disable
+#DEBUG=${DEBUG:-''}      #bool, set to ANYTHING ie "1" to enable, empty to disable
+MSGLEVEL=${MSGLEVEL:-6} #integer 1 emergency - 7 debug
+#case $MSGLEVEL in
+#7) DEBUG=${DEBUG:-1};; 6) INFO=${INFO:-1};; 5) NOTICE=${NOTICE:-1};; 4) WARN=${WARN:-1};;
+#3) ERROR=${ERROR:-1};; 2) ALERT=${ALERT:-1};; 1) EMERG=${EMERG:-1};;
+#esac
+DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
+case $MSGLEVEL in
+7) unset Q;; 6) unset DEBUG Q;; 5) unset DEBUG INFO VERB;; 4) unset DEBUG INFO NOTICE VERB;;
+3) unset DEBUG INFO NOTICE WARN VERB;; 2) unset DEBUG INFO NOTICE WARN ERROR VERB;;
+1) unset DEBUG INFO NOTICE WARN ERROR ALERT VERB;;
+*) _error_stdalone "MSGLEVEL variable not set from 1 - 7";;
+esac
+
+TMOUT=${TMOUT:-1}      # read -t timeout, integer, seconds
+SLEEP=${SLEEP:-1}      #default sleep value, float, seconds, refined in _get_player_speed()
+DELAY_DRAWINFO=${DELAY_DRAWINFO:-2}  #default pause to sync, float, seconds, refined in _get_player_speed()
+
+DRAWINFO=${DRAWINFO:-drawinfo} #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
+FUNCTION_CHECK_FOR_SPACE=_check_for_space_stdalone # request map pos works
+case $* in
+*-version" "*) CLIENT_VERSION="$2"
+case $CLIENT_VERSION in 0.*|1.[0-9].*|1.1[0-2].*)
+DRAWINFO=drawextinfo #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
+                     #     except use_skill alchemy :watch drawinfo 0 The cauldron emits sparks.
+                     # and except apply             :watch drawinfo 0 You open cauldron.
+                     #
+                     # and probably more ...? TODO!
+FUNCTION_CHECK_FOR_SPACE=_check_for_space_old_client_stdalone # needs request map near
+;;
+esac
+;;
+esac
+
+COUNT_CHECK_FOOD=${COUNT_CHECK_FOOD:-10} # number between attempts to check foodlevel.
+                    #  1 would mean check every single time, which is too much
+EAT_FOOD=${EAT_FOOD:-waybread}   # set to desired food to eat ie food, mushroom, booze, .. etc.
+FOOD_DEF=haggis     # default
+MIN_FOOD_LEVEL_DEF=${MIN_FOOD_LEVEL_DEF:-300} # default minimum. 200 starts to beep.
+                       # waybread has foodvalue of 500
+                       # 999 is max foodlevel
+
+HP_MIN_DEF=${HP_MIN_DEF:-20}          # minimum HP to return home. Lowlevel charakters probably need this set.
+
+DIRB=${DIRB:-west}  # direction back to go
+case $DIRB in
+west)      DIRF=east;;
+east)      DIRF=west;;
+north)     DIRF=south;;
+northwest) DIRF=southeast;;
+northeast) DIRF=southwest;;
+south)     DIRF=north;;
+southwest) DIRF=northeast;;
+southeast) DIRF=northwest;;
+esac
+
+SOUND_DIR="$HOME"/.crossfire/sounds
+
+# Log file path in /tmp
+#MY_SELF=`realpath "$0"` ## needs to be in main script
+#MY_BASE=${MY_SELF##*/}  ## needs to be in main script
+TMP_DIR=/tmp/crossfire
+mkdir -p "$TMP_DIR"
+    LOGFILE=${LOGFILE:-"$TMP_DIR"/"$MY_BASE".$$.log}
+  REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
+REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
+     ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
+  ERROR_LOG="$TMP_DIR"/"$MY_BASE".$$.err
+exec 2>>"$ERROR_LOG"
+}
+
 # *** EXIT FUNCTIONS *** #
 _exit_stdalone(){
 case $1 in
@@ -676,7 +749,7 @@ read -t $TMOUT
  _msg_stdalone 7 "$REPLY"
 
  case $REPLY in
-  *"That is"*"$lITEM"*|*"Those are"*"$lITEM"*) break 1;;
+  *"That is"*"$lITEM"*|*"Those are"*"$lITEM"*|*"Those are"*"${lITEM// /?*}"*) break 1;;
   *"That is"*|*"Those are"*) break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
   *scripttell*exit*)    _exit_stdalone 1;;
@@ -696,9 +769,9 @@ _empty_message_stream_stdalone
 LIST=`echo "$LIST" | sed 'sI^$II'`
 
 if test "$TOPMOST"; then
- echo "${LIST:-$REPLY}"  | tail -n1 | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es"
+ echo "${LIST:-$REPLY}"  | tail -n1 | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
 else
- echo "$REPLY"                      | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es"
+ echo "$REPLY"                      | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
 fi
 local lRV=$?
 test "$lRV" = 0 && return $lRV
@@ -755,7 +828,7 @@ done
 
 UNDER_ME_LIST=`echo "$UNDER_ME_LIST" | sed 's%^$%%'`
 
-_debug_stdalone "UNDER_ME_LIST='$UNDER_ME_LIST'"
+__debug_stdalone "UNDER_ME_LIST='$UNDER_ME_LIST'"
 
 NUMBER_CHEST=`echo "$UNDER_ME_LIST" | grep 'chest' | wc -l`
 
@@ -793,8 +866,8 @@ return 0
 _check_if_on_chest_request_items_on_stdalone(){
 _debug_stdalone "_check_if_on_chest_request_items_on_stdalone:$*"
 
-local DO_LOOP TOPMOST
-unset DO_LOOP TOPMOST
+local DO_LOOP TOPMOST lRV
+unset DO_LOOP TOPMOST lRV
 
 while [ "$1" ]; do
 case $1 in
@@ -805,9 +878,6 @@ case $1 in
 esac
 shift
 done
-
-local lRV
-unset lRV
 
 #_draw_stdalone 5 "Checking if standing on chests ..."
 UNDER_ME='';
@@ -837,7 +907,7 @@ done
 
 UNDER_ME_LIST=`echo "$UNDER_ME_LIST" | sed 's%^$%%'`
 
-_debug_stdalone "UNDER_ME_LIST='$UNDER_ME_LIST'"
+__debug_stdalone "UNDER_ME_LIST='$UNDER_ME_LIST'"
 
 NUMBER_CHEST=`echo "$UNDER_ME_LIST" | grep 'chest' | wc -l`
 
@@ -846,7 +916,7 @@ test "`echo "$UNDER_ME_LIST" | grep -E 'chest$|chests$'`" || lRV=6
 
 if test "$TOPMOST"; then
 test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -E 'chest.*cursed|chest.*damned'`" && lRV=7
-test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -E 'chest$|chests$'`" || lRV=8
+test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -E 'chest$|chests$'`" || lRV=${lRV:-8}
 fi
 
 return ${lRV:-0}
@@ -972,6 +1042,7 @@ _sleep_stdalone
 #You spot a Rune of Ball Lightning!
  case $REPLY in
  *'You spot a Rune of Ball Lightning!'*) _just_exit_stdalone 0;;
+ *'You spot a Rune of Create Bomb!'*)    _just_exit_stdalone 0;;
  *' spot '*) FOUND_TRAP=$((FOUND_TRAP+1));;
  *'You search the area.'*) SEARCH_MSG=$((SEARCH_MSG+1));; # break 1;;
  *scripttell*break*)   break ${REPLY##*?break};;
@@ -1153,7 +1224,9 @@ _sleep_stdalone
  *'You detonate'*) _just_exit_stdalone 1;;
  *'A portal opens up, and screaming hordes pour'*) _just_exit_stdalone 1;;
  *'through!'*)     _just_exit_stdalone 1;;
+ *"RUN!  The timer's ticking!"*) _just_exit_stdalone 1;;
  *'You are pricked'*) :;;
+ *'You are stabbed'*) :;;
  *scripttell*break*)  break ${REPLY##*?break};;
  *scripttell*exit*)   _exit_stdalone 1;;
  '') break 1;;
@@ -1273,6 +1346,7 @@ case $NUMBER in $one) break 1;; esac
 
 done
 }
+
 #** we may get attacked and die **#
 _check_hp_and_return_home_stdalone(){
 _debug "_check_hp_and_return_home_stdalone:$*"
@@ -1479,9 +1553,10 @@ read -t ${TMOUT:-1} oneITEM
 
  case $oneITEM in
  $oldITEM|'') break 1;;
- *"$lITEM"*) _draw 7 "Got that item $lITEM in inventory.";;
+ *"$lITEM"*|*"${lITEM// /?*}"*) _draw 7 "Got that item $lITEM in inventory.";;
  *scripttell*break*)  break ${oneITEM##*?break};;
  *scripttell*exit*)   _exit_stdalone 1;;
+ *) :;;
  esac
  ITEMS="${ITEMS}${oneITEM}\n"
 #$oneITEM"
@@ -1498,82 +1573,9 @@ _debug_stdalone 4 "Fetching Inventory List: Elapsed $TIME sec."
 #_debug_stdalone "lITEM=$lITEM"
 #_debug_stdalone "head:`echo -e "$ITEMS" | head -n1`"
 #_debug_stdalone "tail:`echo -e "$ITEMS" | tail -n2 | head -n1`"
-#HAVEIT=`echo "$ITEMS" | grep -E  " $lITEM| ${lITEM}s| ${lITEM}es"`
+#HAVEIT=`echo "$ITEMS" | grep -E  " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"`
 #__debug_stdalone "HAVEIT=$HAVEIT"
-echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es"
-}
-
-_set_global_variables_stdalone(){
-LOGGING=${LOGGING:-''}  #bool, set to ANYTHING ie "1" to enable, empty to disable
-#DEBUG=${DEBUG:-''}      #bool, set to ANYTHING ie "1" to enable, empty to disable
-MSGLEVEL=${MSGLEVEL:-6} #integer 1 emergency - 7 debug
-#case $MSGLEVEL in
-#7) DEBUG=${DEBUG:-1};; 6) INFO=${INFO:-1};; 5) NOTICE=${NOTICE:-1};; 4) WARN=${WARN:-1};;
-#3) ERROR=${ERROR:-1};; 2) ALERT=${ALERT:-1};; 1) EMERG=${EMERG:-1};;
-#esac
-DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
-case $MSGLEVEL in
-7) unset Q;; 6) unset DEBUG Q;; 5) unset DEBUG INFO VERB;; 4) unset DEBUG INFO NOTICE VERB;;
-3) unset DEBUG INFO NOTICE WARN VERB;; 2) unset DEBUG INFO NOTICE WARN ERROR VERB;;
-1) unset DEBUG INFO NOTICE WARN ERROR ALERT VERB;;
-*) _error_stdalone "MSGLEVEL variable not set from 1 - 7";;
-esac
-
-TMOUT=${TMOUT:-1}      # read -t timeout, integer, seconds
-SLEEP=${SLEEP:-1}      #default sleep value, float, seconds, refined in _get_player_speed()
-DELAY_DRAWINFO=${DELAY_DRAWINFO:-2}  #default pause to sync, float, seconds, refined in _get_player_speed()
-
-DRAWINFO=${DRAWINFO:-drawinfo} #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
-FUNCTION_CHECK_FOR_SPACE=_check_for_space_stdalone # request map pos works
-case $* in
-*-version" "*) CLIENT_VERSION="$2"
-case $CLIENT_VERSION in 0.*|1.[0-9].*|1.1[0-2].*)
-DRAWINFO=drawextinfo #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
-                     #     except use_skill alchemy :watch drawinfo 0 The cauldron emits sparks.
-                     # and except apply             :watch drawinfo 0 You open cauldron.
-                     #
-                     # and probably more ...? TODO!
-FUNCTION_CHECK_FOR_SPACE=_check_for_space_old_client_stdalone # needs request map near
-;;
-esac
-;;
-esac
-
-COUNT_CHECK_FOOD=${COUNT_CHECK_FOOD:-10} # number between attempts to check foodlevel.
-                    #  1 would mean check every single time, which is too much
-EAT_FOOD=${EAT_FOOD:-waybread}   # set to desired food to eat ie food, mushroom, booze, .. etc.
-FOOD_DEF=haggis     # default
-MIN_FOOD_LEVEL_DEF=${MIN_FOOD_LEVEL_DEF:-300} # default minimum. 200 starts to beep.
-                       # waybread has foodvalue of 500
-                       # 999 is max foodlevel
-
-HP_MIN_DEF=${HP_MIN_DEF:-20}          # minimum HP to return home. Lowlevel charakters probably need this set.
-
-DIRB=${DIRB:-west}  # direction back to go
-case $DIRB in
-west)      DIRF=east;;
-east)      DIRF=west;;
-north)     DIRF=south;;
-northwest) DIRF=southeast;;
-northeast) DIRF=southwest;;
-south)     DIRF=north;;
-southwest) DIRF=northeast;;
-southeast) DIRF=northwest;;
-esac
-
-SOUND_DIR="$HOME"/.crossfire/sounds
-
-# Log file path in /tmp
-#MY_SELF=`realpath "$0"` ## needs to be in main script
-#MY_BASE=${MY_SELF##*/}  ## needs to be in main script
-TMP_DIR=/tmp/crossfire
-mkdir -p "$TMP_DIR"
-    LOGFILE=${LOGFILE:-"$TMP_DIR"/"$MY_BASE".$$.log}
-  REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
-REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
-     ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
-  ERROR_LOG="$TMP_DIR"/"$MY_BASE".$$.err
-exec 2>>"$ERROR_LOG"
+echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
 }
 
 _say_start_msg_stdalone(){
@@ -1749,48 +1751,47 @@ if test "$1" = '-l'; then # loop counter
  shift
 fi
 
- __old_req(){
- local reqANSWER OLD_ANSWER PL_SPEED
- reqANSWER=
- OLD_ANSWER=
+  __old_req(){
+  local reqANSWER OLD_ANSWER PL_SPEED
+  reqANSWER=
+  OLD_ANSWER=
 
- while :; do
- read -t $TMOUT reqANSWER
- #read -t $TMOUT r s c WC AC DAM PL_SPEED WP_SPEED
- #reqANSWER="$r $s $c $WC $AC $DAM $PL_SPEED $WP_SPEED"
- _log_stdalone "$REQUEST_LOG" "_get_player_speed:__old_req:$reqANSWER"
- _msg_stdalone 7 "$reqANSWER"
- test "$reqANSWER" || break
- test "$reqANSWER" = "$OLD_ANSWER" && break
- OLD_ANSWER="$reqANSWER"
- sleep 0.1
- done
+  while :; do
+  read -t $TMOUT reqANSWER
+  #read -t $TMOUT r s c WC AC DAM PL_SPEED WP_SPEED
+  #reqANSWER="$r $s $c $WC $AC $DAM $PL_SPEED $WP_SPEED"
+  _log_stdalone "$REQUEST_LOG" "_get_player_speed:__old_req:$reqANSWER"
+  _msg_stdalone 7 "$reqANSWER"
+  test "$reqANSWER" || break
+  test "$reqANSWER" = "$OLD_ANSWER" && break
+  OLD_ANSWER="$reqANSWER"
+  sleep 0.1
+  done
 
- #PL_SPEED=`awk '{print $7}' <<<"$reqANSWER"`    # *** bash
- test "$reqANSWER" && PL_SPEED0=`echo "$reqANSWER" | awk '{print $7}'` # *** ash + bash
- PL_SPEED=${PL_SPEED0:-$PL_SPEED}
-}
+  #PL_SPEED=`awk '{print $7}' <<<"$reqANSWER"`    # *** bash
+  test "$reqANSWER" && PL_SPEED0=`echo "$reqANSWER" | awk '{print $7}'` # *** ash + bash
+  PL_SPEED=${PL_SPEED0:-$PL_SPEED}
+  }
 
-__new_req(){
-read -t $TMOUT r s c WC AC DAM PL_SPEED WP_SPEED
- _log_stdalone "$REQUEST_LOG" "_get_player_speed_stdalone:__new_req:$r $s $c $WC $AC $DAM PL_SPPED=$PL_SPEED $WP_SPEED"
- _msg_stdalone 7 "$r $s $c $WC $AC $DAM PL_SPPED=$PL_SPEED $WP_SPEED"
-}
+  __new_req(){
+  read -t $TMOUT r s c WC AC DAM PL_SPEED WP_SPEED
+  _log_stdalone "$REQUEST_LOG" "_get_player_speed_stdalone:__new_req:$r $s $c $WC $AC $DAM PL_SPPED=$PL_SPEED $WP_SPEED"
+  _msg_stdalone 7 "$r $s $c $WC $AC $DAM PL_SPPED=$PL_SPEED $WP_SPEED"
+  }
 
-_use_old_funcs(){
-_empty_message_stream_stdalone
-echo request stat cmbt # only one line
-#__old_req
-__new_req
-}
-
-_use_new_funcs(){
-#__request stat cmbt
+ _use_old_funcs(){
  _empty_message_stream_stdalone
- _request_stdalone stat cmbt
-test "$ANSWER" && PL_SPEED0=`echo "$ANSWER" | awk '{print $7}'`
-PL_SPEED=${PL_SPEED0:-$PL_SPEED}
-}
+ echo request stat cmbt # only one line
+ #__old_req
+ __new_req
+ }
+
+ _use_new_funcs(){
+ #__request_stdalone stat cmbt
+  _request_stdalone stat cmbt
+ test "$ANSWER" && PL_SPEED0=`echo "$ANSWER" | awk '{print $7}'`
+ PL_SPEED=${PL_SPEED0:-$PL_SPEED}
+ }
 
 _draw_stdalone 5 "Processing Player's speed..."
 #_use_old_funcs
@@ -1835,6 +1836,7 @@ sleep 0.01
 done
 #ANSWER="$lANSWER"
 ANSWER=`echo "$ANSWER" | sed 'sI^$II'`
+test "$ANSWER"
 }
 
 _request_stdalone(){  # for one line replies
@@ -1849,6 +1851,7 @@ read -t $TMOUT lANSWER
  _msg_stdalone 7 "$lANSWER"
 
 ANSWER="$lANSWER"
+test "$ANSWER"
 }
 
 _player_speed_to_human_readable_stdalone(){
@@ -2045,7 +2048,7 @@ _main_open_chests_func(){
 _debug "_main_open_chests_func:$*"
 _set_global_variables $*
 _say_start_msg $*
-_do_parameters $*
+_do_parameters_stdalone $*
 
 #_check_for_space 2
 test "$FUNCTION_CHECK_FOR_SPACE" && $FUNCTION_CHECK_FOR_SPACE 2

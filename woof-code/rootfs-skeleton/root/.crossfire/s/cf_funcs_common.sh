@@ -862,11 +862,79 @@ fi
 unset HP
 }
 
+_check_if_on_item_examine(){
+# Using 'examine' directly after dropping
+# the item examines the bottommost tile
+# as 'That is marble'
+_debug "_check_if_on_item_examine:$*"
+
+local DO_LOOP TOPMOST LIST
+unset DO_LOOP TOPMOST LIST
+
+while [ "$1" ]; do
+case $1 in
+-l) DO_LOOP=1;;
+-t) TOPMOST=1;;
+-lt|-tl) DO_LOOP=1; TOPMOST=1;;
+*) break;;
+esac
+shift
+done
+
+local lITEM=${*:-"$ITEM"}
+test "$lITEM" || return 254
+
+_draw 5 "Checking if standing on $lITEM ..."
+
+_watch $DRAWINFO
+#_is 0 0 examine
+while :; do unset REPLY
+_is 0 0 examine
+_sleep
+read -t $TMOUT
+ _log "_check_if_on_item_examine:$REPLY"
+ _msg 7 "$REPLY"
+
+ case $REPLY in
+  *"That is"*"$lITEM"*|*"Those are"*"$lITEM"*|*"Those are"*"${lITEM// /?*}"*) break 1;;
+  *"That is"*|*"Those are"*) break 1;;
+  *scripttell*break*)     break ${REPLY##*?break};;
+  *scripttell*exit*)    _exit 1;;
+  '') break 1;;
+  *) continue;; #:;;
+ esac
+
+LIST="$LIST
+$REPLY"
+# sleep 0.01
+#sleep 0.1
+done
+
+_unwatch
+_empty_message_stream
+
+LIST=`echo "$LIST" | sed 'sI^$II'`
+
+if test "$TOPMOST"; then
+ echo "${LIST:-$REPLY}"  | tail -n1 | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
+else
+ echo "$REPLY"                      | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
+fi
+local lRV=$?
+test "$lRV" = 0 && return $lRV
+
+if test "$DO_LOOP"; then
+ return ${lRV:-3}
+else
+  _exit ${lRV:-3} "$lITEM not here or not on top of stack."
+fi
+}
+
 _check_if_on_item(){
 _debug "_check_if_on_item:$*"
 
-local DO_LOOP TOPMOST
-unset DO_LOOP TOPMOST
+local DO_LOOP TOPMOST lMSG lRV
+unset DO_LOOP TOPMOST lMSG lRV
 
 while [ "$1" ]; do
 case $1 in
@@ -911,35 +979,129 @@ UNDER_ME_LIST=`echo "$UNDER_ME_LIST" | sed 's%^$%%'`
 
 __debug "UNDER_ME_LIST='$UNDER_ME_LIST'"
 
-NUMBER_ITEM=`echo "$UNDER_ME_LIST" | grep -iE " $lITEM| ${lITEM}s | ${lITEM}es" | wc -l`
+NUMBER_ITEM=`echo "$UNDER_ME_LIST" | grep -iE " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}" | wc -l`
 
-if test "$TOPMOST"; then
-test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -iE " $lITEM| ${lITEM}s| ${lITEM}es" | grep -E 'cursed|damned'`" && {
- _beep_std
- test "$DO_LOOP" && return 1 || _exit 1 "Topmost $lITEM appears to be cursed!"
-}
-
-test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -iE " $lITEM| ${lITEM}s| ${lITEM}es"`" || {
-_beep_std
-test "$DO_LOOP" && return 1 || _exit 1 "$lITEM appears not to be topmost!"
-}
-else true
-fi
+unset TOPMOST_MSG
+case "$UNDER_ME_LIST" in
+*"$lITEM"|*"${lITEM}s"|*"${lITEM}es"|*"${lITEM// /?*}")
+ TOPMOST_MSG='some'
+;;
+esac
+test "$TOPMOST" && { UNDER_ME_LIST=`echo "$UNDER_ME_LIST" | tail -n1`; TOPMOST_MSG=${TOPMOST_MSG:-topmost}; }
 
 case "$UNDER_ME_LIST" in
-*"$lITEM"*cursed*|*"${lITEM}s"*cursed*|*"${lITEM}es"*cursed*)
- _beep_std
- test "$DO_LOOP" && return 1 || _exit 1 "You appear to stand upon some cursed $lITEM!";;
-*"$lITEM"*damned*|*"${lITEM}s"*damned*|*"${lITEM}es"*damned*)
- _beep_std
- test "$DO_LOOP" && return 1 || _exit 1 "You appear to stand upon some damned $lITEM!";;
-*"$lITEM"|*"${lITEM}s"|*"${lITEM}es") :;;
-*)
- _beep_std
- test "$DO_LOOP" && return 1 || _exit 1 "You appear not to stand on some $lITEM!";;
+*"$lITEM"|*"${lITEM}s"|*"${lITEM}es"|*"${lITEM// /?*}")
+   lRV=0;;
+*) lMSG="You appear not to stand on $TOPMOST_MSG $lITEM!"
+   lRV=1;;
 esac
 
-return 0
+if test $lRV = 0; then
+ case "$UNDER_ME_LIST" in
+ *cursed*)
+   lMSG="You appear to stand upon $TOPMOST_MSG cursed $lITEM!"
+   lRV=1;;
+ *damned*)
+   lMSG="You appear to stand upon $TOPMOST_MSG damned $lITEM!"
+   lRV=1;;
+ esac
+fi
+
+test "$lRV" = 0 && return 0
+
+_beep_std
+_draw 3 $lMSG
+test "$DO_LOOP" && return 1 || _exit 1
+}
+
+__check_if_on_item(){
+_debug "__check_if_on_item:$*"
+
+local DO_LOOP TOPMOST lMSG lRV
+unset DO_LOOP TOPMOST lMSG lRV
+
+while [ "$1" ]; do
+case $1 in
+-l) DO_LOOP=1;;
+-t) TOPMOST=1;;
+-lt|-tl) DO_LOOP=1; TOPMOST=1;;
+*) break;;
+esac
+shift
+done
+
+local lITEM=${*:-"$ITEM"}
+test "$lITEM" || return 254
+
+_draw 5 "Checking if standing on $lITEM ..."
+UNDER_ME='';
+UNDER_ME_LIST='';
+
+_empty_message_stream
+echo request items on
+
+while :; do
+read -t $TMOUT UNDER_ME
+_log "$ON_LOG" "__check_if_on_item:$UNDER_ME"
+_msg 7 "$UNDER_ME"
+
+case $UNDER_ME in
+'') continue;;
+*request*items*on*end*) break 1;;
+*scripttell*break*)     break ${REPLY##*?break};;
+*scripttell*exit*)      _exit 1;;
+esac
+
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+
+unset UNDER_ME
+sleep 0.1s
+done
+
+UNDER_ME_LIST=`echo "$UNDER_ME_LIST" | sed 's%^$%%'`
+
+__debug "UNDER_ME_LIST='$UNDER_ME_LIST'"
+
+NUMBER_ITEM=`echo "$UNDER_ME_LIST" | grep -iE " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}" | wc -l`
+
+if test "$TOPMOST"; then
+
+ TOP_UNDER_ME_LIST=`echo "$UNDER_ME_LIST" | tail -n1`
+ if test "`echo "$TOP_UNDER_ME_LIST" | grep -iE " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}" | grep -E 'cursed|damned'`";
+  then lMSG="Topmost $lITEM appears to be cursed!"
+  false
+ elif  test "`echo "$TOP_UNDER_ME_LIST" | grep -iE " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"`";
+  then true
+ elif test "`echo "$UNDER_ME_LIST" | grep -iE " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"`";
+  then lMSG="$lITEM appears not to be topmost!"
+  false
+ else lMSG="You appear not to stand on some $lITEM!"
+  false
+ fi
+lRV=$?
+
+else
+
+case "$UNDER_ME_LIST" in
+*"$lITEM"*cursed*|*"${lITEM}s"*cursed*|*"${lITEM}es"*cursed*|*"${lITEM// /?*}"*cursed*)
+   lMSG="${lMSG:-You appear to stand upon some cursed $lITEM!}"
+   lRV=1;;
+*"$lITEM"*damned*|*"${lITEM}s"*damned*|*"${lITEM}es"*damned*|*"${lITEM// /?*}"*damned*)
+   lMSG="${lMSG:-You appear to stand upon some damned $lITEM!}"
+   lRV=1;;
+*"$lITEM"|*"${lITEM}s"|*"${lITEM}es"|*"${lITEM// /?*}")
+   lRV=${lRV:-0};;
+*) lMSG="You appear not to stand on some $lITEM!"
+   lRV=1;;
+esac
+fi
+
+test "$lRV" = 0 && return 0
+
+_beep_std
+_draw 3 $lMSG
+test "$DO_LOOP" && return 1 || _exit 1
 }
 
 _check_have_item_in_inventory(){

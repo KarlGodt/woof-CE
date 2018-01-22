@@ -2,8 +2,8 @@
 
 [ "$HAVE_FUNCS_CHEST" ] && return 0
 
-_open_chests(){
-_debug "_open_chests:$*"
+__open_chests(){
+_debug "__open_chests:$*"
 _draw 5 "Opening chests ..."
 
 unset one
@@ -11,9 +11,11 @@ while :
 do
 one=$((one+1))
 
-#__check_if_on_item_examine -l chest
-#_check_if_on_chest_request_items_on -l || break 1
-_check_if_on_chest -l || break 1
+#__check_if_on_item_examine -lt chest
+#_check_if_on_chest_request_items_on -lt || break 1
+_check_if_on_chest -lt || break 1 # it needs to check if topmost
+# otherwise simply apply below would apply found containers,
+# food of Poison, booze of poison, potions
 
 _sleep
 _draw 5 "${NUMBER_CHEST:-?} chest(s) to open ..."
@@ -26,7 +28,7 @@ _is 1 1 apply
 unset OPEN_COUNT
  while :; do unset REPLY
  read -t ${TMOUT:-1}
- _log "_open_chests:$REPLY"
+ _log "__open_chests:$REPLY"
  _msg 7 "$REPLY"
  case $REPLY in
  *'You find'*)   OPEN_COUNT=1;;
@@ -51,13 +53,16 @@ test "$OPEN_COUNT" && CHEST_COUNT=$((CHEST_COUNT+1))
 #11:50 You open chest.
 #11:50 You close chest (open) (active).
 
-_move_back_and_forth 2 "_set_pickup 4;_sleep;"
+_move_back_and_forth 2 "_set_pickup ${PICKUP_ALL_MODE:-4};_sleep;"
 
 if _check_counter; then
 _check_food_level
 _check_hp_and_return_home $HP
 fi
 
+#_is 1 1 get all
+_is 0 0 get all
+_sleep
 _set_pickup 0
 _sleep
 
@@ -70,9 +75,81 @@ _sleep
 done
 }
 
+_open_chests(){
+_debug "_open_chests:$*"
+
+_draw 5 "Opening chests ..."
+
+unset one
+while :
+do
+one=$((one+1))
+
+_drop chest
+_sleep
+_move_back_and_forth 2
+
+_check_if_on_chest -lt || break 1 # it needs to check if topmost
+# otherwise simply apply below would apply found containers,
+# food of Poison, booze of poison, potions
+_sleep
+
+_draw 5 "${NUMBER_CHEST:-?} chest(s) to open ..."
+
+_watch
+_is 1 1 apply
+#_sleep
+ unset OPEN_COUNT
+ while :; do unset REPLY
+ read -t ${TMOUT:-1}
+ _log "_open_chests:$REPLY"
+ _msg 7 "$REPLY"
+ case $REPLY in
+ *'You find'*)   OPEN_COUNT=1;;
+ *empty*)        OPEN_COUNT=1;;
+ *'You open chest.'*) break 2;; # permanent container
+ *scripttell*break*)  break ${REPLY##*?break};;
+ *scripttell*exit*)   _exit 1;;
+ '') break 1;;
+ esac
+ sleep 0.01
+ done
+_unwatch
+test "$OPEN_COUNT" && CHEST_COUNT=$((CHEST_COUNT+1))
+# TODO : You find*Rune of*
+#You find Blades trap in the chest.
+#You set off a Blades trap!
+#You find silver coins in the chest.
+#You find booze in the chest.
+#You find Rune of Shocking in the chest.
+#You detonate a Rune of Shocking
+#The chest was empty.
+#11:50 You open chest.
+#11:50 You close chest (open) (active).
+
+_move_back_and_forth 2 "_set_pickup ${PICKUP_ALL_MODE:-4};_sleep;"
+
+if _check_counter; then
+_check_food_level
+_check_hp_and_return_home $HP
+fi
+
+#_is 1 1 get all
+_is 0 0 get all
+_sleep
+_set_pickup 0
+_sleep
+
+case $NUMBER in $one) break 1;; esac
+
+done
+}
+
 __check_if_on_chest_request_items_on(){
 _debug "__check_if_on_chest_request_items_on:$*"
 
+## This function currently just tests for $1 as -l
+##  ( loop ), and automatically if -t ( topmost )
 #local DO_LOOP TOPMOST
 #unset DO_LOOP TOPMOST
 
@@ -118,27 +195,31 @@ __debug "UNDER_ME_LIST='$UNDER_ME_LIST'"
 
 NUMBER_CHEST=`echo "$UNDER_ME_LIST" | grep 'chest' | wc -l`
 
-test "`echo "$UNDER_ME_LIST" | grep 'chest.*cursed'`" && {
+test "`echo "$UNDER_ME_LIST" | grep -E 'chest.*cursed|chest.*damned'`" && {
 _draw 3 "You appear to stand upon some cursed chest!"
-beep -l 1000 -f 700
+#beep -l 1000 -f 700
+_beep_std
 test "$1" && return 1 || exit 1
 }
 
 test "`echo "$UNDER_ME_LIST" | grep -E 'chest$|chests$'`" || {
 _draw 3 "You appear not to stand on some chest!"
-beep -l 1000 -f 700
+#beep -l 1000 -f 700
+_beep_std
 test "$1" && return 1 || exit 1
 }
 
-test "`echo "$UNDER_ME_LIST" | tail -n1 | grep 'chest.*cursed'`" && {
+test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -E 'chest.*cursed|chest.*damned'`" && {
 _draw 3 "Topmost chest appears to be cursed!"
-beep -l 1000 -f 700
+#beep -l 1000 -f 700
+_beep_std
 test "$1" && return 1 || exit 1
 }
 
 test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -E 'chest$|chests$'`" || {
 _draw 3 "Chest appears not topmost!"
-beep -l 1000 -f 700
+#beep -l 1000 -f 700
+_beep_std
 test "$1" && return 1 || exit 1
 }
 
@@ -148,6 +229,10 @@ return 0
 _check_if_on_chest_request_items_on(){
 _debug "_check_if_on_chest_request_items_on:$*"
 
+## This function currently just returns and
+##  and does not exit if not called from loop
+##  with a $1 parameter
+##  and tests automatically if -t ( topmost )
 #local DO_LOOP TOPMOST
 #unset DO_LOOP TOPMOST
 
@@ -196,33 +281,10 @@ __debug "UNDER_ME_LIST='$UNDER_ME_LIST'"
 
 NUMBER_CHEST=`echo "$UNDER_ME_LIST" | grep 'chest' | wc -l`
 
-test "`echo "$UNDER_ME_LIST" | grep 'chest.*cursed'`" && {
-#_draw 3 "You appear to stand upon some cursed chest!"
-#beep -l 1000 -f 700
-#test "$1" && return 1 || exit 1
-lRV=5
-}
-
-test "`echo "$UNDER_ME_LIST" | grep -E 'chest$|chests$'`" || {
-#_draw 3 "You appear not to stand on some chest!"
-#beep -l 1000 -f 700
-#test "$1" && return 1 || exit 1
-lRV=6
-}
-
-test "`echo "$UNDER_ME_LIST" | tail -n1 | grep 'chest.*cursed'`" && {
-#_draw 3 "Topmost chest appears to be cursed!"
-#beep -l 1000 -f 700
-#test "$1" && return 1 || exit 1
-lRV=7
-}
-
-test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -E 'chest$|chests$'`" || {
-#_draw 3 "Chest appears not topmost!"
-#beep -l 1000 -f 700
-#test "$1" && return 1 || exit 1
-lRV=8
-}
+test "`echo "$UNDER_ME_LIST"            | grep -E 'chest.*cursed|chest.*damned'`" && lRV=5
+test "`echo "$UNDER_ME_LIST"            | grep -E 'chest$|chests$'`"              || lRV=6
+test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -E 'chest.*cursed|chest.*damned'`" && lRV=7
+test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -E 'chest$|chests$'`"              || lRV=${lRV:-8}
 
 return ${lRV:-0}
 }
@@ -240,30 +302,18 @@ case $lRV in
 0) return 0;;
 *) _warn "_eval_check_if_on_chest_request_items_on:Unhandled return value '$lRV'";;
 esac
-beep -l 1000 -f 700
+#beep -l 1000 -f 700
+_beep_std
 test "$1" && return 1 || exit 1
 }
 
 _check_if_on_chest(){
 _debug "_check_if_on_chest:$*"
 
-#local DO_LOOP TOPMOST
-#unset DO_LOOP TOPMOST
-#
-#while [ "$1" ]; do
-#case $1 in
-#-l) DO_LOOP=1;;
-#-t) TOPMOST=1;;
-#-lt|-tl) DO_LOOP=1; TOPMOST=1;;
-#*) break;;
-#esac
-#shift
-#done
-
 _draw 5 "Checking if standing on chests ..."
 
-#__check_if_on_item_examine $1 chest
-__check_if_on_chest_request_items_on $1
+# _check_if_on_item_examine $1 chest
+ __check_if_on_chest_request_items_on $1
 #_eval_check_if_on_chest_request_items_on $1
 }
 

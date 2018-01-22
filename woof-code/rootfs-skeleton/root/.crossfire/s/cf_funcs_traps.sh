@@ -50,7 +50,9 @@ _sleep
  *'You detonate'*) _just_exit 1;;
  *'A portal opens up, and screaming hordes pour'*) _just_exit 1;;
  *'through!'*)     _just_exit 1;;
+ *"RUN!  The timer's ticking!"*) _just_exit 1;;
  *'You are pricked'*) :;;
+ *'You are stabbed'*) :;;
  *scripttell*break*)  break ${REPLY##*?break};;
  *scripttell*exit*)   _exit 1;;
  '') break 1;;
@@ -284,6 +286,7 @@ _is 0 0 search
 #You spot a Rune of Ball Lightning!
  case $REPLY in
  *'You spot a Rune of Ball Lightning!'*) _just_exit 0;;
+ *'You spot a Rune of Create Bomb!'*)    _just_exit 0;;
  *' spot '*) FOUND_TRAP=$((FOUND_TRAP+1));;
  *'You search the area.'*) SEARCH_MSG=$((SEARCH_MSG+1));; # break 1;;
  *scripttell*break*)  break ${REPLY##*?break};;
