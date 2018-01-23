@@ -19,6 +19,7 @@ case $lDIRECTION in
 8|northwest|nw)    DIRECTION=8; DIRB=southeast; DIRF=northwest;;
 *) ERROR=1 _error "Not recognized: '$lDIRECTION'";;
 esac
+DIRECTION_NUMBER=$DIRECTION
 }
 
 ___number_to_direction(){ # cf_funcs_common.sh
@@ -38,6 +39,7 @@ case $lDIRECTION in
 8|northwest|nw)    DIRECTION=northwest; DIRB=southeast; DIRF=northwest;;
 *) ERROR=1 _error "Not recognized: '$lDIRECTION'";;
 esac
+DIRECTION_NUMBER=$DIRN
 }
 
 _turn_direction(){
@@ -46,7 +48,7 @@ test "$DIRECTION" || return 0
 
 _direction_to_number $DIRECTION
 _is 0 0 ${1:-ready_skill} ${2:-lockpicking}
-_is 0 0 fire $DIRECTION
+_is 0 0 fire ${DIRN:-$DIRECTION}
 _is 0 0 fire_stop
 }
 

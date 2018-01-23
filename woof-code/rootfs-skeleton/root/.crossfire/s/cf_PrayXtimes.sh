@@ -50,6 +50,8 @@ _draw 5 "For example: 'script $0 50'"
 _draw 5 "will issue 50 times the use_skill praying command."
 _draw 2 "Without <number> will loop forever,"
 _draw 2 "use scriptkill to terminate."
+_draw 5  "To be used in the crossfire roleplaying game client."
+
         exit 0;;
 -d) DEBUG=$((DEBUG+1));;
 -V) _say_version;;

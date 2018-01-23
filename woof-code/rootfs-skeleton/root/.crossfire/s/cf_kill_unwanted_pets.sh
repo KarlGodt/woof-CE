@@ -33,7 +33,7 @@ _draw 5 ":space: ( ) needs to be replaced by underscore (_)"
 _draw 5 "for ex. green slime to green_slime ."
 _draw 2 "Options:"
 _draw 5 "-w :Use grep -w (word) to be more exact (lich/demilich)"
-
+_draw 2  "To be used in the crossfire roleplaying game client."
 exit 0
 }
 

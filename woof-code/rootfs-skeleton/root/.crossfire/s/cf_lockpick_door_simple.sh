@@ -194,7 +194,7 @@ _turn_direction $DIRECTION cast disarm
 #_watch $DRAWINFO
 #__is 0 0 cast disarm
 #_sleep
-#__is 0 0 fire $DIRECTION
+#__is 0 0 fire ${DIRN:-$DIRECTION}
 #__is 0 0 fire_stop
 #_sleep
 
@@ -454,7 +454,7 @@ test "$DIRECTION" || return 0
 
 _direction_to_number $DIRECTION
 _is 0 0 ${1:-ready_skill} ${2:-lockpicking}
-_is 0 0 fire $DIRECTION
+_is 0 0 fire ${DIRN:-$DIRECTION}
 _is 0 0 fire_stop
 }
 

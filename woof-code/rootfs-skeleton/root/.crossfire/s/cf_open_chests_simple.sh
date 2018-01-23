@@ -92,6 +92,7 @@ _draw_stdalone 6  "$MY_BASE"
 _draw_stdalone 7  "Script to search for traps,"
 _draw_stdalone 7  "disarming them,"
 _draw_stdalone 7  "and open chest(s)."
+_draw_stdalone 2  "To be used in the crossfire roleplaying game client."
 _draw_stdalone 6  "Syntax:"
 _draw_stdalone 7  "$0 <<NUMBER>> <<Options>>"
 _draw_stdalone 8  "Options:"
@@ -1682,7 +1683,7 @@ esac
 # c   :cast disarm
 # i   :invoke disarm
 # d   :debugging output
-while getopts C:S:ciudMVhabdefgjklmnopqrstvwxyzABCDEFGHIJKLNOPQRTUWXYZ oneOPT
+while getopts C:S:ciudMVhabdefgjklmnopqrstvwxyzABDEFGHIJKLNOPQRTUWXYZ oneOPT
 do
 case $oneOPT in
 C) NUMBER=$OPTARG;;

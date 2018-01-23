@@ -53,6 +53,7 @@ _draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
 _draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
 _draw 4  "Option -version 1.12.0 and lesser"
 _draw 4  "turns on some compatibility switches."
+_draw 2  "To be used in the crossfire roleplaying game client."
         exit 0
 ;; esac
 

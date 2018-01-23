@@ -8,11 +8,11 @@ export PATH=/bin:/usr/bin
 MARK_ITEM='icecube'
 ITEM='flint and steel'
 
-MY_SELF=`realpath "$0"`
-MY_BASE=${MY_SELF##*/}
-
 DEBUG=1
 MSGLEVEL=7
+
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
 
 #test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
 #_set_global_variables "$@"
@@ -40,7 +40,7 @@ _draw 5 "Syntax:"
 _draw 5 "script $0 [number]"
 _draw 5 "For example: 'script $0 5'"
 _draw 5 "will issue 5 times mark icecube and apply flint and steel."
-
+_draw 2  "To be used in the crossfire roleplaying game client."
         exit 0
 ;;
 -d) DEBUG=$((DEBUG+1));;

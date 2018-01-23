@@ -12,6 +12,8 @@ VERSION=0.0 # initial version
 VERSION=1.0 # do more checks
 VERSION=2.0 # code overhaul
 VERSION=3.0 # use external function files
+VERSION=4.0 # renamed own functions to *_stdalone
+# to distinguish from functions from sourced files
 
 DEBUG=1
 LOGGING=1
@@ -29,6 +31,9 @@ COMMAND_STOP=fire_stop
 FOOD_STAT_MIN=300
 FOOD=waybread
 
+MY_SELF=`realpath "$0"` ## needs to be in main script
+MY_BASE=${MY_SELF##*/}  ## needs to be in main script
+
 #test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
 #_set_global_variables $*
 
@@ -42,7 +47,7 @@ test -f "${MY_SELF%/*}"/"${MY_BASE}".conf  && . "${MY_SELF%/*}"/"${MY_BASE}".con
 
 
 # early functions
-_draw(){
+_draw_stdalone(){
     case $1 in [0-9]|1[0-2])
     lCOLOUR="$1"; shift;; esac
     local lCOLOUR=${lCOLOUR:-1} #set default
@@ -50,7 +55,7 @@ _draw(){
     echo draw $lCOLOUR "$lMSG"
 }
 
-__draw(){
+__draw_stdalone(){
 case $1 in [0-9]|1[0-2])
     lCOLOUR="$1"; shift;; esac
     local lCOLOUR=${lCOLOUR:-1} #set default
@@ -63,33 +68,34 @@ done
 unset dcnt line
 }
 
-_usage(){
+_usage_stdalone(){
 _draw 5 "Script to $COMMAND ITEM DIRECTION NUMBER ."
 _draw 5 "Syntax:"
 _draw 5 "script $0 <item> <dir> <number>"
 _draw 5 "For example: 'script $0 rod of firebolt east 10'"
 _draw 5 "will apply rod of firebolt"
 _draw 5 "and will issue 10 times the $COMMAND east command."
+_draw 2  "To be used in the crossfire roleplaying game client."
 exit 0
 }
 
-_say_version(){
+_say_version_stdalone(){
 _draw 2 "$0 Version:${VERSION:-'1.0'}"
 exit 0
 }
 
-_log(){
+_log_stdalone(){
 test "$LOGGING" || return
 echo "$*" >>"$LOG_FILE"
 }
 
-_debug(){
+_debug_stdalone(){
 test "$DEBUG" || return
 case $1 in -s) shift; sleep 0.5;; esac
 echo draw 3 "$*"
 }
 
-__debug(){  ##+++2018-01-10
+__debug_stdalone(){  ##+++2018-01-10
 test "$DEBUG" || return 0
 dcnt=0
 case $1 in -s) shift; local lSLEEP=0.25;; esac
@@ -102,7 +108,7 @@ done
 unset dcnt line
 }
 
-_error(){
+_error_stdalone(){
 RV=$1;shift
 #_draw 3 "$*"
 eMSG=`echo -e "$*"`
@@ -111,7 +117,7 @@ exit ${RV:-1}
 }
 
 #***
-_is(){
+_is_stdalone(){
 # issue <repeat> <must_send> <command> - send
 #  <command> to server on behalf of client.
 #  <repeat> is the number of times to execute command
@@ -124,8 +130,8 @@ _is(){
 }
 
 # *** functions list
-_direction_word_to_number(){
-_debug "_direction_word_to_number:$*"
+_direction_word_to_number_stdalone(){
+_debug "_direction_word_to_number_stdalone:$*"
 case $* in
 0|center|centre|c) DIRECTION_NUMBER=0;;
 1|north|n)      DIRECTION_NUMBER=1;;
@@ -138,13 +144,14 @@ case $* in
 8|northwest|nw) DIRECTION_NUMBER=8;;
 *) _exit 2 "Invalid direction '$*'";;
 esac
+DIRN=$DIRECTION_NUMBER
 }
 
-_parse_parameters(){
-_debug "_parse_parameters:$*"
+_parse_parameters_stdalone(){
+_debug "_parse_parameters_stdalone:$*"
 PARAMS=`echo $* | rev`
 set - $PARAMS
-_debug "_parse_parameters:$*"
+_debug "_parse_parameters_stdalone:$*"
 local c=0
 while test $# != 0; do
 c=$((c+1))
@@ -158,12 +165,12 @@ case $c in
 esac
 shift
 done
-_debug "_parse_parameters:ITEM=$ITEM DIR=$DIRECTION NUMBER=$NUMBER"
+_debug "_parse_parameters_stdalone:ITEM=$ITEM DIR=$DIRECTION NUMBER=$NUMBER"
 test "$NUMBER" -a "$DIRECTION" -a "$ITEM" || _exit 1 "Missing ITEM -o DIRECTION -o NUMBER"
 }
 
-_check_have_needed_item_in_inventory(){
-_debug "_check_have_needed_item_in_inventory:$*"
+_check_have_needed_item_in_inventory_stdalone(){
+_debug "_check_have_needed_item_in_inventory_stdalone:$*"
 
 local oneITEM oldITEM ITEMS ITEMSA lITEM
 lITEM=${*:-"$ITEM"}
@@ -176,7 +183,7 @@ echo request items inv
 while :;
 do
 read -t ${TMOUT:-1} oneITEM
- _log "_check_have_needed_item_in_inventory:$oneITEM"
+ _log "_check_have_needed_item_in_inventory_stdalone:$oneITEM"
  _debug "$oneITEM"
  #test "$oldITEM" = "$oneITEM" && break
  #test "$oneITEM" || break
@@ -206,8 +213,8 @@ _draw 4 "Elapsed $TIME s"
 echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es"
 }
 
-_check_have_needed_item_applied(){
-_debug "_check_have_needed_item_applied:$*"
+_check_have_needed_item_applied_stdalone_stdalone(){
+_debug "_check_have_needed_item_applied_stdalone:$*"
 
 local oneITEM oldITEM ITEMS ITEMSA lITEM
 
@@ -219,7 +226,7 @@ echo request items actv
 while :;
 do
 read -t ${TMOUT:-1} oneITEM
- _log "_check_have_needed_item_applied:$oneITEM"
+ _log "_check_have_needed_item_applied_stdalone:$oneITEM"
  _debug "$oneITEM"
  #test "$oldITEM" = "$oneITEM" && break
  #test "$oneITEM" || break
@@ -228,6 +235,8 @@ read -t ${TMOUT:-1} oneITEM
  #*"$lITEM"*) _draw 7 "Got that item $lITEM in inventory.";;
  *scripttell*break*)  break ${oneITEM##*?break};;
  *scripttell*exit*)   _exit 1;;
+ esac
+
  ITEMSA="$ITEMSA
 $oneITEM"
  oldITEM="$oneITEM"
@@ -238,24 +247,25 @@ unset oldITEM oneITEM
 echo "$ITEMSA" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es"
 }
 
-_apply_item(){
-#_debug "_apply_item:issue 0 0 apply $ITEM"
+_apply_item_stdalone(){
+#_debug "_apply_item_stdalone:issue 0 0 apply $ITEM"
  _is 0 0 apply ${*:-"$ITEM"}
 # TODO: Something blocks the magic of your item.
 }
 
-_rotate_range_attack(){
-_debug "_rotate_range_attack:$*"
+_rotate_range_attack_stdalone(){
+_debug "_rotate_range_attack_stdalone:$*"
 
 local REPLY_RANGE oldREPLY_RANGE lITEM
 lITEM=${*:-"$ITEM"}
+test "$lITEM" || return 254
 
 while :;
 do
 echo request range
 sleep 1
 read -t ${TMOUT:-1} REPLY_RANGE
- _log "_rotate_range_attack:REPLY_RANGE=$REPLY_RANGE"
+ _log "_rotate_range_attack_stdalone:REPLY_RANGE=$REPLY_RANGE"
  _debug "$REPLY_RANGE"
  #test "`echo "$REPLY_RANGE" | grep -i "$lITEM"`" && break
  #test "$oldREPLY_RANGE" = "$REPLY_RANGE" && break
@@ -272,14 +282,14 @@ sleep 2.1
 done
 }
 
-__watch_food(){
-_debug "__watch_food:$*"
+__watch_food_stdalone(){
+_debug "__watch_food_stdalone:$*"
 
 echo request stat hp
 read -t ${TMOUT:-1} statHP
- _debug "__watch_food:$statHP"
+ _debug "__watch_food_stdalone:$statHP"
  FOOD_STAT=`echo $statHP | awk '{print $NF}'`
- _debug "__watch_food:FOOD_STAT=$FOOD_STAT"
+ _debug "__watch_food_stdalone:FOOD_STAT=$FOOD_STAT"
 
  if test "$FOOD_STAT" -lt $FOOD_STAT_MIN; then
    _is 0 0 apply $FOOD
@@ -288,8 +298,8 @@ read -t ${TMOUT:-1} statHP
  fi
 }
 
-__do_emergency_recall(){
-_debug "__do_emergency_recall:$*"
+__do_emergency_recall_stdalone(){
+_debug "__do_emergency_recall_stdalone:$*"
 #_debug "issue 1 1 apply -a rod of word of recall"
   _is 1 1 apply -u "rod of word of recall"
   _is 1 1 apply -a "rod of word of recall"
@@ -302,13 +312,13 @@ exit 5
 }
 
 # ***
-_do_emergency_recall(){
+_do_emergency_recall_stdalone(){
 # *** apply rod of word of recall if hit-points are below HP_MAX /10
 # *   fire and fire_stop it
 # *   alternatively one could apply rod of heal, scroll of restoration
 # *   and ommit exit ( comment 'exit 5' line by setting a '#' before it)
 # *   - something like that
-_debug "_do_emergency_recall:$*"
+_debug "_do_emergency_recall_stdalone:$*"
 
 lRETURN_ITEM=${*:-"$RETURN_ITEM"}
 if test "$lRETURN_ITEM"; then
@@ -333,8 +343,8 @@ _is 1 1 apply
 exit 5
 }
 
-_watch_food(){
-_debug "_watch_food:$*"
+_watch_food_stdalone(){
+_debug "_watch_food_stdalone:$*"
 
 echo request stat hp
 read -t ${TMOUT:-1} r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD
@@ -354,10 +364,10 @@ read -t ${TMOUT:-1} r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD
 _draw 2 "$0 started <$*> with pid $$ $PPID"
 # MAIN
 
-_do_loop(){
-_debug "_do_loop:$*"
+_do_loop_stdalone(){
+_debug "_do_loop_stdalone:$*"
 NUMBER=${1:-1}
-_debug "_do_loop:$*:NUMBER=$NUMBER"
+_debug "_do_loop_stdalone:$*:NUMBER=$NUMBER"
 
 for one in `seq 1 1 $NUMBER`
 do
@@ -389,8 +399,10 @@ done
 _is 0 0 $COMMAND_STOP
 }
 
-_do_program(){
-_parse_parameters "$@"
+_do_program_stdalone(){
+_debug "_do_program_stdalone:$*"
+
+_parse_parameters_stdalone "$@"
 
      ITEM=${ITEM:-"$ITEM_DEFAULT"}
 DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
@@ -411,14 +423,14 @@ sleep 1
 _rotate_range_attack
 sleep 1
 _direction_word_to_number $DIRECTION
-_do_loop $NUMBER
+_do_loop_stdalone $NUMBER
 }
 
 case $@ in
--h|*help) _usage;;
+-h|*help) _usage_stdalone;;
 -V) _say_version;;
 '') _draw 3 "Script needs <item> <direction> and <number of $COMMAND attempts> as argument.";;
-*) _do_program "$@";;
+*) _do_program_stdalone "$@";;
 esac
 
 # *** Here ends program *** #
