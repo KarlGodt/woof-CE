@@ -405,7 +405,7 @@ __open_door_with_standard_key(){
 #DEBUG=1 _debug "_open_door_with_standard_key:$*"
 DIRECTION=${1:-$DIRECTION}
 #DEBUG=1 _debug "DIRECTION=$DIRECTION"
-test "$DIRECTION" || return 0
+test "$DIRECTION" || return 254
 _number_to_direction "$DIRECTION"
 #DEBUG=1 _debug "DIRECTION=$DIRECTION"
 _is 0 0 $DIRECTION
@@ -413,7 +413,7 @@ _is 0 0 $DIRECTION
 
 __direction_to_number(){
 DIRECTION=${1:-$DIRECTION}
-test "$DIRECTION" || return 0
+test "$DIRECTION" || return 254
 
 DIRECTION=`echo "$DIRECTION" | tr '[A-Z]' '[a-z]'`
 case $DIRECTION in
@@ -428,29 +428,34 @@ case $DIRECTION in
 8|northwest|nw)    DIRECTION=8; DIRB=southeast; DIRF=northwest;;
 *) ERROR=1 _error "Not recognized: '$DIRECTION'";;
 esac
+DIRN=$DIRECTION
+DIRECTION_NUMBER=$DIRN
+return ${DIRN:-255}
 }
 
 __number_to_direction(){
 DIRECTION=${1:-$DIRECTION}
-test "$DIRECTION" || return 0
+test "$DIRECTION" || return 254
 DIRECTION=`echo "$DIRECTION" | tr '[A-Z]' '[a-z]'`
 case $DIRECTION in
-0|center|centre|c) DIRECTION=center;    DIRB=;          DIRF=;;
-1|north|n)         DIRECTION=north;     DIRB=south;     DIRF=north;;
-2|northeast|ne)    DIRECTION=northeast; DIRB=southwest; DIRF=northeast;;
-3|east|e)          DIRECTION=east;      DIRB=west;      DIRF=east;;
-4|southeast|se)    DIRECTION=southeast; DIRB=northwest; DIRF=southeast;;
-5|south|s)         DIRECTION=south;     DIRB=north;     DIRF=south;;
-6|southwest|sw)    DIRECTION=southwest; DIRB=northeast; DIRF=southwest;;
-7|west|w)          DIRECTION=west;      DIRB=east;      DIRF=west;;
-8|northwest|nw)    DIRECTION=northwest; DIRB=southeast; DIRF=northwest;;
+0|center|centre|c) DIRECTION=center;    DIRN=0; DIRB=;          DIRF=;;
+1|north|n)         DIRECTION=north;     DIRN=1; DIRB=south;     DIRF=north;;
+2|northeast|ne)    DIRECTION=northeast; DIRN=2; DIRB=southwest; DIRF=northeast;;
+3|east|e)          DIRECTION=east;      DIRN=3; DIRB=west;      DIRF=east;;
+4|southeast|se)    DIRECTION=southeast; DIRN=4; DIRB=northwest; DIRF=southeast;;
+5|south|s)         DIRECTION=south;     DIRN=5; DIRB=north;     DIRF=south;;
+6|southwest|sw)    DIRECTION=southwest; DIRN=6; DIRB=northeast; DIRF=southwest;;
+7|west|w)          DIRECTION=west;      DIRN=7; DIRB=east;      DIRF=west;;
+8|northwest|nw)    DIRECTION=northwest; DIRN=8; DIRB=southeast; DIRF=northwest;;
 *) ERROR=1 _error "Not recognized: '$DIRECTION'";;
 esac
+DIRECTION_NUMBER=$DIRN
+return ${DIRN:-255}
 }
 
 __turn_direction(){
 test "$3" && { DIRECTION=${1:-DIRECTION}; shift; }
-test "$DIRECTION" || return 0
+test "$DIRECTION" || return 254
 
 _direction_to_number $DIRECTION
 _is 0 0 ${1:-ready_skill} ${2:-lockpicking}

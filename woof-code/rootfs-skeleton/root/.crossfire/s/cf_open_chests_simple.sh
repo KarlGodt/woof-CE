@@ -1003,14 +1003,14 @@ _draw_stdalone 5 "Checking if standing on chests ..."
 _eval_check_if_on_chest_request_items_on_stdalone $1
 }
 
-
 _search_traps_stdalone(){
 _debug_stdalone "_search_traps_stdalone:$*"
 
-cnt=${SEARCH_ATTEMPTS:-$SEARCH_ATTEMPTS_DEFAULT}
-_draw_stdalone 5 "Searching traps ..."
+cnt=${*:-$SEARCH_ATTEMPTS}
+cnt=${cnt:-$SEARCH_ATTEMPTS_DEFAULT}
 test "$cnt" -gt 0 || return 0
 
+_draw_stdalone 5 "Searching traps ..."
 TRAPS_ALL_OLD=0
 TRAPS_ALL=$TRAPS_ALL_OLD
 
@@ -1079,7 +1079,7 @@ unset cnt
 
 _cast_disarm_stdalone(){
 _debug_stdalone "_cast_disarm_stdalone:$*"
-#_draw_stdalone 5 "Disarming ${TRAPS_ALL:-0} traps ..."
+
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
 test "$TRAPS_ALL" -gt 0     || return 0
@@ -1091,7 +1091,6 @@ do
 _draw_stdalone 5 "${TRAPS:-0} trap(s) to disarm ..."
 
 # TODO: checks for enough mana
-#echo watch $DRAWINFO
 _watch_stdalone $DRAWINFO
 _is_stdalone 0 0 cast disarm
 _sleep_stdalone
@@ -1131,7 +1130,7 @@ _unwatch_stdalone $DRAWINFO
 
 _invoke_disarm_stdalone(){ ## invoking does to a direction
 _debug_stdalone "_invoke_disarm_stdalone:$*"
-#_draw_stdalone 5 "Disarming ${TRAPS_ALL:-0} traps ..."
+
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
 test "$TRAPS_ALL" -gt 0     || return 0
@@ -1188,7 +1187,7 @@ _move_forth_stdalone 1
 
 _use_skill_disarm_stdalone(){
 _debug_stdalone "_use_skill_disarm_stdalone:$*"
-#_draw_stdalone 5 "Disarming ${TRAPS_ALL:-0} traps ..."
+
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
 test "$TRAPS_ALL" -gt 0     || return 0
@@ -1199,7 +1198,6 @@ while :
 do
 _draw_stdalone 5 "${TRAPS:-0} trap(s) to disarm ..."
 
-#echo watch $DRAWINFO
 _watch_stdalone $DRAWINFO
 _is_stdalone 0 0 use_skill disarm
 _sleep_stdalone
@@ -1745,9 +1743,6 @@ _get_player_speed_stdalone(){
 _debug_stdalone "_get_player_speed_stdalone:$*"
 
 if test "$1" = '-l'; then # loop counter
- #spdcnt=$((spdcnt+1))
- #test "$spdcnt" -ge ${COUNT_CHECK_FOOD:-10} || return 1
- #spdcnt=0
  _check_counter_stdalone || return 1
  shift
 fi
@@ -1827,15 +1822,12 @@ while :; do
  read -t $TMOUT lANSWER
  _log_stdalone "$REQUEST_LOG" "__request_stdalone $*:$lANSWER"
  _msg_stdalone 7 "$lANSWER"
- #test "$lANSWER" || break
- #test "$lANSWER" = "$lOLD_ANSWER" && break
  case $lANSWER in ''|$lOLD_ANSWER|*request*end) break 1;; esac
  ANSWER="$ANSWER
 $lANSWER"
 lOLD_ANSWER="$lANSWER"
 sleep 0.01
 done
-#ANSWER="$lANSWER"
 ANSWER=`echo "$ANSWER" | sed 'sI^$II'`
 test "$ANSWER"
 }

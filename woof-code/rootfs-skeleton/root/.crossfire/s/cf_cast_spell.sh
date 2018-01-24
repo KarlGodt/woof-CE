@@ -116,8 +116,9 @@ unset dcnt line
 # ***
 _usage_stdalone(){
 # *** print usage message to client window and exit
-
+_draw 5 "$MY_BASE"
 _draw 5 "Script to $COMMAND SPELL DIRECTION COMMAND_PAUSE ."
+_draw 2  "To be used in the crossfire roleplaying game client."
 _draw 2 "Syntax:"
 _draw 2 "script $0 <spell> <<-o spell option>> <dir> <pause> <<options>>"
 _draw 5 "For example: 'script $0 firebolt east 4'"
@@ -125,7 +126,6 @@ _draw 5 "will issue cast firebolt"
 _draw 5 "and will issue the $COMMAND east command with a pause of 4 seconds in between."
 _draw 2 "Other examples:"
 _draw 5 "script $0 create food -o waybread south 9"
-_draw 2  "To be used in the crossfire roleplaying game client."
 _draw 3 "WARNING:"
 _draw 4 "Loops forever - use scriptkill command to terminate :P ."
 exit 0
@@ -150,14 +150,14 @@ exit ${RV:-1}
 _log_stdalone(){
 # *** echo passed parameters to logfile if LOGGING is set to anything
 
-test "$LOGGING" || return
+test "$LOGGING" || return 0
 echo "$*" >>"$LOG_FILE"
 }
 
 # ***
 _verbose_stdalone(){
 # ***
-test "$VERBOSE" || return
+test "$VERBOSE" || return 0
 case $1 in -s) shift; sleep 0.5;; esac
 echo draw 7 "$*"
 }
@@ -166,7 +166,7 @@ echo draw 7 "$*"
 _debug_stdalone(){
 # *** print passed parameters to window if DEBUG is set to anything
 
-test "$DEBUG" || return
+test "$DEBUG" || return 0
 case $1 in -s) shift; sleep 0.5;; esac
 echo draw 3 "$*"
 }

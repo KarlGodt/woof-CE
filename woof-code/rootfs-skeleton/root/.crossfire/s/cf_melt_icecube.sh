@@ -35,12 +35,13 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in -h|*"help"*)
 
+_draw 5 "$MY_BASE"
 _draw 5 "Script to melt icecubes in inventory."
+_draw 2  "To be used in the crossfire roleplaying game client."
 _draw 5 "Syntax:"
-_draw 5 "script $0 [number]"
+_draw 5 "script $0 <<number>>"
 _draw 5 "For example: 'script $0 5'"
 _draw 5 "will issue 5 times mark icecube and apply flint and steel."
-_draw 2  "To be used in the crossfire roleplaying game client."
         exit 0
 ;;
 -d) DEBUG=$((DEBUG+1));;

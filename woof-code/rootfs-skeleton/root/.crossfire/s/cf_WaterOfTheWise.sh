@@ -38,15 +38,17 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in -h|*"help"*)
 
+_draw 5 "$MY_BASE"
 _draw 5  "Script to produce water of the wise."
+_draw 5  "To be used in the crossfire roleplaying game client."
 _draw 7  "Syntax:"
-_draw 7  "$0 [ -version VERSION ] NUMBER"
+_draw 7  "$0 <-version VERSION> NUMBER"
 _draw 5  "Allowed NUMBER will loop for"
 _draw 5  "NUMBER times to produce NUMBER of"
 _draw 5  "Water of the Wise ."
 _draw 2  "Option -version 1.12.0 and lesser"
 _draw 2  "turns on some compatibility switches."
-_draw 5  "To be used in the crossfire roleplaying game client."
+
         exit 0
 ;; esac
 

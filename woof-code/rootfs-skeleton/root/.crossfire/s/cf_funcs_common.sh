@@ -451,7 +451,7 @@ exit ${RV:-1}
 
 __direction_to_number(){
 DIRECTION=${1:-$DIRECTION}
-test "$DIRECTION" || return 0
+test "$DIRECTION" || return 254
 
 DIRECTION=`echo "$DIRECTION" | tr '[A-Z]' '[a-z]'`
 case $DIRECTION in
@@ -467,12 +467,12 @@ case $DIRECTION in
 *) ERROR=1 _error "Not recognized: '$DIRECTION'";;
 esac
 DIRECTION_NUMBER=$DIRN
-return ${ERROR:-0}
+return ${DIRN:-255}
 }
 
 __number_to_direction(){
 DIRECTION=${1:-$DIRECTION}
-test "$DIRECTION" || return 0
+test "$DIRECTION" || return 254
 DIRECTION=`echo "$DIRECTION" | tr '[A-Z]' '[a-z]'`
 case $DIRECTION in
 0|center|centre|c) DIRECTION=center;    DIRN=0;;
@@ -487,12 +487,12 @@ case $DIRECTION in
 *) ERROR=1 _error "Not recognized: '$DIRECTION'";;
 esac
 DIRECTION_NUMBER=$DIRN
-return ${ERROR:-0}
+return ${DIRN:-255}
 }
 
 _direction_to_number(){ # cf_funcs_move.sh
 local lDIRECTION=${1:-$DIRECTION}
-test "$lDIRECTION" || return 0
+test "$lDIRECTION" || return 254
 
 lDIRECTION=`echo "$lDIRECTION" | tr '[A-Z]' '[a-z]'`
 case $lDIRECTION in
@@ -508,12 +508,12 @@ case $lDIRECTION in
 *) ERROR=1 _error "Not recognized: '$lDIRECTION'";;
 esac
 DIRECTION_NUMBER=$DIRN
-return ${ERROR:-0}
+return ${DIRN:-255}
 }
 
 _number_to_direction(){ # cf_funcs_move.sh
 local lDIRECTION=${1:-$DIRECTION}
-test "$lDIRECTION" || return 0
+test "$lDIRECTION" || return 254
 
 lDIRECTION=`echo "$lDIRECTION" | tr '[A-Z]' '[a-z]'`
 case $lDIRECTION in
@@ -529,7 +529,7 @@ case $lDIRECTION in
 *) ERROR=1 _error "Not recognized: '$lDIRECTION'";;
 esac
 DIRECTION_NUMBER=$DIRN
-return ${ERROR:-0}
+return ${DIRN:-255}
 }
 
 _round_up_and_down(){  ##+++2018-01-08

@@ -69,13 +69,14 @@ unset dcnt line
 }
 
 _usage_stdalone(){
+_draw 5 "$MY_BASE"
 _draw 5 "Script to $COMMAND ITEM DIRECTION NUMBER ."
+_draw 2 "To be used in the crossfire roleplaying game client."
 _draw 5 "Syntax:"
 _draw 5 "script $0 <item> <dir> <number>"
 _draw 5 "For example: 'script $0 rod of firebolt east 10'"
 _draw 5 "will apply rod of firebolt"
 _draw 5 "and will issue 10 times the $COMMAND east command."
-_draw 2  "To be used in the crossfire roleplaying game client."
 exit 0
 }
 
@@ -85,12 +86,12 @@ exit 0
 }
 
 _log_stdalone(){
-test "$LOGGING" || return
+test "$LOGGING" || return 0
 echo "$*" >>"$LOG_FILE"
 }
 
 _debug_stdalone(){
-test "$DEBUG" || return
+test "$DEBUG" || return 0
 case $1 in -s) shift; sleep 0.5;; esac
 echo draw 3 "$*"
 }
@@ -145,6 +146,7 @@ case $* in
 *) _exit 2 "Invalid direction '$*'";;
 esac
 DIRN=$DIRECTION_NUMBER
+return ${DIRN:-255}
 }
 
 _parse_parameters_stdalone(){
@@ -361,7 +363,8 @@ read -t ${TMOUT:-1} r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD
 }
 
 # *** Here begins program *** #
-_draw 2 "$0 started <$*> with pid $$ $PPID"
+#_draw 2 "$0 started <$*> with pid $$ $PPID"
+_say_start_msg "$@"
 # MAIN
 
 _do_loop_stdalone(){
@@ -434,5 +437,6 @@ case $@ in
 esac
 
 # *** Here ends program *** #
-_draw 2 "$0 is finished."
+#_draw 2 "$0 is finished."
+_say_end_msg
 ###END###

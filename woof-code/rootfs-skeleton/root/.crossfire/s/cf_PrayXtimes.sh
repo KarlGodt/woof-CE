@@ -42,15 +42,15 @@ PARAM_1="$1"
 
 # *** implementing 'help' option *** #
 case "$PARAM_1" in -h|*"help"*)
-
+_draw 5 "$MY_BASE"
 _draw 5 "Script to pray given number times."
+_draw 5  "To be used in the crossfire roleplaying game client."
 _draw 2 "Syntax:"
 _draw 2 "script $0 <number>"
 _draw 5 "For example: 'script $0 50'"
 _draw 5 "will issue 50 times the use_skill praying command."
 _draw 2 "Without <number> will loop forever,"
 _draw 2 "use scriptkill to terminate."
-_draw 5  "To be used in the crossfire roleplaying game client."
 
         exit 0;;
 -d) DEBUG=$((DEBUG+1));;

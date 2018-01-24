@@ -34,13 +34,14 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in -h|*"help"*)
 
+_draw 5 "$MY_BASE"
 _draw 5 "Script to "
 _draw 5 "apply $CANCEL_ITEM"
 _draw 5 "and then to fire center on oneself."
+_draw 2  "To be used in the crossfire roleplaying game client."
 _draw 2 "Syntax:"
 _draw 2 "$0 NUMBER"
 _draw 7 "$0 5 would fire center 5 times."
-_draw 2  "To be used in the crossfire roleplaying game client."
         exit 0
 ;;
 -d) DEBUG=$((DEBUG+1));;

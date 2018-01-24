@@ -43,9 +43,11 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in -h|*"help"*)
 
+_draw 5 "$MY_BASE"
 _draw 5 "Script to produce alchemy objects."
+_draw 2  "To be used in the crossfire roleplaying game client."
 _draw 7 "Syntax:"
-_draw 7 "$0 [ -version VERSION ] ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
+_draw 7 "$0 <<-version VERSION>> ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
 _draw 5 "Allowed NUMBER will loop for"
 _draw 5 "NUMBER times to produce"
 _draw 2 "ARTIFACT alch ie 'balm_of_first_aid' '10' with"
@@ -53,7 +55,6 @@ _draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
 _draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
 _draw 4  "Option -version 1.12.0 and lesser"
 _draw 4  "turns on some compatibility switches."
-_draw 2  "To be used in the crossfire roleplaying game client."
         exit 0
 ;; esac
 

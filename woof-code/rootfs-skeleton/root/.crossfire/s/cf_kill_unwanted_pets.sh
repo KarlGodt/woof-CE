@@ -25,15 +25,17 @@ test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 _say_start_msg "$@"
 
 _say_help_and_exit(){
+_draw 5 "$MY_BASE"
 _draw 5 "Script to kill pets except the ones"
 _draw 5 "given on parameter line."
+_draw 2  "To be used in the crossfire roleplaying game client."
 _draw 2 "Syntax:"
 _draw 2 "$0 pet1 pet2 .."
 _draw 5 ":space: ( ) needs to be replaced by underscore (_)"
 _draw 5 "for ex. green slime to green_slime ."
 _draw 2 "Options:"
 _draw 5 "-w :Use grep -w (word) to be more exact (lich/demilich)"
-_draw 2  "To be used in the crossfire roleplaying game client."
+
 exit 0
 }
 
