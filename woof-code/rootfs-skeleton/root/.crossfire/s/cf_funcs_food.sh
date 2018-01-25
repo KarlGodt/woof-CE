@@ -198,8 +198,8 @@ while :;
 do
 unset HP MHP SP MSP GR MGR FOOD_LVL
 read -t ${TMOUT:-1} Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
-   _log HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL
- _msg 7 HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL #DEBUG
+   _log "HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL"
+ _msg 7 "HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL" #DEBUG
 
 test "$Re" = request || continue
 test "$FOOD_LVL" || break
@@ -215,8 +215,8 @@ if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
  _sleep
  read -t ${TMOUT:-1} Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
-   _log HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL
- _msg 7 HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL #DEBUG
+   _log "HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL"
+ _msg 7 "HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL" #DEBUG
  break
 fi
 

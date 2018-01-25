@@ -2,6 +2,8 @@
 
 VERSION=0.0 # Initial version, that did not process much messages
 VERSION=1.0 # first "reliable" version 2018-01-23
+VERSION=1.1 # cleanups and add missing calls to
+# _get_player_speed and *_set_sync_sleep
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -14,9 +16,9 @@ LOGGING=1
 
 . $HOME/cf/s/cf_funcs_common.sh || exit 4
 . $HOME/cf/s/cf_funcs_food.sh   || exit 5
-. $HOME/cf/s/cf_funcs_traps.sh  || exit 6
+#. $HOME/cf/s/cf_funcs_traps.sh  || exit 6
 . $HOME/cf/s/cf_funcs_move.sh   || exit 7
-. $HOME/cf/s/cf_funcs_chests.sh || exit 8
+#. $HOME/cf/s/cf_funcs_chests.sh || exit 8
 
 _say_help_stdalone(){
 _draw 6  "$MY_BASE"
@@ -309,7 +311,7 @@ _debug "$REPLY"
  # server/skill_util.c:          "Unable to find skill %s", string);
  # server/skill_util.c- return 0;
  *scripttell*break*)     break ${REPLY##*?break};;
- *scripttell*exit*)    _exit 1;;
+ *scripttell*exit*)    _exit 1 $REPLY;;
  *) :;;
  esac
 
@@ -325,6 +327,16 @@ return ${lRV:-3}
 _set_next_direction_stdalone(){
 _debug "_set_next_direction_stdalone:$*:$DIRN"
 
+DIRN=$((DIRN-1))
+test "$DIRN" -le 0 && DIRN=8
+
+_number_to_direction $DIRN
+_draw 2 "Will turn to direction $DIRECTION .."
+}
+
+__set_next_direction_stdalone(){
+_debug "__set_next_direction_stdalone:$*:$DIRN"
+
 DIRN=$((DIRN+1))
 test "$DIRN" -ge 9 && DIRN=1
 
@@ -335,9 +347,13 @@ _draw 2 "Will turn to direction $DIRECTION .."
 _kill_monster_stdalone(){
 _debug "_kill_monster_stdalone:$*"
 
-local ATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
+local lATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
 
-for i in `seq 1 1 ${ATTACKS:-1}`; do
+# TODO:
+#*'You withhold your attack'*)  _set_next_direction_stdalone; break 1;;
+#*'You avoid attacking '*)      _set_next_direction_stdalone; break 1;;
+
+for i in `seq 1 1 ${lATTACKS:-1}`; do
 _is 1 1 $DIRECTION
 done
 _empty_message_stream
@@ -411,7 +427,7 @@ _debug "_calm_down_monster_ready_skill_stdalone:$*"
 #     -> kill monster and try next in DIRN
 #     -> turn to next monster
 
-local TRY_OR= lRV=
+local lRV=
 
 _watch $DRAWINFO
  while :;
@@ -424,7 +440,6 @@ _watch $DRAWINFO
   _is 1 1 fire $DIRN
   _is 1 1 fire_stop
   SINGING_ATTEMPTS_DONE=$((SINGING_ATTEMPTS_DONE+1))
-  #_sleep
 
   while :; do unset REPLY
   read -t $TMOUT
@@ -438,12 +453,11 @@ _watch $DRAWINFO
   '') break 2;; #!=PLAYER
   *'You sing'*) break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
-  *scripttell*exit*)    _exit 1;;
+  *scripttell*exit*)    _exit 1 $REPLY;;
   *) :;;
   esac
 
   sleep 0.01
-  #_sleep
   done
 
   while :; do unset REPLY
@@ -455,15 +469,12 @@ _watch $DRAWINFO
   '') lRV=0; break 2;;
   *'You calm down the '*) CALMS=$((CALMS+1)); lRV=0;;
   *"Too bad the "*"isn't listening!"*) _kill_monster_stdalone; break 1;;
-  #*'You withhold your attack'*)  _set_next_direction_stdalone; break 1;;
-  #*'You avoid attacking '*)      _set_next_direction_stdalone; break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
-  *scripttell*exit*)    _exit 1;;
+  *scripttell*exit*)    _exit 1 $REPLY;;
   *) :;;
   esac
 
   sleep 0.01
-  #_sleep
   done
 
  sleep 0.1
@@ -471,7 +482,7 @@ _watch $DRAWINFO
 
 _unwatch $DRAWINFO
 _draw 5 "With ${SINGING_ATTEMPTS_DONE:-0} singings you calmed down ${CALMS:-0} monsters."
-_sleep
+#_sleep
 _debug 3 "lRV=$lRV"
 return ${lRV:-1}
 }
@@ -480,10 +491,6 @@ _orate_to_monster_ready_skill_stdalone(){
 _debug "_orate_to_monster_ready_skill_stdalone:$*"
 
 local lRV=
-
-#_watch $DRAWINFO
-#while :;
-#do
 
  while :;
  do
@@ -496,7 +503,6 @@ local lRV=
   _is 1 1 fire $DIRN
   _is 1 1 fire_stop
   ORATORY_ATTEMPTS_DONE=$((ORATORY_ATTEMPTS_DONE+1))
-  #_sleep
 
   while :; do unset REPLY
   read -t $TMOUT
@@ -507,14 +513,12 @@ local lRV=
   #PLAYER, more, head, msg
   '') lRV=0; break 2;; # monster does not respond at all, try next
   *'There is nothing to orate to.'*) lRV=0; break 2;; # next monster #!tmp
- #*'You orate to the '*) _got_orate_reply_stdalone && { lRV=0; break 2; } || break 2;; #tmp
   *'You orate to the '*) break 1;; #tmp
   *scripttell*break*)    break ${REPLY##*?break};;
-  *scripttell*exit*)    _exit 1;;
+  *scripttell*exit*)    _exit 1 $REPLY;;
   *) :;;
   esac
 
-  #_sleep
   sleep 0.01
   done
 
@@ -525,34 +529,31 @@ local lRV=
 
   case $REPLY in
   #!FLAG_UNAGGRESSIVE && !FLAG_FRIENDLY
-  *'Too bad '*) _draw 3 "Catched Too bad 1"; break 2;; # try again singing the kobold isn't listening!
+  *'Too bad '*) _draw 3 "Catched Too bad oratory"; break 2;; # try again singing the kobold isn't listening!
   #FLAG_FRIENDLY && PETMOVE && get_owner(tmp)==pl
   *'Your follower loves '*)          lRV=0; break 2;; # next creature or exit
   #FLAG_FRIENDLY && PETMOVE && (skill->level > tmp->level)
   *"You convince the "*" to follow you instead!"*)   FOLLOWS=$((FOLLOWS+1)); lRV=0; break 2;; # next monster
   *'You convince the '*' to become your follower.'*) FOLLOWS=$((FOLLOWS+1)); lRV=0; break 2;; # next monster
   #/* Charm failed. Creature may be angry now */ skill < random_roll
-  *"Your speech angers the "*) _draw 3 "Catched Anger 1";   break 2;;
+  *"Your speech angers the "*) _draw 3 "Catched Anger oratory";   break 2;;
   #/* can't steal from other player */, /* Charm failed. Creature may not be angry now */
   '') break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
-  *scripttell*exit*)    _exit 1;;
+  *scripttell*exit*)    _exit 1 $REPLY;;
   *) :;;
   esac
 
-  #_sleep
   sleep 0.01
   done
 
- #_sleep
  sleep 0.1
  done
 
-#sleep 0.1
-#done
 _unwatch $DRAWINFO
-
 _draw 5 "With ${ORATORY_ATTEMPTS_DONE:-0} oratings you conceived ${FOLLOWS:-0} followers."
+#_sleep
+_debug 3 "lRV=$lRV"
 return ${lRV:-1}
 }
 
@@ -562,7 +563,7 @@ _debug "_sing_and_orate_around_stdalone:$*"
 while :;
 do
 
-_sleep
+#_sleep
 one=$((one+1))
 
 [ "$DIRECTION_OPT" ] || _set_next_direction_stdalone
@@ -590,7 +591,7 @@ _check_hp_and_return_home $HP
 fi
 
 _say_script_time
-_sleep
+#_sleep
 #_set_next_direction_stdalone
 
 done
@@ -606,6 +607,10 @@ _set_global_variables $*
 _say_start_msg $*
 _do_parameters_stdalone $*
 
+_get_player_speed
+test "$PL_SPEED1" && __set_sync_sleep ${PL_SPEED1} || _set_sync_sleep "$PL_SPEED"
+
+
 _direction_to_number $DIRECTION_OPT
 _check_skill_available_stdalone singing || return 1
 _check_skill_available_stdalone oratory || return 1
@@ -616,5 +621,6 @@ _sing_and_orate_around_stdalone || return $?
 
 _main_orate_func "$@"
 
+_unbrace_stdalone
 _say_end_msg
 ###END###

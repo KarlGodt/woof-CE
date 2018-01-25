@@ -236,6 +236,14 @@ _beep_std_stdalone
 exit ${RV:-0}
 }
 
+_exit_no_space_stdalone(){
+_draw_stdalone 3 "On position $nr $DIRB there is something ($IS_WALL)!"
+_draw_stdalone 3 "Remove that item and try again."
+_draw_stdalone 3 "If this is a wall, try on another place."
+_beep_std_stdalone
+exit ${1:-0}
+}
+
 _draw_stdalone(){
     local lCOLOUR="${1:-$COLOUR}"
     lCOLOUR=${lCOLOUR:-1} #set default

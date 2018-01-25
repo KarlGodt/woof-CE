@@ -464,7 +464,10 @@ case $DIRECTION in
 6|southwest|sw)    DIRECTION=6; DIRN=6;;
 7|west|w)          DIRECTION=7; DIRN=7;;
 8|northwest|nw)    DIRECTION=8; DIRN=8;;
-*) ERROR=1 _error "Not recognized: '$DIRECTION'";;
+#*) ERROR=1 _error "Not recognized: '$DIRECTION'";; # bash
+*) oERROR="$ERROR"; ERROR=1
+_error "Not recognized: '$DIRECTION'"
+ERROR="$oERROR"; unset oERROR;;
 esac
 DIRECTION_NUMBER=$DIRN
 return ${DIRN:-255}
@@ -484,7 +487,10 @@ case $DIRECTION in
 6|southwest|sw)    DIRECTION=southwest; DIRN=6;;
 7|west|w)          DIRECTION=west;      DIRN=7;;
 8|northwest|nw)    DIRECTION=northwest; DIRN=8;;
-*) ERROR=1 _error "Not recognized: '$DIRECTION'";;
+#*) ERROR=1 _error "Not recognized: '$DIRECTION'";; # bash
+*) oERROR="$ERROR"; ERROR=1
+_error "Not recognized: '$DIRECTION'"
+ERROR="$oERROR"; unset oERROR;;
 esac
 DIRECTION_NUMBER=$DIRN
 return ${DIRN:-255}
@@ -505,7 +511,10 @@ case $lDIRECTION in
 6|southwest|sw)    DIRECTION=southwest; DIRN=6; DIRB=northeast; DIRF=southwest;;
 7|west|w)          DIRECTION=west;      DIRN=7; DIRB=east;      DIRF=west;;
 8|northwest|nw)    DIRECTION=northwest; DIRN=8; DIRB=southeast; DIRF=northwest;;
-*) ERROR=1 _error "Not recognized: '$lDIRECTION'";;
+#*) ERROR=1 _error "Not recognized: '$lDIRECTION'";; # bash
+*) oERROR="$ERROR"; ERROR=1
+_error "Not recognized: '$DIRECTION'"
+ERROR="$oERROR"; unset oERROR;;
 esac
 DIRECTION_NUMBER=$DIRN
 return ${DIRN:-255}
@@ -526,7 +535,10 @@ case $lDIRECTION in
 6|southwest|sw)    DIRECTION=southwest; DIRN=6; DIRB=northeast; DIRF=southwest;;
 7|west|w)          DIRECTION=west;      DIRN=7; DIRB=east;      DIRF=west;;
 8|northwest|nw)    DIRECTION=northwest; DIRN=8; DIRB=southeast; DIRF=northwest;;
-*) ERROR=1 _error "Not recognized: '$lDIRECTION'";;
+#*) ERROR=1 _error "Not recognized: '$lDIRECTION'";; # bash
+*) oERROR="$ERROR"; ERROR=1
+_error "Not recognized: '$DIRECTION'"
+ERROR="$oERROR"; unset oERROR;;
 esac
 DIRECTION_NUMBER=$DIRN
 return ${DIRN:-255}
