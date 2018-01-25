@@ -63,6 +63,7 @@ VERSION=2.2 # more alternative functions
 VERSION=2.2.1 # bugfixes
 VERSION=3.0 # made the whole script standalone possible
 # functions got *_stdalone post-syllable
+VERSION=3.1 # code cleanup
 
 SEARCH_ATTEMPTS_DEFAULT=9
 #DISARM variable set to skill, invokation OR cast
@@ -77,9 +78,6 @@ MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 #LOGGING=1
 MSGLEVEL=6 # Message Levels 1-7 to print to the msg pane
 
-#DRAWINFO=drawextinfo # client gtk2 1.12.svn
-
-#. $HOME/cf/s/cf_functions.sh || exit 2
 
 . $HOME/cf/s/cf_funcs_common.sh || exit 4
 . $HOME/cf/s/cf_funcs_food.sh   || exit 5
@@ -106,6 +104,28 @@ _draw_stdalone 12 "-c   :cast spell disarm"
 _draw_stdalone 12 "-i   :invoke spell disarm"
 _draw_stdalone 12 "-u   :use_skill disarm"
 _draw_stdalone 10 "-d   :Print debugging to msgpane."
+exit ${1:-2}
+}
+
+_say_help(){
+_draw 6  "$MY_BASE"
+_draw 7  "Script to search for traps,"
+_draw 7  "disarming them,"
+_draw 7  "and open chest(s)."
+_draw 2  "To be used in the crossfire roleplaying game client."
+_draw 6  "Syntax:"
+_draw 7  "$0 <<NUMBER>> <<Options>>"
+_draw 8  "Options:"
+_draw 10 "Simple number as first parameter:Just open NUMBER chests."
+_draw 10 "-C # :like above, just open NUMBER chests."
+_draw 9  "-S # :Number of search attempts, default $SEARCH_ATTEMPTS_DEFAULT"
+_draw 10 "-M   :Do not break search when found first trap,"
+_draw 10 "      usefull if chests have more than one trap."
+_draw 11 "-V   :Print version information."
+_draw 12 "-c   :cast spell disarm"
+_draw 12 "-i   :invoke spell disarm"
+_draw 12 "-u   :use_skill disarm"
+_draw 10 "-d   :Print debugging to msgpane."
 exit ${1:-2}
 }
 
@@ -197,7 +217,6 @@ _move_back_and_forth_stdalone 2
 _sleep_stdalone
 test "$*" && _draw_stdalone 3 $@
 _draw_stdalone 3 "Exiting $0. PID was $$"
-#echo unwatch
 _unwatch_stdalone ""
 _beep_std_stdalone
 test ${RV//[0-9]/} && RV=3
@@ -490,8 +509,6 @@ done
 if test "$2"; then shift
  while test "$1";
  do
- #oIFS=$IFS
- #IFS=';'
  COMMANDS=`echo "$1" | tr ';' '\n'`
  test "$COMMANDS" || break 1
   echo "$COMMANDS" | while read line
@@ -500,7 +517,6 @@ if test "$2"; then shift
   sleep 0.1
   done
 
- #IFS=$oIFS
  shift
  sleep 0.1
  done
@@ -724,6 +740,90 @@ fi
 _draw_stdalone 7 "OK."
 }
 
+_check_if_on_item_stdalone(){
+_debug_stdalone "_check_if_on_item_stdalone:$*"
+
+local DO_LOOP TOPMOST lMSG lRV
+unset DO_LOOP TOPMOST lMSG lRV
+
+while [ "$1" ]; do
+case $1 in
+-l) DO_LOOP=1;;
+-t) TOPMOST=1;;
+-lt|-tl) DO_LOOP=1; TOPMOST=1;;
+*) break;;
+esac
+shift
+done
+
+local lITEM=${*:-"$ITEM"}
+test "$lITEM" || return 254
+
+_draw_stdalone 5 "Checking if standing on $lITEM ..."
+UNDER_ME='';
+UNDER_ME_LIST='';
+
+_empty_message_stream_stdalone
+echo request items on
+
+while :; do
+read -t $TMOUT UNDER_ME
+_log_stdalone "$ON_LOG" "_check_if_on_item_stdalone:$UNDER_ME"
+_msg_stdalone 7 "$UNDER_ME"
+
+case $UNDER_ME in
+'') continue;;
+*request*items*on*end*) break 1;;
+*scripttell*break*)     break ${REPLY##*?break};;
+*scripttell*exit*)      _exit_stdalone 1;;
+esac
+
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+
+unset UNDER_ME
+sleep 0.1s
+done
+
+UNDER_ME_LIST=`echo "$UNDER_ME_LIST" | sed 's%^$%%'`
+
+__debug_stdalone "UNDER_ME_LIST='$UNDER_ME_LIST'"
+
+NUMBER_ITEM=`echo "$UNDER_ME_LIST" | grep -iE " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}" | wc -l`
+
+unset TOPMOST_MSG
+case "$UNDER_ME_LIST" in
+*"$lITEM"|*"${lITEM}s"|*"${lITEM}es"|*"${lITEM// /?*}")
+ TOPMOST_MSG='some'
+;;
+esac
+test "$TOPMOST" && { UNDER_ME_LIST=`echo "$UNDER_ME_LIST" | tail -n1`; TOPMOST_MSG=${TOPMOST_MSG:-topmost}; }
+
+case "$UNDER_ME_LIST" in
+*"$lITEM"|*"${lITEM}s"|*"${lITEM}es"|*"${lITEM// /?*}")
+   lRV=0;;
+*) lMSG="You appear not to stand on $TOPMOST_MSG $lITEM!"
+   lRV=1;;
+esac
+
+if test $lRV = 0; then
+ case "$UNDER_ME_LIST" in
+ *cursed*)
+   lMSG="You appear to stand upon $TOPMOST_MSG cursed $lITEM!"
+   lRV=1;;
+ *damned*)
+   lMSG="You appear to stand upon $TOPMOST_MSG damned $lITEM!"
+   lRV=1;;
+ esac
+fi
+
+test "$lRV" = 0 && return 0
+
+_beep_std_stdalone
+_draw_stdalone 3 $lMSG
+test "$DO_LOOP" && return 1 || _exit_stdalone 1
+}
+
 _check_if_on_item_examine_stdalone(){
 # Using 'examine' directly after dropping
 # the item examines the bottommost tile
@@ -749,7 +849,6 @@ test "$lITEM" || return 254
 _draw_stdalone 5 "Checking if standing on $lITEM ..."
 
 _watch_stdalone $DRAWINFO
-#_is_stdalone 0 0 examine
 while :; do unset REPLY
 _is_stdalone 0 0 examine
 _sleep_stdalone
@@ -768,8 +867,7 @@ read -t $TMOUT
 
 LIST="$LIST
 $REPLY"
-# sleep 0.01
-#sleep 0.1
+sleep 0.01
 done
 
 _unwatch_stdalone
@@ -843,28 +941,24 @@ NUMBER_CHEST=`echo "$UNDER_ME_LIST" | grep 'chest' | wc -l`
 
 test "`echo "$UNDER_ME_LIST" | grep 'chest.*cursed'`" && {
 _draw_stdalone 3 "You appear to stand upon some cursed chest!"
-#beep -l 1000 -f 700
 _beep_std_stdalone
 test "$1" && return 1 || exit 1
 }
 
 test "`echo "$UNDER_ME_LIST" | grep -E 'chest$|chests$'`" || {
 _draw_stdalone 3 "You appear not to stand on some chest!"
-#beep -l 1000 -f 700
 _beep_std_stdalone
 test "$1" && return 1 || exit 1
 }
 
 test "`echo "$UNDER_ME_LIST" | tail -n1 | grep 'chest.*cursed'`" && {
 _draw_stdalone 3 "Topmost chest appears to be cursed!"
-#beep -l 1000 -f 700
 _beep_std_stdalone
 test "$1" && return 1 || exit 1
 }
 
 test "`echo "$UNDER_ME_LIST" | tail -n1 | grep -E 'chest$|chests$'`" || {
 _draw_stdalone 3 "Chest appears not topmost!"
-#beep -l 1000 -f 700
 _beep_std_stdalone
 test "$1" && return 1 || exit 1
 }
@@ -945,9 +1039,7 @@ case $lRV in
 0) return 0;;
 *) _warn "_eval_check_if_on_chest_request_items_on_stdalone:Unhandled return value '$lRV'";;
 esac
-#beep -l 1000 -f 700
 _beep_std_stdalone
-#test "$1" && return 1 || exit 1
 case $1 in -l|-lt|-tl) return 1;; *) _just_exit_stdalone 1;; esac
 }
 
@@ -982,9 +1074,7 @@ case $lRV in
 0) return 0;;
 *) _warn "_check_if_on_chest_stdalone:Unhandled return value '$lRV'";;
 esac
-#beep -l 1000 -f 700
 _beep_std_stdalone
-#test "$1" && return 1 || exit 1
 case $1 in -l|-lt|-tl) return 1;; *) _just_exit_stdalone 1;; esac
 }
 
@@ -1027,7 +1117,6 @@ do
 
 _draw_stdalone 5 "Searching traps $cnt time(s) ..."
 
-#echo watch ${DRAWINFO}
 _watch_stdalone ${DRAWINFO}
 _sleep_stdalone
 _is_stdalone 0 0 search
@@ -1117,7 +1206,7 @@ _sleep_stdalone
  case $REPLY in
  *'You successfully disarm'*) TRAPS=$((TRAPS-1)); break 1;;
  *'You fail to disarm'*) break 1;;
- *"There's nothing there!"*) break 2;; #_just_exit_stdalone 1;;
+ *"There's nothing there!"*) break 2;;
  *'Something blocks your spellcasting.') _exit_stdalone 1;;
  *scripttell*break*)   break 2;;
  *scripttell*exit*)    _exit_stdalone 1;;
@@ -1153,7 +1242,6 @@ while :
 do
 _draw_stdalone 5 "${TRAPS:-0} trap(s) to disarm ..."
 
-#echo watch $DRAWINFO
 _watch_stdalone $DRAWINFO
 _is_stdalone 0 0 invoke disarm
 _sleep_stdalone
@@ -1278,24 +1366,10 @@ while :
 do
 one=$((one+1))
 
-#_draw_stdalone 5 "${NUMBER_CHEST:-?} chest(s) to open ..."
-#_drop_chest_stdalone
 _drop_stdalone chest
 _sleep_stdalone
-
-#_check_if_on_item_examine_stdalone -lt chest || break 1
-#_check_if_on_chest_request_items_on_stdalone -lt || break 1
-# _check_if_on_chest_request_items_on_stdalone -lt || break 1
-#_check_if_on_chest_stdalone -lt || break 1
-#_sleep_stdalone
-
-#_draw_stdalone 5 "${NUMBER_CHEST:-?} chest(s) to open ..."
-
 _move_back_and_forth_stdalone 2
 
-#_check_if_on_item_examine_stdalone -lt chest || break 1
-#_check_if_on_chest_request_items_on_stdalone -lt || break 1
-# _check_if_on_chest_request_items_on_stdalone -lt || break 1
 _check_if_on_chest_stdalone -lt || break 1
 _sleep_stdalone
 
@@ -1303,7 +1377,7 @@ _draw_stdalone 5 "${NUMBER_CHEST:-?} chest(s) to open ..."
 
 _watch_stdalone
 _is_stdalone 1 1 apply
-#_sleep_stdalone
+
  unset OPEN_COUNT
  while :; do unset REPLY
  read -t ${TMOUT:-1}
@@ -1339,7 +1413,6 @@ _check_food_level_stdalone
 _check_hp_and_return_home_stdalone $HP
 fi
 
-#_is_stdalone 1 1 get all
 _is_stdalone 0 0 get all
 
 _set_pickup_stdalone 0
@@ -1347,23 +1420,19 @@ _sleep_stdalone
 
 case $NUMBER in $one) break 1;; esac
 
-##_drop_chest_stdalone
-#_drop_stdalone chest
-#_sleep_stdalone
-
 done
 }
 
 #** we may get attacked and die **#
 _check_hp_and_return_home_stdalone(){
-_debug "_check_hp_and_return_home_stdalone:$*"
+_debug_stdalone "_check_hp_and_return_home_stdalone:$*"
 
 local currHP currHPMin
 currHP=${1:-$HP}
 currHPMin=${2:-$HP_MIN_DEF}
 currHPMin=${currHPMin:-$((MHP/10))}
 
-_msg 7 "currHP=$currHP currHPMin=$currHPMin"
+_msg_stdalone 7 "currHP=$currHP currHPMin=$currHPMin"
 if test "$currHP" -le ${currHPMin:-20}; then
 
  __old_recall(){
@@ -1404,8 +1473,8 @@ while :;
 do
 unset HP MHP SP MSP GR MGR FOOD_LVL
 read -t ${TMOUT:-1} Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
-   _log_stdalone HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL
- _msg_stdalone 7 HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL #DEBUG
+   _log_stdalone "HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL"
+ _msg_stdalone 7 "HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL" #DEBUG
 
 test "$Re" = request || continue
 test "$FOOD_LVL" || break
@@ -1421,8 +1490,8 @@ if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
  _sleep_stdalone
  read -t ${TMOUT:-1} Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
-   _log_stdalone HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL
- _msg_stdalone 7 HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL #DEBUG
+   _log_stdalone "HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL"
+ _msg_stdalone 7 "HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL" #DEBUG
  break
 fi
 
@@ -1435,6 +1504,52 @@ sleep 0.1
 done
 }
 
+_check_mana_for_create_food_stdalone(){
+_debug_stdalone "_check_mana_for_create_food_stdalone:$*"
+
+local lSP=${*:-$SP}
+test "$lSP" || return 254
+
+local REPLY
+
+# This function forces drawing of
+# all spells that start witch 'create'
+# to the message panel and the reads the
+# drawinfo lines.
+# It needs the SP variable set by
+# _check_food_level()
+_watch_stdalone
+_is_stdalone 1 0 cast create
+
+while :;
+do
+
+read -t ${TMOUT:-1}
+   _log_stdalone "_check_mana_for_create_food_stdalone:$REPLY"
+ _msg_stdalone 7 "_check_mana_for_create_food_stdalone:$REPLY"
+
+ case $REPLY in
+ *ready*the*spell*create*food*) return 0;;
+ *create*food*)
+ MANA_NEEDED=`echo "$REPLY" | awk '{print $NF}'`
+ _debug_stdalone "MANA_NEEDED=$MANA_NEEDED"
+ test "$lSP" -ge "$MANA_NEEDED" && return 0 || break 1
+ ;;
+ *'Something blocks your spellcasting.'*) _exit 1;;
+ *scripttell*break*) break ${REPLY##*?break};;
+ *scripttell*exit*)  _exit 1;;
+ '') break 1;;
+ *) :;;
+ esac
+
+sleep 0.01
+unset REPLY
+done
+
+_unwatch_stdalone
+return 1
+}
+
 _cast_create_food_and_eat_stdalone(){
 _debug_stdalone "_cast_create_food_and_eat_stdalone:$*"
 
@@ -1444,12 +1559,6 @@ lEAT_FOOD="${*:-$EAT_FOOD}"
 lEAT_FOOD=${lEAT_FOOD:-"$FOOD_DEF"}
 lEAT_FOOD=${lEAT_FOOD:-food}
 
-#while :;
-#do
-#_check_mana_for_create_food_stdalone && break || { sleep 10; continue; }
-#done
-
-#_is_stdalone 1 1 pickup 0
  _set_pickup_stdalone 0
 
 _unwatch_stdalone $DRAWINFO
@@ -1566,7 +1675,6 @@ read -t ${TMOUT:-1} oneITEM
  *) :;;
  esac
  ITEMS="${ITEMS}${oneITEM}\n"
-#$oneITEM"
  oldITEM="$oneITEM"
 sleep 0.01
 done
@@ -1577,11 +1685,6 @@ TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
 _debug_stdalone 4 "Fetching Inventory List: Elapsed $TIME sec."
 
-#_debug_stdalone "lITEM=$lITEM"
-#_debug_stdalone "head:`echo -e "$ITEMS" | head -n1`"
-#_debug_stdalone "tail:`echo -e "$ITEMS" | tail -n2 | head -n1`"
-#HAVEIT=`echo "$ITEMS" | grep -E  " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"`
-#__debug_stdalone "HAVEIT=$HAVEIT"
 echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
 }
 
@@ -1624,7 +1727,6 @@ _is_stdalone 0 0 examine
  read -t $TMOUT
  _log_stdalone "_check_drawinfo_stdalone:$cnt0:$REPLY"
  _msg_stdalone 7 "$cnt0:$REPLY"
- #_debug_stdalone 3 "$cnt0:$REPLY"
 
  case $REPLY in
  *drawinfo*'You search'*|*drawinfo*'You spot'*)       DRAWINFO0=drawinfo;    break 2;;
@@ -1664,14 +1766,6 @@ _debug_stdalone "_do_parameters_stdalone:$*"
 # dont forget to pass parameters when invoking this function
 test "$*" || return 0
 
-##for p in $@; do
-##case $p in [0-9]*) NUMBER=$p;; #shift;;
-#case $1 in [0-9]*) NUMBER=$p; shift;;
-#*help)    _say_help_stdalone 0;;
-#*version) _say_version_stdalone 0;;
-#esac
-##done
-
 case $1 in
 *help)    _say_help_stdalone 0;;
 *version) _say_version_stdalone 0;;
@@ -1704,6 +1798,51 @@ V) _say_version_stdalone 0;;
 
 '') _draw_stdalone 2 "FIXME: Empty positional parameter ...?";;
 *) _draw_stdalone 3 "Unrecognized parameter '$oneOPT' .";;
+esac
+
+sleep 0.1
+done
+
+}
+
+_do_parameters(){
+_debug "_do_parameters:$*"
+
+# dont forget to pass parameters when invoking this function
+test "$*" || return 0
+
+case $1 in
+*help)    _say_help 0;;
+*version) _say_version 0;;
+--?*)  _exit 3 "No other long options than help and version recognized.";;
+--*)   _exit 3 "Unhandled first parameter '$1' .";;
+-?*) :;;
+[0-9]*) NUMBER=$1
+        test "${NUMBER//[[:digit:]]/}" && _exit 3 "NUMBER '$1' is not an integer digit."
+        shift;;
+*) _exit 3 "Unknown first parameter '$1' .";;
+esac
+
+# S # :Search attempts
+# u   :use_skill
+# c   :cast disarm
+# i   :invoke disarm
+# d   :debugging output
+while getopts C:S:ciudMVhabdefgjklmnopqrstvwxyzABDEFGHIJKLNOPQRTUWXYZ oneOPT
+do
+case $oneOPT in
+C) NUMBER=$OPTARG;;
+S) SEARCH_ATTEMPTS=${OPTARG:-$SEARCH_ATTEMPTS_DEFAULT};;
+M) MULTIPLE_TRAPS=$((MULTIPLE_TRAPS+1));;
+c) DISARM=cast;;
+i) DISARM=invokation;;
+u) DISARM=skill;;
+d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
+h) _say_help 0;;
+V) _say_version 0;;
+
+'') _draw 2 "FIXME: Empty positional parameter ...?";;
+*) _draw 3 "Unrecognized parameter '$oneOPT' .";;
 esac
 
 sleep 0.1
@@ -2049,9 +2188,8 @@ _main_open_chests_func(){
 _debug "_main_open_chests_func:$*"
 _set_global_variables $*
 _say_start_msg $*
-_do_parameters_stdalone $*
+_do_parameters $*
 
-#_check_for_space 2
 test "$FUNCTION_CHECK_FOR_SPACE" && $FUNCTION_CHECK_FOR_SPACE 2
 _sleep
 
@@ -2059,7 +2197,6 @@ _get_player_speed
 PL_SPEED2=$PL_SPEED1
 _sleep
 
-#_drop_chest
 _drop chest
 _sleep
 _set_pickup 0
@@ -2069,15 +2206,12 @@ _get_player_speed
 PL_SPEED3=$PL_SPEED1
 _sleep
 PL_SPEED4=$(( (PL_SPEED2+PL_SPEED3) / 2 ))
-#_set_sync_sleep ${PL_SPEED4:-$PL_SPEED}
 test "$PL_SPEED4" && __set_sync_sleep ${PL_SPEED4} || _set_sync_sleep "$PL_SPEED"
 
 #_check_if_on_item_examine chest || return 1
 #_check_if_on_chest_request_items_on || return 1
 _check_if_on_chest || return 1
 
-#_sleep
-#_set_pickup 0
 _sleep
 
 _search_traps
@@ -2092,7 +2226,6 @@ _set_global_variables_stdalone $*
 _say_start_msg_stdalone $*
 _do_parameters_stdalone $*
 
-#_check_for_space_stdalone 2
 test "$FUNCTION_CHECK_FOR_SPACE" && $FUNCTION_CHECK_FOR_SPACE 2
 _sleep_stdalone
 
@@ -2100,7 +2233,6 @@ _get_player_speed_stdalone
 PL_SPEED2=$PL_SPEED1
 _sleep_stdalone
 
-#_drop_chest_stdalone
 _drop_stdalone chest
 _sleep_stdalone
 _set_pickup_stdalone 0
@@ -2110,15 +2242,12 @@ _get_player_speed_stdalone
 PL_SPEED3=$PL_SPEED1
 _sleep_stdalone
 PL_SPEED4=$(( (PL_SPEED2+PL_SPEED3) / 2 ))
-#_set_sync_sleep ${PL_SPEED4:-$PL_SPEED}
 test "$PL_SPEED4" && __set_sync_sleep_stdalone ${PL_SPEED4} || _set_sync_sleep_stdalone "$PL_SPEED"
 
 #_check_if_on_item_examine_stdalone chest || return 1
 #_check_if_on_chest_request_items_on_stdalone || return 1
  _check_if_on_chest_stdalone -l || return 1
 
-#_sleep_stdalone
-#_set_pickup_stdalone 0
 _sleep_stdalone
 
 _search_traps_stdalone

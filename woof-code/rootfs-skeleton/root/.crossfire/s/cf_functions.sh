@@ -1673,7 +1673,7 @@ test "$Re" = request || continue
 test "$FOOD_LVL" || break
 test "${FOOD_LVL//[[:digit:]]/}" && break
 
-_msg 7 HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL #DEBUG
+_msg 7 "HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL" #DEBUG
 
 if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  #_eat_food
@@ -1686,7 +1686,7 @@ if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  #sleep 0.1
  _sleep
  read -t ${TMOUT:-1} Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
- _msg 7 HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL #DEBUG
+ _msg 7 "HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL" #DEBUG
 
  #return $?
  break

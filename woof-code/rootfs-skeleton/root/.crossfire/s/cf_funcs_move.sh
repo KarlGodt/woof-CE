@@ -20,6 +20,7 @@ case $lDIRECTION in
 *) ERROR=1 _error "Not recognized: '$lDIRECTION'";;
 esac
 DIRECTION_NUMBER=$DIRECTION
+DIRN=$DIRECTION
 }
 
 ___number_to_direction(){ # cf_funcs_common.sh
@@ -28,19 +29,40 @@ test "$lDIRECTION" || return 0
 
 lDIRECTION=`echo "$lDIRECTION" | tr '[A-Z]' '[a-z]'`
 case $lDIRECTION in
-0|center|centre|c) DIRECTION=center;    DIRB=;          DIRF=;;
-1|north|n)         DIRECTION=north;     DIRB=south;     DIRF=north;;
-2|northeast|ne)    DIRECTION=northeast; DIRB=southwest; DIRF=northeast;;
-3|east|e)          DIRECTION=east;      DIRB=west;      DIRF=east;;
-4|southeast|se)    DIRECTION=southeast; DIRB=northwest; DIRF=southeast;;
-5|south|s)         DIRECTION=south;     DIRB=north;     DIRF=south;;
-6|southwest|sw)    DIRECTION=southwest; DIRB=northeast; DIRF=southwest;;
-7|west|w)          DIRECTION=west;      DIRB=east;      DIRF=west;;
-8|northwest|nw)    DIRECTION=northwest; DIRB=southeast; DIRF=northwest;;
+0|center|centre|c) DIRECTION=center;    DIRN=0; DIRB=;          DIRF=;;
+1|north|n)         DIRECTION=north;     DIRN=1; DIRB=south;     DIRF=north;;
+2|northeast|ne)    DIRECTION=northeast; DIRN=2; DIRB=southwest; DIRF=northeast;;
+3|east|e)          DIRECTION=east;      DIRN=3; DIRB=west;      DIRF=east;;
+4|southeast|se)    DIRECTION=southeast; DIRN=4; DIRB=northwest; DIRF=southeast;;
+5|south|s)         DIRECTION=south;     DIRN=5; DIRB=north;     DIRF=south;;
+6|southwest|sw)    DIRECTION=southwest; DIRN=6; DIRB=northeast; DIRF=southwest;;
+7|west|w)          DIRECTION=west;      DIRN=7; DIRB=east;      DIRF=west;;
+8|northwest|nw)    DIRECTION=northwest; DIRN=8; DIRB=southeast; DIRF=northwest;;
 *) ERROR=1 _error "Not recognized: '$lDIRECTION'";;
 esac
 DIRECTION_NUMBER=$DIRN
 }
+
+_set_next_direction(){ # clockwise
+_debug "_set_next_direction:$*:$DIRN"
+
+DIRN=$((DIRN-1))
+test "$DIRN" -le 0 && DIRN=8
+
+_number_to_direction $DIRN
+_draw 2 "Will turn to direction $DIRECTION .."
+}
+
+__set_next_direction(){ # anti-clockwise
+_debug "__set_next_direction:$*:$DIRN"
+
+DIRN=$((DIRN+1))
+test "$DIRN" -ge 9 && DIRN=1
+
+_number_to_direction $DIRN
+_draw 2 "Will turn to direction $DIRECTION .."
+}
+
 
 _turn_direction(){
 test "$3" && { DIRECTION=${1:-DIRECTION}; shift; }
