@@ -709,6 +709,7 @@ test "$*" || return 254
 local lANSWER lOLD_ANSWER
 lANSWER=
 lOLD_ANSWER=
+ANSWER=
 
 _empty_message_stream
 echo request $*
@@ -726,6 +727,7 @@ sleep 0.01
 done
 #ANSWER="$lANSWER"
 ANSWER=`echo "$ANSWER" | sed 'sI^$II'`
+test "$ANSWER"
 }
 
 _request(){  # for one line replies
@@ -740,6 +742,7 @@ read -t $TMOUT lANSWER
  _msg 7 "$lANSWER"
 
 ANSWER="$lANSWER"
+test "$ANSWER"
 }
 
 _check_counter(){

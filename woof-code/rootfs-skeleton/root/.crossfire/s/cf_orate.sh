@@ -5,6 +5,7 @@ VERSION=1.0 # first "reliable" version 2018-01-23
 VERSION=1.1 # cleanups and add missing calls to
 # _get_player_speed and *_set_sync_sleep
 VERSION=2.0 # made it standalone
+VERSION=2.1 # bugfixes and request enhancements 2018-02-09
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -22,6 +23,7 @@ LOGGING=1
 . $HOME/cf/s/cf_funcs_skills.sh || exit 9
 . $HOME/cf/s/cf_funcs_fight.sh  || exit 10
 . $HOME/cf/s/cf_funcs_oratory.sh || exit 11
+. $HOME/cf/s/cf_funcs_requests.sh || exit 12
 
 _say_help_stdalone(){
 _draw_stdalone 6  "$MY_BASE"
@@ -257,7 +259,7 @@ case $1 in
 [0-9]|[0-9][0-9]|[0-9][0-9][0-9]) RV=$1; shift;;
 esac
 
-_move_back_and_forth_stdalone 2
+#_move_back_and_forth_stdalone 2 ##unused to move in this script
 _sleep_stdalone
 test "$*" && _draw_stdalone 3 $@
 _draw_stdalone 3 "Exiting $0. PID was $$"
@@ -435,6 +437,10 @@ do
 read -t $TMOUT lREPLY
 _log_stdalone "$REPLY_LOG" "_empty_message_stream_stdalone:$lREPLY"
 test "$lREPLY" || break
+case $lREPLY in
+*scripttell*break*)     break ${REPLY##*?break};;
+*scripttell*exit*)      _exit_stdalone 1 $REPLY;;
+esac
 _msg_stdalone 7 "_empty_message_stream_stdalone:$lREPLY"
 unset lREPLY
  sleep 0.01
@@ -539,7 +545,7 @@ case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
 *scripttell*break*)     break ${REPLY##*?break};;
-*scripttell*exit*)      _exit_stdalone 1;;
+*scripttell*exit*)      _exit_stdalone 1 $REPLY;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME
@@ -585,7 +591,7 @@ test "$lRV" = 0 && return 0
 
 _beep_std_stdalone
 _draw_stdalone 3 $lMSG
-test "$DO_LOOP" && return 1 || _exit_stdalone 1
+test "$DO_LOOP" && return 1 || _exit_stdalone 1 $lMSG
 }
 
 #** we may get attacked and die **#
@@ -635,9 +641,9 @@ read -t ${TMOUT:-1}
  _debug_stdalone "MANA_NEEDED=$MANA_NEEDED"
  test "$lSP" -ge "$MANA_NEEDED" && return 0 || break 1
  ;;
- *'Something blocks your spellcasting.'*) _exit 1;;
+ *'Something blocks your spellcasting.'*) _exit_stdalone 1 "Not possible on this spot.";;
  *scripttell*break*) break ${REPLY##*?break};;
- *scripttell*exit*)  _exit 1;;
+ *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
  '') break 1;;
  *) :;;
  esac
@@ -650,8 +656,8 @@ _unwatch_stdalone
 return 1
 }
 
-_check_food_level_stdalone(){
-_debug_stdalone "_check_food_level_stdalone:$*"
+__check_food_level_stdalone(){
+_debug_stdalone "__check_food_level_stdalone:$*"
 
 test "$*" && MIN_FOOD_LEVEL="$@"
 MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
@@ -668,7 +674,7 @@ while :;
 do
 unset HP MHP SP MSP GR MGR FOOD_LVL
 read -t ${TMOUT:-1} Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
-   _log_stdalone "HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL"
+   _log_stdalone "__check_food_level_stdalone:HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL"
  _msg_stdalone 7 "HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL" #DEBUG
 
 test "$Re" = request || continue
@@ -685,7 +691,7 @@ if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
  _sleep_stdalone
  read -t ${TMOUT:-1} Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
-   _log_stdalone "HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL"
+   _log_stdalone "__check_food_level_stdalone:HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL"
  _msg_stdalone 7 "HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL" #DEBUG
  break
 fi
@@ -697,6 +703,56 @@ test "$oF" = "$FOOD_LVL" && break
 oF="$FOOD_LVL"
 sleep 0.1
 done
+}
+
+_check_food_level_stdalone(){
+_debug_stdalone "_check_food_level_stdalone:$*"
+
+test "$*" && MIN_FOOD_LEVEL="$@"
+MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
+MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-300}
+
+local FOOD_LVL=''
+local REPLY
+
+while :;
+do
+
+_request_stat_hp_stdalone # FOOD_LVL
+
+if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
+ #_eat_food_from_inventory_stdalone
+ _cast_create_food_and_eat_stdalone $EAT_FOOD || _eat_food_from_inventory_stdalone $EAT_FOOD
+ _request_stat_hp_stdalone
+  break
+else true
+fi
+
+test "$FOOD_LVL" && break
+
+sleep 0.1
+done
+}
+
+_request_stat_hp_stdalone(){
+#Return hp,maxhp,sp,maxsp,grace,maxgrace,food
+
+#test "$*" || return 254
+
+_empty_message_stream_stdalone
+
+unset HP MHP SP MSP GR MGR FOOD_LVL REST
+echo request stat hp
+read -t ${TMOUT:-1} r s hp HP MHP SP MSP GR MGR FOOD_LVL REST
+#request stat hp %d %d %d %d %d %d %d\n",
+#cpl.stats.hp,cpl.stats.maxhp,cpl.stats.sp,cpl.stats.maxsp,cpl.stats.grace,cpl.stats.maxgrace,cpl.stats.food)
+ _log_stdalone "$REQUEST_LOG" "_request_stat_hp_stdalone $*:$HP $MHP $SP $MSP $GR $MGR $FOOD_LVL $REST"
+ _msg_stdalone 7 "$HP $MHP $SP $MSP $GR $MGR $FOOD_LVL $REST"
+
+MAXHP=$MHP
+MAXSP=$MSP
+MAXGR=$MGR
+test "$HP" -a "$MHP" -a "$SP" -a "$MSP" -a "$GR" -a "$MGR" -a "$FOOD_LVL"
 }
 
 _cast_create_food_and_eat_stdalone(){
@@ -728,7 +784,7 @@ while :;
  *ready*the*spell*)  break 1;;                  #You ready the spell create food
  '')                 break 1;;
  *scripttell*break*) break ${REPLY##*?break};;
- *scripttell*exit*)  _exit_stdalone 1;;
+ *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
  *) :;;
  esac
 sleep 0.01
@@ -767,7 +823,7 @@ _is_stdalone 1 1 fire_stop
   *bungle*|*fumble*) break 1;;
   '') break 2;;
   *scripttell*break*) break ${REPLY##*?break};;
-  *scripttell*exit*)  _exit_stdalone 1;;
+  *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
   *) :;;
   esac
  sleep 0.01
@@ -800,8 +856,28 @@ ANSWER="$lANSWER"
 test "$ANSWER"
 }
 
-_get_player_speed_stdalone(){
-_debug_stdalone "_get_player_speed_stdalone:$*"
+_request_stat_cmbt_stdalone(){
+#Return wc,ac,dam,speed,weapon_sp
+
+#test "$*" || return 254
+
+_empty_message_stream_stdalone
+
+unset WC AC DAM SPEED WP_SPEED REST
+echo request stat cmbt
+read -t ${TMOUT:-1} r s c WC AC DAM SPEED WP_SPEED REST
+#request stat cmbt %d %d %d %d %d\n",
+#cpl.stats.wc,cpl.stats.ac,cpl.stats.dam,cpl.stats.speed,cpl.stats.weapon_sp)
+ _log_stdalone "$REQUEST_LOG" "_request_stat_cmbt_stdalone $*:$WC $AC $DAM $SPEED $WP_SPEED $REST"
+ _msg_stdalone 7 "$WC $AC $DAM $SPEED $WP_SPEED $REST"
+
+PL_SPEED=$SPEED
+test "$WC" -a "$AC" -a "$DAM" -a "$SPEED" -a "$WP_SPEED"
+}
+
+
+__get_player_speed_stdalone(){
+_debug_stdalone "__get_player_speed_stdalone:$*"
 
 if test "$1" = '-l'; then # loop counter
  _check_counter_stdalone || return 1
@@ -813,6 +889,26 @@ _draw_stdalone 5 "Processing Player's speed..."
  _request_stdalone stat cmbt
  test "$ANSWER" && PL_SPEED0=`echo "$ANSWER" | awk '{print $7}'`
 PL_SPEED=${PL_SPEED0:-$PL_SPEED}
+PL_SPEED=${PL_SPEED:-50000} # 0.50
+
+_player_speed_to_human_readable_stdalone $PL_SPEED
+_msg_stdalone 6 "Using player speed '$PL_SPEED1'"
+
+_draw_stdalone 6 "Done."
+return 0
+}
+
+_get_player_speed_stdalone(){
+_debug_stdalone "_get_player_speed_stdalone:$*"
+
+if test "$1" = '-l'; then # loop counter
+ _check_counter_stdalone || return 1
+ shift
+fi
+
+_draw_stdalone 5 "Processing Player's speed..."
+
+_request_stat_cmbt_stdalone
 PL_SPEED=${PL_SPEED:-50000} # 0.50
 
 _player_speed_to_human_readable_stdalone $PL_SPEED
@@ -1032,7 +1128,7 @@ case $1 in
 --*)   _exit_stdalone 3 "Unhandled first parameter '$1' .";;
 -?*) :;;
 [0-9]*) NUMBER=$1
-        test "${NUMBER//[[:digit:]]/}" && _exit 3 "NUMBER '$1' is not an integer digit."
+        test "${NUMBER//[[:digit:]]/}" && _exit_stdalone 3 "NUMBER '$1' is not an integer digit."
         shift;;
 *) _exit_stdalone 3 "Unknown first parameter '$1' .";;
 esac
@@ -1329,7 +1425,7 @@ _debug_stdalone "$REPLY"
  # server/skill_util.c:          "Unable to find skill %s", string);
  # server/skill_util.c- return 0;
  *scripttell*break*)     break ${REPLY##*?break};;
- *scripttell*exit*)    _exit 1 $REPLY;;
+ *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
  *) :;;
  esac
 
@@ -1471,7 +1567,7 @@ _watch_stdalone $DRAWINFO
   '') break 2;; #!=PLAYER
   *'You sing'*) break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
-  *scripttell*exit*)    _exit 1 $REPLY;;
+  *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
   *) :;;
   esac
 
@@ -1488,7 +1584,7 @@ _watch_stdalone $DRAWINFO
   *'You calm down the '*) CALMS=$((CALMS+1)); lRV=0;;
   *"Too bad the "*"isn't listening!"*) _kill_monster_stdalone; break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
-  *scripttell*exit*)    _exit 1 $REPLY;;
+  *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
   *) :;;
   esac
 
@@ -1533,7 +1629,7 @@ local lRV=
   *'There is nothing to orate to.'*) lRV=0; break 2;; # next monster #!tmp
   *'You orate to the '*) break 1;; #tmp
   *scripttell*break*)    break ${REPLY##*?break};;
-  *scripttell*exit*)    _exit 1 $REPLY;;
+  *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
   *) :;;
   esac
 
@@ -1558,7 +1654,7 @@ local lRV=
   #/* can't steal from other player */, /* Charm failed. Creature may not be angry now */
   '') break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
-  *scripttell*exit*)    _exit 1 $REPLY;;
+  *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
   *) :;;
   esac
 
@@ -1658,7 +1754,7 @@ _unbrace
 _say_end_msg
 }
 
-#_main_orate_stdalone "$@"
- _main_orate_func "$@"
+ _main_orate_stdalone "$@"
+#_main_orate_func "$@"
 
 ###END###

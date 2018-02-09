@@ -180,8 +180,8 @@ test "$lEAT_FOOD" || return 254
 _is 1 1 apply -b $lEAT_FOOD
 }
 
-_check_food_level(){
-_debug "_check_food_level:$*"
+__check_food_level(){
+_debug "__check_food_level:$*"
 
 test "$*" && MIN_FOOD_LEVEL="$@"
 MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
@@ -198,7 +198,7 @@ while :;
 do
 unset HP MHP SP MSP GR MGR FOOD_LVL
 read -t ${TMOUT:-1} Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
-   _log "HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL"
+   _log "__check_food_level:HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL"
  _msg 7 "HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL" #DEBUG
 
 test "$Re" = request || continue
@@ -215,7 +215,7 @@ if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
  _sleep
  read -t ${TMOUT:-1} Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
-   _log "HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL"
+   _log "__check_food_level:HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL"
  _msg 7 "HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL" #DEBUG
  break
 fi
@@ -225,6 +225,35 @@ test "$FOOD_LVL" && break
 test "$oF" = "$FOOD_LVL" && break
 
 oF="$FOOD_LVL"
+sleep 0.1
+done
+}
+
+_check_food_level(){
+_debug_stdalone "_check_food_level:$*"
+
+test "$*" && MIN_FOOD_LEVEL="$@"
+MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
+MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-300}
+
+local FOOD_LVL=''
+local REPLY
+
+while :;
+do
+
+_request_stat_hp # FOOD_LVL
+
+if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
+ #_eat_food_from_inventory
+ _cast_create_food_and_eat $EAT_FOOD || _eat_food_from_inventory $EAT_FOOD
+ _request_stat_hp
+  break
+else true
+fi
+
+test "$FOOD_LVL" && break
+
 sleep 0.1
 done
 }
