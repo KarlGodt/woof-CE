@@ -775,7 +775,8 @@ case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
 *scripttell*break*)     break ${REPLY##*?break};;
-*scripttell*exit*)      _exit_stdalone 1;;
+*scripttell*exit*)      _exit_stdalone 1 $REPLY;;
+*'YOU HAVE DIED.'*) _just_exit_stdalone;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME
@@ -860,7 +861,8 @@ read -t $TMOUT
   *"That is"*"$lITEM"*|*"Those are"*"$lITEM"*|*"Those are"*"${lITEM// /?*}"*) break 1;;
   *"That is"*|*"Those are"*) break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
-  *scripttell*exit*)    _exit_stdalone 1;;
+  *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
   '') break 1;;
   *) continue;; #:;;
  esac
@@ -922,7 +924,8 @@ case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
 *scripttell*break*)     break ${REPLY##*?break};;
-*scripttell*exit*)    _exit_stdalone 1;;
+*scripttell*exit*)    _exit_stdalone 1 $REPLY;;
+*'YOU HAVE DIED.'*) _just_exit_stdalone;;
 *) :;;
 esac
 
@@ -998,7 +1001,8 @@ case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
 *scripttell*break*)     break ${REPLY##*?break};;
-*scripttell*exit*)      _exit_stdalone 1;;
+*scripttell*exit*)      _exit_stdalone 1 $REPLY;;
+*'YOU HAVE DIED.'*) _just_exit_stdalone;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME
@@ -1144,7 +1148,8 @@ _sleep_stdalone
  *' spot '*) FOUND_TRAP=$((FOUND_TRAP+1));;
  *'You search the area.'*) SEARCH_MSG=$((SEARCH_MSG+1));; # break 1;;
  *scripttell*break*)   break ${REPLY##*?break};;
- *scripttell*exit*)    _exit_stdalone 1;;
+ *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  '') break 1;;
  *) :;;
  esac
@@ -1209,7 +1214,8 @@ _sleep_stdalone
  *"There's nothing there!"*) break 2;;
  *'Something blocks your spellcasting.') _exit_stdalone 1;;
  *scripttell*break*)   break 2;;
- *scripttell*exit*)    _exit_stdalone 1;;
+ *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  *) :;;
  esac
 
@@ -1266,7 +1272,8 @@ _sleep_stdalone
  *"There's nothing there!"*) break 2;;
  *'Something blocks your spellcasting.') _exit_stdalone 1;;
  *scripttell*break*)   break 2;;
- *scripttell*exit*)    _exit_stdalone 1;;
+ *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  *) :;;
  esac
  done
@@ -1323,7 +1330,8 @@ _sleep_stdalone
  *'You are pricked'*) :;;
  *'You are stabbed'*) :;;
  *scripttell*break*)  break ${REPLY##*?break};;
- *scripttell*exit*)   _exit_stdalone 1;;
+ *scripttell*exit*)   _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  '') break 1;;
  *) :;;
  esac
@@ -1388,7 +1396,8 @@ _is_stdalone 1 1 apply
  *empty*)        OPEN_COUNT=1;;
  *'You open chest.'*) break 2;; # permanent container
  *scripttell*break*)  break ${REPLY##*?break};;
- *scripttell*exit*)   _exit_stdalone 1;;
+ *scripttell*exit*)   _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  '') break 1;;
  esac
  sleep 0.01
@@ -1535,9 +1544,10 @@ read -t ${TMOUT:-1}
  _debug_stdalone "MANA_NEEDED=$MANA_NEEDED"
  test "$lSP" -ge "$MANA_NEEDED" && return 0 || break 1
  ;;
- *'Something blocks your spellcasting.'*) _exit 1;;
+ *'Something blocks your spellcasting.'*) _exit_stdalone 1;;
  *scripttell*break*) break ${REPLY##*?break};;
- *scripttell*exit*)  _exit 1;;
+ *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  '') break 1;;
  *) :;;
  esac
@@ -1579,7 +1589,8 @@ while :;
  *ready*the*spell*)  break 1;;                  #You ready the spell create food
  '')                 break 1;;
  *scripttell*break*) break ${REPLY##*?break};;
- *scripttell*exit*)  _exit_stdalone 1;;
+ *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  *) :;;
  esac
 sleep 0.01
@@ -1618,7 +1629,8 @@ _is_stdalone 1 1 fire_stop
   *bungle*|*fumble*) break 1;;
   '') break 2;;
   *scripttell*break*) break ${REPLY##*?break};;
-  *scripttell*exit*)  _exit_stdalone 1;;
+  *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
   *) :;;
   esac
  sleep 0.01
@@ -1671,7 +1683,8 @@ read -t ${TMOUT:-1} oneITEM
  $oldITEM|'') break 1;;
  *"$lITEM"*|*"${lITEM// /?*}"*) _draw 7 "Got that item $lITEM in inventory.";;
  *scripttell*break*)  break ${oneITEM##*?break};;
- *scripttell*exit*)   _exit_stdalone 1;;
+ *scripttell*exit*)   _exit_stdalone 1 $oneITEM;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  *) :;;
  esac
  ITEMS="${ITEMS}${oneITEM}\n"

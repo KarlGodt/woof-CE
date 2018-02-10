@@ -30,6 +30,7 @@ _debug "$REPLY"
  # server/skill_util.c- return 0;
  *scripttell*break*)     break ${REPLY##*?break};;
  *scripttell*exit*)    _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  *) :;;
  esac
 

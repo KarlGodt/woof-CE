@@ -215,6 +215,9 @@ read -t ${TMOUT:-1} r s hp HP MHP SP MSP GR MGR FOOD_LVL REST
  _log "$REQUEST_LOG" "_request_stat_hp $*:$HP $MHP $SP $MSP $GR $MGR $FOOD_LVL $REST"
  _msg 7 "$HP $MHP $SP $MSP $GR $MGR $FOOD_LVL $REST"
 
+MAXHP=$MHP
+MAXSP=$MSP
+MAXGR=$MGR
 test "$HP" -a "$MHP" -a "$SP" -a "$MSP" -a "$GR" -a "$MGR" -a "$FOOD_LVL"
 }
 

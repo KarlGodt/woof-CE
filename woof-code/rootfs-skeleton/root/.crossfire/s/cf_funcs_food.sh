@@ -37,7 +37,8 @@ read -t ${TMOUT:-1}
  ;;
  *'Something blocks your spellcasting.'*) _exit 1;;
  *scripttell*break*) break ${REPLY##*?break};;
- *scripttell*exit*)  _exit 1;;
+ *scripttell*exit*)  _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  '') break 1;;
  *) :;;
  esac
@@ -85,7 +86,8 @@ while :;
  *ready*the*spell*)  break 1;;                  #You ready the spell create food
  '')                 break 1;;
  *scripttell*break*) break ${REPLY##*?break};;
- *scripttell*exit*)  _exit 1;;
+ *scripttell*exit*)  _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  *) :;;
  esac
 sleep 0.01
@@ -124,7 +126,8 @@ _is 1 1 fire_stop
   *bungle*|*fumble*) break 1;;
   '') break 2;;
   *scripttell*break*) break ${REPLY##*?break};;
-  *scripttell*exit*)  _exit 1;;
+  *scripttell*exit*)  _exit 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit;;
   *) :;;
   esac
  sleep 0.01
@@ -230,7 +233,7 @@ done
 }
 
 _check_food_level(){
-_debug_stdalone "_check_food_level:$*"
+_debug "_check_food_level:$*"
 
 test "$*" && MIN_FOOD_LEVEL="$@"
 MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}

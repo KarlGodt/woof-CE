@@ -6,6 +6,7 @@ VERSION=1.1 # cleanups and add missing calls to
 # _get_player_speed and *_set_sync_sleep
 VERSION=2.0 # made it standalone
 VERSION=2.1 # bugfixes and request enhancements 2018-02-09
+VERSION=2.1.1 # bugfix if -D option used, exit if "YOU HAVE DIED." msg
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -440,6 +441,7 @@ test "$lREPLY" || break
 case $lREPLY in
 *scripttell*break*)     break ${REPLY##*?break};;
 *scripttell*exit*)      _exit_stdalone 1 $REPLY;;
+*'YOU HAVE DIED.'*) _just_exit_stdalone;;
 esac
 _msg_stdalone 7 "_empty_message_stream_stdalone:$lREPLY"
 unset lREPLY
@@ -546,6 +548,7 @@ case $UNDER_ME in
 *request*items*on*end*) break 1;;
 *scripttell*break*)     break ${REPLY##*?break};;
 *scripttell*exit*)      _exit_stdalone 1 $REPLY;;
+*'YOU HAVE DIED.'*) _just_exit_stdalone;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME
@@ -644,6 +647,7 @@ read -t ${TMOUT:-1}
  *'Something blocks your spellcasting.'*) _exit_stdalone 1 "Not possible on this spot.";;
  *scripttell*break*) break ${REPLY##*?break};;
  *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  '') break 1;;
  *) :;;
  esac
@@ -785,6 +789,7 @@ while :;
  '')                 break 1;;
  *scripttell*break*) break ${REPLY##*?break};;
  *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  *) :;;
  esac
 sleep 0.01
@@ -824,6 +829,7 @@ _is_stdalone 1 1 fire_stop
   '') break 2;;
   *scripttell*break*) break ${REPLY##*?break};;
   *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
   *) :;;
   esac
  sleep 0.01
@@ -1426,6 +1432,7 @@ _debug_stdalone "$REPLY"
  # server/skill_util.c- return 0;
  *scripttell*break*)     break ${REPLY##*?break};;
  *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  *) :;;
  esac
 
@@ -1487,6 +1494,9 @@ _is_stdalone 1 1 brace
  case $REPLY in
  *'You are braced.'*) break 2;;
  *'Not braced.'*)     break 1;;
+ *scripttell*break*)     break ${REPLY##*?break};;
+ *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  '') :;;
  *) :;;
  esac
@@ -1514,6 +1524,9 @@ _is_stdalone 1 1 brace
  case $REPLY in
  *'You are braced.'*) break 1;;
  *'Not braced.'*)     break 2;;
+ *scripttell*break*)     break ${REPLY##*?break};;
+ *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  '') :;;
  *) :;;
  esac
@@ -1568,6 +1581,7 @@ _watch_stdalone $DRAWINFO
   *'You sing'*) break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
   *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
   *) :;;
   esac
 
@@ -1585,6 +1599,7 @@ _watch_stdalone $DRAWINFO
   *"Too bad the "*"isn't listening!"*) _kill_monster_stdalone; break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
   *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
   *) :;;
   esac
 
@@ -1630,6 +1645,7 @@ local lRV=
   *'You orate to the '*) break 1;; #tmp
   *scripttell*break*)    break ${REPLY##*?break};;
   *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
   *) :;;
   esac
 
@@ -1655,6 +1671,7 @@ local lRV=
   '') break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
   *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
   *) :;;
   esac
 
@@ -1680,7 +1697,7 @@ do
 #_sleep
 one=$((one+1))
 
-[ "$DIRECTION_OPT" ] || _set_next_direction_stdalone
+[ "$DIRECTION_OPT" ] && _number_to_direction_stdalone $DIRECTION_OPT || _set_next_direction_stdalone
 
 _calm_down_monster_ready_skill_stdalone
 case $? in

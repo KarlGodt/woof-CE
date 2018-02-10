@@ -54,7 +54,8 @@ _sleep
  *'You are pricked'*) :;;
  *'You are stabbed'*) :;;
  *scripttell*break*)  break ${REPLY##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  '') break 1;;
  *) :;;
  esac
@@ -116,7 +117,8 @@ _sleep
  *'through!'*)     _just_exit 1;;
  *'You are pricked'*) :;;
  *scripttell*break*)  break ${REPLY##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  '') break 1;;
  *) :;;
  esac
@@ -180,7 +182,8 @@ _sleep
  *'A portal opens up, and screaming hordes pour'*) _just_exit 1;;
  *'through!'*)     _just_exit 1;;
  *scripttell*break*)  break ${REPLY##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  *) :;;
  esac
  done
@@ -232,7 +235,8 @@ _sleep
  *'A portal opens up, and screaming hordes pour'*) _just_exit 1;;
  *'through!'*)     _just_exit 1;;
  *scripttell*break*)  break ${REPLY##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  *) :;;
  esac
 
@@ -290,7 +294,8 @@ _is 0 0 search
  *' spot '*) FOUND_TRAP=$((FOUND_TRAP+1));;
  *'You search the area.'*) SEARCH_MSG=$((SEARCH_MSG+1));; # break 1;;
  *scripttell*break*)  break ${REPLY##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  '') break 1;;
  *) :;;
  esac

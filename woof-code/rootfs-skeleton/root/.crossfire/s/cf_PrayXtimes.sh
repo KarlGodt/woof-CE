@@ -14,6 +14,7 @@ VERSION=1.0 # set a sleep value between use_skill praying
 VERSION=2.0 # refine the setting of sleep values
 VERSION=3.0 # add a check for food level and to eat
 VERSION=3.1 # recognize -V and -d options
+VERSION=3.2 # use cf_funcs_requests.sh
 
 # Global variables
 
@@ -23,10 +24,11 @@ MY_BASE=${MY_SELF##*/}
 #test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
 #_set_global_variables $*
 
-test -f "${MY_SELF%/*}"/cf_funcs_common.sh && . "${MY_SELF%/*}"/cf_funcs_common.sh
+test -f "${MY_SELF%/*}"/cf_funcs_common.sh   && . "${MY_SELF%/*}"/cf_funcs_common.sh
 _set_global_variables $*
 
-test -f "${MY_SELF%/*}"/cf_funcs_food.sh   && . "${MY_SELF%/*}"/cf_funcs_food.sh
+test -f "${MY_SELF%/*}"/cf_funcs_food.sh     && . "${MY_SELF%/*}"/cf_funcs_food.sh
+test -f "${MY_SELF%/*}"/cf_funcs_requests.sh && . "${MY_SELF%/*}"/cf_funcs_requests.sh
 
 # *** Override any VARIABLES in cf_functions.sh *** #
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
@@ -106,12 +108,14 @@ __get_player_speed_and_set_usleep(){
 
 _empty_message_stream
 
-echo request stat cmbt
-#read REQ_CMBT
-#snprintf(buf, sizeof(buf), "request stat cmbt %d %d %d %d %d\n",
-# cpl.stats.wc, cpl.stats.ac, cpl.stats.dam, cpl.stats.speed, cpl.stats.weapon_sp);
-read -t 1 Req Stat Cmbt WC AC DAM PL_SPEED W_SPEED
-_msg 7 "wc=$WC:ac=$AC:dam=$DAM:speed=$PL_SPEED:weaponspeed=$W_SPEED"
+_request_stat_cmbt
+#echo request stat cmbt
+##read REQ_CMBT
+##snprintf(buf, sizeof(buf), "request stat cmbt %d %d %d %d %d\n",
+## cpl.stats.wc, cpl.stats.ac, cpl.stats.dam, cpl.stats.speed, cpl.stats.weapon_sp);
+#read -t 1 Req Stat Cmbt WC AC DAM PL_SPEED W_SPEED
+#_log "__get_player_speed_and_set_usleep: $WC $AC $DAM $PL_SPEED $W_SPEED"
+#_msg 7 "wc=$WC:ac=$AC:dam=$DAM:speed=$PL_SPEED:weaponspeed=$W_SPEED"
 
 case ${#PL_SPEED} in
 1) MAL=1000000000;;
@@ -137,9 +141,11 @@ _get_player_speed_and_set_usleep(){
 
 _empty_message_stream
 
-echo request stat cmbt
-read -t 1 Req Stat Cmbt WC AC DAM PL_SPEED W_SPEED
-_msg 7 "wc=$WC:ac=$AC:dam=$DAM:speed=$PL_SPEED:weaponspeed=$W_SPEED"
+_request_stat_cmbt
+#echo request stat cmbt
+#read -t 1 Req Stat Cmbt WC AC DAM PL_SPEED W_SPEED
+#_log "_get_player_speed_and_set_usleep: $WC $AC $DAM $PL_SPEED $W_SPEED"
+#_msg 7 "wc=$WC:ac=$AC:dam=$DAM:speed=$PL_SPEED:weaponspeed=$W_SPEED"
 
 #06:29 DEBUG:wc=-33:ac=-16:dam=1:speed=34588:weaponspeed=9526
 #06:29 DEBUG:VAL1=0.289118

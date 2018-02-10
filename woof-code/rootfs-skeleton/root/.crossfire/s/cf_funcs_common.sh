@@ -922,7 +922,8 @@ read -t $TMOUT
   *"That is"*"$lITEM"*|*"Those are"*"$lITEM"*|*"Those are"*"${lITEM// /?*}"*) break 1;;
   *"That is"*|*"Those are"*) break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
-  *scripttell*exit*)    _exit 1;;
+  *scripttell*exit*)    _exit 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit;;
   '') break 1;;
   *) continue;; #:;;
  esac
@@ -988,7 +989,8 @@ case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
 *scripttell*break*)     break ${REPLY##*?break};;
-*scripttell*exit*)      _exit 1;;
+*scripttell*exit*)      _exit 1 $REPLY;;
+*'YOU HAVE DIED.'*) _just_exit;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME
@@ -1072,7 +1074,8 @@ case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
 *scripttell*break*)     break ${REPLY##*?break};;
-*scripttell*exit*)      _exit 1;;
+*scripttell*exit*)      _exit 1 $REPLY;;
+*'YOU HAVE DIED.'*) _just_exit;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME
@@ -1150,7 +1153,8 @@ read -t ${TMOUT:-1} oneITEM
  $oldITEM|'') break 1;;
  *"$lITEM"*) _draw 7 "Got that item $lITEM in inventory.";;
  *scripttell*break*)  break ${oneITEM##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  esac
  ITEMS="${ITEMS}${oneITEM}\n"
 #$oneITEM"

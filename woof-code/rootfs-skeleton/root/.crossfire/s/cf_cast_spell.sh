@@ -785,7 +785,8 @@ $REPLY"
  #*request*items*inv*${lITEM}s) lRV=0; break 1;;
  ''|*request*end)    break 1;;
  *scripttell*break*) break ${REPLY##*?break};;
- *scripttell*exit*)  _exit 1;;
+ *scripttell*exit*)  _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  esac
 
 test "$TOPMOST" && break 1
@@ -853,7 +854,8 @@ do
  *request*items*inv*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*inv*end)   break 1;;
  *scripttell*break*)   break ${REPLY##*?break};;
- *scripttell*exit*)    _exit 1;;
+ *scripttell*exit*)    _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  esac
 sleep 0.01
 done
@@ -881,7 +883,8 @@ do
  *request*items*cont*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*cont*end)   break 1;;
  *scripttell*break*)   break ${REPLY##*?break};;
- *scripttell*exit*)    _exit 1;;
+ *scripttell*exit*)    _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  esac
 sleep 0.01
 done
@@ -907,7 +910,8 @@ do
  *request*items*inv*${FOOD}es) lRV=0; break 1;;  # tomato tomatoes
  ''|*request*items*inv*end)   break 1;;
  *scripttell*break*)   break ${REPLY##*?break};;
- *scripttell*exit*)    _exit 1;;
+ *scripttell*exit*)    _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  esac
 sleep 0.01
 done
@@ -933,7 +937,8 @@ do
  *request*items*on*${FOOD}es) lRV=0; break 1;;  # tomato tomatoes
  ''|*request*items*on*end)   break 1;;
  *scripttell*break*)   break ${REPLY##*?break};;
- *scripttell*exit*)    _exit 1;;
+ *scripttell*exit*)    _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  esac
 sleep 0.01
 done
@@ -966,7 +971,8 @@ $REPLY"
  *request*items*on*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*on*end)   break 1;;
  *scripttell*break*)   break ${REPLY##*?break};;
- *scripttell*exit*)    _exit 1;;
+ *scripttell*exit*)    _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  esac
 
  sleep 0.01
@@ -1002,7 +1008,8 @@ $REPLY"
  *request*items*on*${lITEM}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*on*end)   break ${REPLY##*?break};;
  *scripttell*break*)   break 1;;
- *scripttell*exit*)    _exit 1;;
+ *scripttell*exit*)    _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  esac
 
  sleep 0.01
@@ -1035,7 +1042,8 @@ $REPLY"
  *request*items*on*${FOOD}es) lRV=0; break 1;; # tomato tomatoes
  ''|*request*items*on*end)   break 1;;
  *scripttell*break*)   break ${REPLY##*?break};;
- *scripttell*exit*)    _exit 1;;
+ *scripttell*exit*)    _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  esac
 
 # ITEMS_ON="$ITEMS_ON

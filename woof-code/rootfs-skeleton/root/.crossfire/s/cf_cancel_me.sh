@@ -130,7 +130,8 @@ echo request range
  *"$lITEM"*) RANGE_ITEM_APPLIED=YES; lRV=0; break 2;;
  '')  break;;
  *scripttell*break*) break ${REPLY##*?break};;
- *scripttell*exit*)  _exit 1;;
+ *scripttell*exit*)  _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  esac
 
  sleep 0.01

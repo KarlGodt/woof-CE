@@ -82,7 +82,8 @@ _is 1 1 mark "$lITEM"
  case $REPLY in
  *Could*not*find*an*object*that*matches*) lRV=1;break 1;;
  *scripttell*break*) break ${REPLY##*?break};;
- *scripttell*exit*)  _exit 1;;
+ *scripttell*exit*)  _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  '') break;;
  esac
  #unset REPLY
@@ -114,7 +115,8 @@ _is 1 1 apply "$lITEM"
  *fail*) lRV=1; FAIL=$((FAIL+1)); break 1;;
  *You*light*the*icecube*with*the*flint*and*steel.*) lRV=0; SUCC=$((SUCC+1)); break 1;;
  *scripttell*break*) break ${REPLY##*?break};;
- *scripttell*exit*)  _exit 1;;
+ *scripttell*exit*)  _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  *) :;;
  esac
  #unset REPLY

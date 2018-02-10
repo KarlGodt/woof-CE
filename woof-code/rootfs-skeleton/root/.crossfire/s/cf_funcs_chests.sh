@@ -35,7 +35,8 @@ unset OPEN_COUNT
  *empty*)        OPEN_COUNT=1;;
  *'You open chest.'*) break 2;;
  *scripttell*break*)  break ${REPLY##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  '') break 1;;
  esac
  sleep 0.01
@@ -109,7 +110,8 @@ _is 1 1 apply
  *empty*)        OPEN_COUNT=1;;
  *'You open chest.'*) break 2;; # permanent container
  *scripttell*break*)  break ${REPLY##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  '') break 1;;
  esac
  sleep 0.01
@@ -179,7 +181,8 @@ case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
 *scripttell*break*)     break ${REPLY##*?break};;
-*scripttell*exit*)      _exit 1;;
+*scripttell*exit*)      _exit 1 $REPLY;;
+*'YOU HAVE DIED.'*) _just_exit;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME
@@ -265,7 +268,8 @@ case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
 *scripttell*break*)     break ${REPLY##*?break};;
-*scripttell*exit*)      _exit 1;;
+*scripttell*exit*)      _exit 1 $REPLY;;
+*'YOU HAVE DIED.'*) _just_exit;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME
@@ -355,7 +359,8 @@ _sleep
  *'You fail to pick the lock.'*) break 1;;
 
  *scripttell*break*)   break ${REPLY##*?break};;
- *scripttell*exit*)    _exit 1;;
+ *scripttell*exit*)    _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  '') break 1;; # :;;
  *)  :;;
  esac

@@ -672,7 +672,8 @@ $UNDER_ME_LIST"
 case $UNDER_ME in
 *request*items*on*end*) break;;
 *scripttell*break*)     break ${UNDER_ME##*?break};;
-*scripttell*exit*)    _exit 1;;
+*scripttell*exit*)    _exit 1 $REPLY;;
+*'YOU HAVE DIED.'*) _just_exit;;
 esac
 
 unset UNDER_ME

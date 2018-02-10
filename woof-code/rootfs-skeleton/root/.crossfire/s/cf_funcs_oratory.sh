@@ -83,6 +83,7 @@ _watch $DRAWINFO
   *'You sing'*) break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
   *scripttell*exit*)    _exit 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit;;
   *) :;;
   esac
 
@@ -100,6 +101,7 @@ _watch $DRAWINFO
   *"Too bad the "*"isn't listening!"*) _kill_monster; break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
   *scripttell*exit*)    _exit 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit;;
   *) :;;
   esac
 
@@ -145,6 +147,7 @@ local lRV=
   *'You orate to the '*) break 1;; #tmp
   *scripttell*break*)    break ${REPLY##*?break};;
   *scripttell*exit*)    _exit 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit;;
   *) :;;
   esac
 
@@ -170,6 +173,7 @@ local lRV=
   '') break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
   *scripttell*exit*)    _exit 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit;;
   *) :;;
   esac
 

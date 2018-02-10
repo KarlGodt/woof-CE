@@ -193,7 +193,8 @@ read -t ${TMOUT:-1} oneITEM
  $oldITEM|'') break;;
  *"$lITEM"*) _draw 7 "Got that item $lITEM in inventory.";;
  *scripttell*break*)  break ${oneITEM##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  esac
  ITEMS="${ITEMS}${oneITEM}\n"
 #$oneITEM"
@@ -236,7 +237,8 @@ read -t ${TMOUT:-1} oneITEM
  $oldITEM|'') break;;
  #*"$lITEM"*) _draw 7 "Got that item $lITEM in inventory.";;
  *scripttell*break*)  break ${oneITEM##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  esac
 
  ITEMSA="$ITEMSA
@@ -276,7 +278,8 @@ read -t ${TMOUT:-1} REPLY_RANGE
  $oldREPLY_RANGE|'') break 1;;
  *"$lITEM"*)         break 1;;
  *scripttell*break*) break ${REPLY##*?break};;
- *scripttell*exit*)  _exit 1;;
+ *scripttell*exit*)  _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  esac
     _is 1 1 rotateshoottype
  oldREPLY_RANGE="$REPLY_RANGE"

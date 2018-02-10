@@ -145,7 +145,8 @@ _sleep
  *' spot '*) FOUND_TRAP=$((FOUND_TRAP+1));;
  *'You search the area.'*) break 1;;
  *scripttell*break*)  break ${REPLY##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  '') break 1;;
  *) :;;
  esac
@@ -211,7 +212,8 @@ _turn_direction $DIRECTION cast disarm
  *'You fail to disarm'*) break 1;;
  *"There's nothing there!"*) _just_exit 1;;
  *scripttell*break*)  break ${REPLY##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  *) :;;
  esac
 
@@ -260,7 +262,8 @@ _sleep
  *'You fail to disarm'*) break 1;;
  *"There's nothing there!"*) _just_exit 1;;
  *scripttell*break*)  break ${REPLY##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  *) :;;
  esac
  done
@@ -310,7 +313,8 @@ _sleep
  *'You detonate'*) _just_exit 1;;
  *'You are pricked'*) :;;
  *scripttell*break*)  break ${REPLY##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  *) :;;
  esac
 
@@ -378,7 +382,8 @@ _sleep
  *'You fail to pick the lock.'*) break 1;;
 
  *scripttell*break*)  break ${REPLY##*?break};;
- *scripttell*exit*)   _exit 1;;
+ *scripttell*exit*)   _exit 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit;;
  '') break 1;; # :;;
  *)  :;;
  esac
