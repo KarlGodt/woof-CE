@@ -185,14 +185,18 @@ unset dcnt line
 }
 
 _empty_message_stream_stdalone(){
-local REPLY
+local lREPLY
 while :;
 do
-read -t ${TMOUT:-1}
-_log "_empty_message_stream:$REPLY"
-case "$REPLY" in '') break;; esac
-_debug "_empty_message_stream:$REPLY"
-unset REPLY
+read -t ${TMOUT:-1} lREPLY
+_log "_empty_message_stream:$lREPLY"
+case "$lREPLY" in '') break;;
+*scripttell*break*)     break ${lREPLY##*?break};;
+*scripttell*exit*)      _exit_stdalone 1 $lREPLY;;
+*'YOU HAVE DIED.'*) _just_exit_stdalone;;
+esac
+_debug "_empty_message_stream:$lREPLY"
+unset lREPLY
  sleep 0.01
 done
 }

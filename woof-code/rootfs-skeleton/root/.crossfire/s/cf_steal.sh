@@ -738,59 +738,6 @@ sleep 0.1
 done
 }
 
-_eat_food_from_inventory_stdalone(){
-_debug_stdalone "_eat_food_from_inventory_stdalone:$*"
-
-local lEAT_FOOD="${@:-$EAT_FOOD}"
-lEAT_FOOD=${lEAT_FOOD:-"$FOOD_DEF"}
-test "$lEAT_FOOD" || return 254
-
-#_check_food_in_inventory_stdalone ## Todo: check if food is in INV
-_check_have_item_in_inventory_stdalone $lEAT_FOOD && _is_stdalone 1 1 apply $lEAT_FOOD
-#_is_stdalone 1 1 apply $lEAT_FOOD
-}
-
-_check_have_item_in_inventory_stdalone(){
-_debug_stdalone "_check_have_item_in_inventory_stdalone:$*"
-
-local oneITEM oldITEM ITEMS ITEMSA lITEM
-lITEM=${*:-"$ITEM"}
-test "$lITEM" || return 254
-
-TIMEB=`date +%s`
-
-unset oneITEM oldITEM ITEMS ITEMSA
-
-_empty_message_stream_stdalone
-echo request items inv
-while :;
-do
-read -t ${TMOUT:-1} oneITEM
- _log_stdalone "_check_have_item_in_inventory_stdalone:$oneITEM"
- _debug_stdalone "$oneITEM"
-
- case $oneITEM in
- $oldITEM|'') break 1;;
- *"$lITEM"*|*"${lITEM// /?*}"*) _draw 7 "Got that item $lITEM in inventory.";;
- *scripttell*break*)  break ${oneITEM##*?break};;
- *scripttell*exit*)   _exit_stdalone 1 $oneITEM;;
- *'YOU HAVE DIED.'*) _just_exit_stdalone;;
- *) :;;
- esac
- ITEMS="${ITEMS}${oneITEM}\n"
- oldITEM="$oneITEM"
-sleep 0.01
-done
-unset oldITEM oneITEM
-
-
-TIMEE=`date +%s`
-TIME=$((TIMEE-TIMEB))
-_debug_stdalone 4 "Fetching Inventory List: Elapsed $TIME sec."
-
-echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
-}
-
 _request_stat_hp_stdalone(){
 #Return hp,maxhp,sp,maxsp,grace,maxgrace,food
 
@@ -1257,7 +1204,6 @@ sleep 0.1
 done
 
 }
-
 _say_skill_oratory_code_(){
 cat >&1 <<EoI
 file : server/server/skills.c
@@ -1670,8 +1616,8 @@ _debug_stdalone 3 "lRV=$lRV"
 return ${lRV:-1}
 }
 
-_orate_to_monster_ready_skill_stdalone(){
-_debug_stdalone "_orate_to_monster_ready_skill_stdalone:$*"
+_steal_from_monster_ready_skill_stdalone(){
+_debug_stdalone "_steal_from_monster_ready_skill_stdalone:$*"
 
 local lRV=
 
@@ -1680,16 +1626,16 @@ local lRV=
 
   _watch_stdalone $DRAWINFO
   _is_stdalone 1 1 fire_stop
-  _is_stdalone 1 1 ready_skill oratory
+  _is_stdalone 1 1 ready_skill stealing
   _empty_message_stream_stdalone   # todo : check if skill available
 
   _is_stdalone 1 1 fire $DIRN
   _is_stdalone 1 1 fire_stop
-  ORATORY_ATTEMPTS_DONE=$((ORATORY_ATTEMPTS_DONE+1))
+  STEALING_ATTEMPTS_DONE=$((STEALING_ATTEMPTS_DONE+1))
 
   while :; do unset REPLY
   read -t $TMOUT
-  _log_stdalone "_orate_to_monster_ready_skill_stdalone:$REPLY"
+  _log_stdalone "_steal_from_monster_ready_skill_stdalone:$REPLY"
   _debug_stdalone "$REPLY"
 
   case $REPLY in
@@ -1708,7 +1654,7 @@ local lRV=
 
   while :; do unset REPLY
   read -t $TMOUT
-  _log_stdalone "_orate_to_monster_ready_skill_stdalone:$REPLY"
+  _log_stdalone "_steal_from_monster_ready_skill_stdalone:$REPLY"
   _debug_stdalone "$REPLY"
 
   case $REPLY in
@@ -1742,8 +1688,8 @@ _debug_stdalone 3 "lRV=$lRV"
 return ${lRV:-1}
 }
 
-_sing_and_orate_around_stdalone(){
-_debug_stdalone "_sing_and_orate_around_stdalone:$*"
+_sing_and_steal_around_stdalone(){
+_debug_stdalone "_sing_and_steal_around_stdalone:$*"
 
 while :;
 do
@@ -1755,7 +1701,7 @@ one=$((one+1))
 
 _calm_down_monster_ready_skill_stdalone
 case $? in
- 0) _orate_to_monster_ready_skill_stdalone
+ 0) _steal_from_monster_ready_skill_stdalone
   case $? in
   0) :;;
   *) _kill_monster_stdalone;;
@@ -1787,7 +1733,7 @@ done
 
 # MAIN
 
-_main_orate_stdalone(){
+_main_steal_stdalone(){
 _set_global_variables_stdalone $*
 _say_start_msg_stdalone $*
 _do_parameters_stdalone $*
@@ -1797,16 +1743,16 @@ test "$PL_SPEED1" && __set_sync_sleep_stdalone ${PL_SPEED1} || _set_sync_sleep_s
 
 
 _direction_to_number_stdalone $DIRECTION_OPT
-_check_skill_available_stdalone singing || return 1
-_check_skill_available_stdalone oratory || return 1
+_check_skill_available_stdalone singing  || return 1
+_check_skill_available_stdalone stealing || return 1
 
 _brace_stdalone
-_sing_and_orate_around_stdalone
+_sing_and_steal_around_stdalone
 _unbrace_stdalone
 _say_end_msg_stdalone
 }
 
-_main_orate_func(){
+_main_steal_func(){
 _set_global_variables $*
 _say_start_msg $*
 _do_parameters $*
@@ -1816,16 +1762,16 @@ test "$PL_SPEED1" && __set_sync_sleep ${PL_SPEED1} || _set_sync_sleep "$PL_SPEED
 
 
 _direction_to_number $DIRECTION_OPT
-_check_skill_available singing || return 1
-_check_skill_available oratory || return 1
+_check_skill_available singing  || return 1
+_check_skill_available stealing || return 1
 
 _brace
-_sing_and_orate_around
+_sing_and_steal_around
 _unbrace
 _say_end_msg
 }
 
- _main_orate_stdalone "$@"
-#_main_orate_func "$@"
+ _main_steal_stdalone "$@"
+#_main_steal_func "$@"
 
 ###END###

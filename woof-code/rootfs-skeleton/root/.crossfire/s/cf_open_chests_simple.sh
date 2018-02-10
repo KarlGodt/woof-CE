@@ -404,6 +404,11 @@ do
 read -t $TMOUT lREPLY
 _log_stdalone "$REPLY_LOG" "_empty_message_stream_stdalone:$lREPLY"
 test "$lREPLY" || break
+case $lREPLY in
+*scripttell*break*)     break ${lREPLY##*?break};;
+*scripttell*exit*)      _exit_stdalone 1 $lREPLY;;
+*'YOU HAVE DIED.'*) _just_exit_stdalone;;
+esac
 _msg_stdalone 7 "_empty_message_stream_stdalone:$lREPLY"
 unset lREPLY
  sleep 0.01
