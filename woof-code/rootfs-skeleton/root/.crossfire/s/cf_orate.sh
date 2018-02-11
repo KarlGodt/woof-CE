@@ -8,6 +8,7 @@ VERSION=2.0 # made it standalone
 VERSION=2.1 # bugfixes and request enhancements 2018-02-09
 VERSION=2.1.1 # bugfix if -D option used, exit if "YOU HAVE DIED." msg
 VERSION=2.2 # add -A -B -Z parameters, variable name typo fixes
+VERSION=2.2.1 # false variable names fixed
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -888,8 +889,8 @@ _is_stdalone 1 1 fire_stop
   case $BUNGLE in
   *bungle*|*fumble*) break 1;;
   '') break 2;;
-  *scripttell*break*) break ${REPLY##*?break};;
-  *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
+  *scripttell*break*) break ${BUNGLE##*?break};;
+  *scripttell*exit*)  _exit_stdalone 1 $BUNGLE;;
   *'YOU HAVE DIED.'*) _just_exit_stdalone;;
   *) :;;
   esac

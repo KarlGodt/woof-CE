@@ -85,6 +85,7 @@ _is 0 0 $DIRECTION
 }
 
 _move_back(){  ##+++2018-01-08
+_debug "_move_back:$*"
 test "$DIRB" || return 0
 for i in `seq 1 1 ${1:-1}`
 do
@@ -94,6 +95,7 @@ done
 }
 
 _move_forth(){  ##+++2018-01-08
+_debug "_move_forth:$*"
 test "$DIRF" || return 0
 for i in `seq 1 1 ${1:-1}`
 do
@@ -103,6 +105,7 @@ done
 }
 
 _move_back_and_forth(){  ##+++2018-01-08
+_debug "_move_back_and_forth:$*"
 STEPS=${1:-1}
 
 #test "$DIRB" -a "$DIRF" || return 0

@@ -125,8 +125,8 @@ _is 1 1 fire_stop
   case $BUNGLE in
   *bungle*|*fumble*) break 1;;
   '') break 2;;
-  *scripttell*break*) break ${REPLY##*?break};;
-  *scripttell*exit*)  _exit 1 $REPLY;;
+  *scripttell*break*) break ${BUNGLE##*?break};;
+  *scripttell*exit*)  _exit 1 $BUNGLE;;
   *'YOU HAVE DIED.'*) _just_exit;;
   *) :;;
   esac

@@ -5,7 +5,7 @@
 # script to level up the skill flame touch
 
 VERSION=0.0 # Initial version,
-
+VERSION=1.0 # release ready 2018-02-11
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -1056,8 +1056,8 @@ _is_stdalone 1 1 fire_stop
   case $BUNGLE in
   *bungle*|*fumble*) break 1;;
   '') break 2;;
-  *scripttell*break*) break ${REPLY##*?break};;
-  *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
+  *scripttell*break*) break ${BUNGLE##*?break};;
+  *scripttell*exit*)  _exit_stdalone 1 $BUNGLE;;
   *'YOU HAVE DIED.'*) _just_exit_stdalone;;
   *) :;;
   esac

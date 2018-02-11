@@ -64,6 +64,7 @@ VERSION=2.2.1 # bugfixes
 VERSION=3.0 # made the whole script standalone possible
 # functions got *_stdalone post-syllable
 VERSION=3.1 # code cleanup
+VERSION=3.1.1 # false variable names fixed
 
 SEARCH_ATTEMPTS_DEFAULT=9
 #DISARM variable set to skill, invokation OR cast
@@ -1634,8 +1635,8 @@ _is_stdalone 1 1 fire_stop
   case $BUNGLE in
   *bungle*|*fumble*) break 1;;
   '') break 2;;
-  *scripttell*break*) break ${REPLY##*?break};;
-  *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
+  *scripttell*break*) break ${BUNGLE##*?break};;
+  *scripttell*exit*)  _exit_stdalone 1 $BUNGLE;;
   *'YOU HAVE DIED.'*) _just_exit_stdalone;;
   *) :;;
   esac

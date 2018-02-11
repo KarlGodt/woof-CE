@@ -1,12 +1,10 @@
 #!/bin/ash
 
-VERSION=0.0 # Initial version, that did not process much messages
-VERSION=1.0 # first "reliable" version 2018-01-23
-VERSION=1.1 # cleanups and add missing calls to
-# _get_player_speed and *_set_sync_sleep
-VERSION=2.0 # made it standalone
-VERSION=2.1 # bugfixes and request enhancements 2018-02-09
-VERSION=2.1.1 # bugfix if -D option used, exit if "YOU HAVE DIED." msg
+# 2018-02-10
+# cf_steal.sh :
+# script to level up the skill stealing
+
+VERSION=0.0 # Initial version, taken from cf_orate.sh
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -30,14 +28,14 @@ _say_help_stdalone(){
 _draw_stdalone 6  "$MY_BASE"
 _draw_stdalone 7  "Script to calm down monsters"
 _draw_stdalone 7  "by skill singing and then"
-_draw_stdalone 7  "making them pets by skill oratory."
+_draw_stdalone 7  "stealing from them by skill stealing."
 _draw_stdalone 2  "To be used in the crossfire roleplaying game client."
 _draw_stdalone 6  "Syntax:"
 _draw_stdalone 7  "$0 <<NUMBER>> <<Options>>"
 _draw_stdalone 8  "Options:"
 _draw_stdalone 10 "Simple number as first parameter:Just make NUMBER loop rounds."
 _draw_stdalone 10 "-C # :like above, just make NUMBER loop rounds."
-_draw_stdalone 9  "-O # :Number of oratory attempts." #, default $ORATORY_ATTEMPTS_DEFAULT"
+#_draw_stdalone 9  "-O # :Number of oratory attempts." #, default $ORATORY_ATTEMPTS_DEFAULT"
 _draw_stdalone 9  "-S # :Number of singing attempts." #, default $SINGING_ATTEMPTS_DEFAULT"
 _draw_stdalone 8  "-D word :Direction to sing and orate to,"
 _draw_stdalone 8  " as n, ne, e, se, s, sw, w, nw."
@@ -51,14 +49,14 @@ _say_help(){
 _draw 6  "$MY_BASE"
 _draw 7  "Script to calm down monsters"
 _draw 7  "by skill singing and then"
-_draw 7  "making them pets by skill oratory."
+_draw 7  "stealing from them by skill stealing."
 _draw 2  "To be used in the crossfire roleplaying game client."
 _draw 6  "Syntax:"
 _draw 7  "$0 <<NUMBER>> <<Options>>"
 _draw 8  "Options:"
 _draw 10 "Simple number as first parameter:Just make NUMBER loop rounds."
 _draw 10 "-C # :like above, just make NUMBER loop rounds."
-_draw 9  "-O # :Number of oratory attempts." #, default $ORATORY_ATTEMPTS_DEFAULT"
+#_draw 9  "-O # :Number of oratory attempts." #, default $ORATORY_ATTEMPTS_DEFAULT"
 _draw 9  "-S # :Number of singing attempts." #, default $SINGING_ATTEMPTS_DEFAULT"
 _draw 8  "-D word :Direction to sing and orate to,"
 _draw 8  " as n, ne, e, se, s, sw, w, nw."
@@ -260,14 +258,12 @@ case $1 in
 [0-9]|[0-9][0-9]|[0-9][0-9][0-9]) RV=$1; shift;;
 esac
 
-#_move_back_and_forth_stdalone 2 ##unused to move in this script
 _sleep_stdalone
 test "$*" && _draw_stdalone 3 $@
 _draw_stdalone 3 "Exiting $0. PID was $$"
-#echo unwatch
 _unwatch_stdalone ""
 _beep_std_stdalone
-test ${RV//[0-9]/} && RV=3
+test "${RV//[0-9]/}" && RV=3
 exit ${RV:-0}
 }
 
@@ -452,7 +448,7 @@ done
 
 _watch_stdalone(){
 echo unwatch ${*:-$DRAWINFO}
-sleep 0.4
+sleep 0.2
 echo   watch ${*:-$DRAWINFO}
 }
 
@@ -466,7 +462,7 @@ _is_stdalone(){
 #  <repeat> is the number of times to execute command
 #  <must_send> tells whether or not the command must sent at all cost (1 or 0).
 #  <repeat> and <must_send> are optional parameters.
-    _debug_stdalone "issue $*"
+    _debug_stdalone "_is_stdalone:$*"
     echo issue "$@"
     sleep 0.2
 }
@@ -484,25 +480,6 @@ sleep 0.2
 _set_pickup_stdalone(){
 # Usage: pickup <0-7> or <value_density> .
 # pickup 0:Don't pick up.
-# pickup 1:Pick up one item.
-# pickup 2:Pick up one item and stop.
-# pickup 3:Stop before picking up.
-# pickup 4:Pick up all items.
-# pickup 5:Pick up all items and stop.
-# pickup 6:Pick up all magic items.
-# pickup 7:Pick up all coins and gems
-#
-#TODO: In pickup 4 and 5 mode
-# seems to pick up only
-# one piece of the topmost item, if more than one
-# piece of the item, as 4 coins or 23 arrows
-# but all items below the topmost item get
-# picked up wholly
-# in _open_chests() ..?
-
-#_is_stdalone 0 0 pickup ${*:-0}
-#_is_stdalone 1 0 pickup ${*:-0}
-#_is_stdalone 0 1 pickup ${*:-0}
  _is_stdalone 1 1 pickup ${*:-0}
 }
 
@@ -828,8 +805,8 @@ _is_stdalone 1 1 fire_stop
   case $BUNGLE in
   *bungle*|*fumble*) break 1;;
   '') break 2;;
-  *scripttell*break*) break ${REPLY##*?break};;
-  *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
+  *scripttell*break*) break ${BUNGLE##*?break};;
+  *scripttell*exit*)  _exit_stdalone 1 $BUNGLE;;
   *'YOU HAVE DIED.'*) _just_exit_stdalone;;
   *) :;;
   esac
@@ -881,7 +858,6 @@ read -t ${TMOUT:-1} r s c WC AC DAM SPEED WP_SPEED REST
 PL_SPEED=$SPEED
 test "$WC" -a "$AC" -a "$DAM" -a "$SPEED" -a "$WP_SPEED"
 }
-
 
 __get_player_speed_stdalone(){
 _debug_stdalone "__get_player_speed_stdalone:$*"
@@ -1141,16 +1117,15 @@ case $1 in
 esac
 
 # C # :Count loop rounds
-# O # :Oratory attempts
-# S # :Singing attempts
+
 # d   :debugging output
 while getopts C:O:S:D:dVhabdefgijklmnopqrstuvwxyzABEFGHIJKLMNPQRTUWXYZ oneOPT
 do
 case $oneOPT in
 C) NUMBER=$OPTARG;;
 D) DIRECTION_OPT=$OPTARG;;
-O) ORATORY_ATTEMPTS=${OPTARG:-$ORATORY_ATTEMPTS_DEFAULT};;
-S) SINGING_ATTEMPTS=${OPTARG:-$SINGING_ATTEMPTS_DEFAULT};;
+#O) ORATORY_ATTEMPTS=${OPTARG:-$ORATORY_ATTEMPTS_DEFAULT};;
+#S) SINGING_ATTEMPTS=${OPTARG:-$SINGING_ATTEMPTS_DEFAULT};;
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
 h) _say_help_stdalone 0;;
 V) _say_version_stdalone 0;;
@@ -1183,16 +1158,15 @@ case $1 in
 esac
 
 # C # :Count loop rounds
-# O # :Oratory attempts
-# S # :Singing attempts
+
 # d   :debugging output
 while getopts C:O:S:D:dVhabdefgijklmnopqrstuvwxyzABEFGHIJKLMNPQRTUWXYZ oneOPT
 do
 case $oneOPT in
 C) NUMBER=$OPTARG;;
 D) DIRECTION_OPT=$OPTARG;;
-O) ORATORY_ATTEMPTS=${OPTARG:-$ORATORY_ATTEMPTS_DEFAULT};;
-S) SINGING_ATTEMPTS=${OPTARG:-$SINGING_ATTEMPTS_DEFAULT};;
+#O) ORATORY_ATTEMPTS=${OPTARG:-$ORATORY_ATTEMPTS_DEFAULT};;
+#S) SINGING_ATTEMPTS=${OPTARG:-$SINGING_ATTEMPTS_DEFAULT};;
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
 h) _say_help 0;;
 V) _say_version 0;;
@@ -1205,115 +1179,266 @@ sleep 0.1
 done
 
 }
-_say_skill_oratory_code_(){
+
+_say_skill_stealing_code_(){
 cat >&1 <<EoI
 file : server/server/skills.c
-/* players using this skill can 'charm' a monster --
- * into working for them. It can only be used on
- * non-special (see below) 'neutral' creatures.
- * -b.t. (thomas@astro.psu.edu)
+/* adj_stealchance() - increased values indicate better attempts */
+static int adj_stealchance (object *op, object *victim, int roll) {
+    object *equip;
+
+    if(!op||!victim||!roll) return -1;
+
+    /* Only prohibit stealing if the player does not have a free
+     * hand available and in fact does have hands.
+     */
+    if(op->type==PLAYER && op->body_used[BODY_ARMS] <=0 &&
+       op->body_info[BODY_ARMS]) {
+    new_draw_info(NDI_UNIQUE, 0,op,"But you have no free hands to steal with!");
+    return -1;
+    }
+
+    /* ADJUSTMENTS */
+
+    /* Its harder to steal from hostile beings! */
+    if(!QUERY_FLAG(victim, FLAG_UNAGGRESSIVE)) roll = roll/2;
+
+    /* Easier to steal from sleeping beings, or if the thief is
+     * unseen */
+    if(QUERY_FLAG(victim, FLAG_SLEEP))
+    roll = roll*3;
+    else if(op->invisible)
+    roll = roll*2;
+
+    /* check stealing 'encumberance'. Having this equipment applied makes
+     * it quite a bit harder to steal.
+     */
+    for(equip=op->inv;equip;equip=equip->below) {
+    if(equip->type==WEAPON&&QUERY_FLAG(equip,FLAG_APPLIED)) {
+        roll -= equip->weight/10000;
+    }
+    if(equip->type==BOW&&QUERY_FLAG(equip,FLAG_APPLIED))
+        roll -= equip->weight/5000;
+    if(equip->type==SHIELD&&QUERY_FLAG(equip,FLAG_APPLIED)) {
+        roll -= equip->weight/2000;
+    }
+    if(equip->type==ARMOUR&&QUERY_FLAG(equip,FLAG_APPLIED))
+        roll -= equip->weight/5000;
+    if(equip->type==GLOVES&&QUERY_FLAG(equip,FLAG_APPLIED))
+        roll -= equip->weight/100;
+    }
+    if(roll<0) roll=0;
+    return roll;
+}
+
+/*
+ * When stealing: dependent on the intelligence/wisdom of whom you're
+ * stealing from (op in attempt_steal), offset by your dexterity and
+ * skill at stealing. They may notice your attempt, whether successful
+ * or not.
+ * op is the target (person being pilfered)
+ * who is the person doing the stealing.
+ * skill is the skill object (stealing).
  */
 
-int use_oratory(object *pl, int dir, object *skill) {
-    sint16 x=pl->x+freearr_x[dir],y=pl->y+freearr_y[dir];
-    int mflags,chance;
-    object *tmp;
-    mapstruct *m;
+static int attempt_steal(object* op, object* who, object *skill)
+{
+    object *success=NULL, *tmp=NULL, *next;
+    int roll=0, chance=0, stats_value;
+    rv_vector   rv;
 
-    if(pl->type!=PLAYER) return 0;  /* only players use this skill */
-    m = pl->map;
-    mflags =get_map_flags(m, &m, x,y, &x, &y);
-    if (mflags & P_OUT_OF_MAP) return 0;
+    stats_value = ((who->stats.Dex + who->stats.Int) * 3) / 2;
 
-    /* Save some processing - we have the flag already anyways
+    /* if the victim is aware of a thief in the area (FLAG_NO_STEAL set on them)
+     * they will try to prevent stealing if they can. Only unseen theives will
+     * have much chance of success.
      */
-    if (!(mflags & P_IS_ALIVE)) {
-    new_draw_info(NDI_UNIQUE, 0, pl, "There is nothing to orate to.");
+    if(op->type!=PLAYER && QUERY_FLAG(op,FLAG_NO_STEAL)) {
+    if(can_detect_enemy(op,who,&rv)) {
+        npc_call_help(op);
+        CLEAR_FLAG(op, FLAG_UNAGGRESSIVE);
+        new_draw_info(NDI_UNIQUE, 0,who,"Your attempt is prevented!");
+        return 0;
+    } else /* help npc to detect thief next time by raising its wisdom */
+        op->stats.Wis += (op->stats.Int/5)+1;
+        if (op->stats.Wis > MAX_STAT) op->stats.Wis = MAX_STAT;
+    }
+    if (op->type == PLAYER && QUERY_FLAG(op, FLAG_WIZ)) {
+    new_draw_info(NDI_UNIQUE, 0, who, "You can't steal from the dungeon master!\n");
     return 0;
     }
-
-    for(tmp=get_map_ob(m,x,y);tmp;tmp=tmp->above) {
-        /* can't persuade players - return because there is nothing else
-     * on that space to charm.  Same for multi space monsters and
-     * special monsters - we don't allow them to be charmed, and there
-     * is no reason to do further processing since they should be the
-     * only monster on the space.
-     */
-        if(tmp->type==PLAYER) return 0;
-        if(tmp->more || tmp->head) return 0;
-    if(tmp->msg) return 0;
-
-    if(QUERY_FLAG(tmp,FLAG_MONSTER)) break;
+    if(op->type == PLAYER && who->type == PLAYER && settings.no_player_stealing) {
+      new_draw_info(NDI_UNIQUE, 0, who, "You can't steal from other players!\n");
+      return 0;
     }
+
+
+    /* Ok then, go thru their inventory, stealing */
+    for(tmp = op->inv; tmp != NULL; tmp = next) {
+    next = tmp->below;
+
+    /* you can't steal worn items, starting items, wiz stuff,
+     * innate abilities, or items w/o a type. Generally
+     * speaking, the invisibility flag prevents experience or
+     * abilities from being stolen since these types are currently
+     * always invisible objects. I was implicit here so as to prevent
+     * future possible problems. -b.t.
+     * Flesh items generated w/ fix_flesh_item should have FLAG_NO_STEAL
+     * already  -b.t.
+     */
+
+    if (QUERY_FLAG(tmp,FLAG_WAS_WIZ) || QUERY_FLAG(tmp, FLAG_APPLIED)
+        || !(tmp->type)
+        || tmp->type == EXPERIENCE || tmp->type == SPELL
+        || QUERY_FLAG(tmp,FLAG_STARTEQUIP)
+        || QUERY_FLAG(tmp,FLAG_NO_STEAL)
+        || tmp->invisible ) continue;
+
+    /* Okay, try stealing this item. Dependent on dexterity of thief,
+     * skill level, see the adj_stealroll fctn for more detail.
+     */
+
+    roll=die_roll(2, 100, who, PREFER_LOW)/2; /* weighted 1-100 */
+
+    if((chance=adj_stealchance(who,op,(stats_value+skill->level * 10 - op->level * 3)))==-1)
+        return 0;
+    else if (roll < chance ) {
+        tag_t tmp_count = tmp->count;
+
+        pick_up(who, tmp);
+        /* need to see if the player actually stole this item -
+         * if it is in the players inv, assume it is.  This prevents
+         * abuses where the player can not carry the item, so just
+         * keeps stealing it over and over.
+         */
+        if (was_destroyed(tmp, tmp_count) || tmp->env != op) {
+        /* for players, play_sound: steals item */
+        success = tmp;
+        CLEAR_FLAG(tmp, FLAG_INV_LOCKED);
+
+        /* Don't delete it from target player until we know
+         * the thief has picked it up.  can't just look at tmp->count,
+         * as it's possible that it got merged when picked up.
+         */
+        if (op->type == PLAYER)
+            esrv_del_item(op->contr, tmp_count);
+        }
+        break;
+    }
+    } /* for loop looking for an item */
 
     if (!tmp) {
-    new_draw_info(NDI_UNIQUE, 0, pl, "There is nothing to orate to.");
+    new_draw_info_format(NDI_UNIQUE, 0, who, "%s%s has nothing you can steal!",
+                 op->type == PLAYER ? "" : "The ", query_name(op));
     return 0;
     }
 
-    new_draw_info_format(NDI_UNIQUE,
-     0,pl, "You orate to the %s.",query_name(tmp));
+    /* If you arent high enough level, you might get something BUT
+     * the victim will notice your stealing attempt. Ditto if you
+     * attempt to steal something heavy off them, they're bound to notice
+     */
 
-    /* the following conditions limit who may be 'charmed' */
+    if((roll>=skill->level) || !chance
+      ||(tmp && tmp->weight>(250*(random_roll(0, stats_value+skill->level * 10-1, who, PREFER_LOW))))) {
 
-    /* it's hostile! */
-    if(!QUERY_FLAG(tmp,FLAG_UNAGGRESSIVE) && !QUERY_FLAG(tmp, FLAG_FRIENDLY)) {
-    new_draw_info_format(NDI_UNIQUE, 0,pl,
-       "Too bad the %s isn't listening!\n",query_name(tmp));
+    /* victim figures out where the thief is! */
+    if(who->hide) make_visible(who);
+
+    if(op->type != PLAYER) {
+        /* The unaggressives look after themselves 8) */
+        if(who->type==PLAYER) {
+        npc_call_help(op);
+        new_draw_info_format(NDI_UNIQUE, 0,who,
+          "%s notices your attempted pilfering!",query_name(op));
+        }
+        CLEAR_FLAG(op, FLAG_UNAGGRESSIVE);
+        /* all remaining npc items are guarded now. Set flag NO_STEAL
+         * on the victim.
+         */
+        SET_FLAG(op,FLAG_NO_STEAL);
+    } else { /* stealing from another player */
+        char buf[MAX_BUF];
+        /* Notify the other player */
+        if (success && who->stats.Int > random_roll(0, 19, op, PREFER_LOW)) {
+        sprintf(buf, "Your %s is missing!", query_name(success));
+        } else {
+        sprintf(buf, "Your pack feels strangely lighter.");
+        }
+        new_draw_info(NDI_UNIQUE, 0,op,buf);
+        if (!success) {
+        if (who->invisible) {
+            sprintf(buf, "you feel itchy fingers getting at your pack.");
+        } else {
+            sprintf(buf, "%s looks very shifty.", query_name(who));
+        }
+        new_draw_info(NDI_UNIQUE, 0,op,buf);
+        }
+    } /* else stealing from another player */
+    /* play_sound("stop! thief!"); kindofthing */
+    } /* if you weren't 100% successful */
+    return success? 1:0;
+}
+
+
+int steal(object* op, int dir, object *skill)
+{
+    object *tmp, *next;
+    sint16 x, y;
+    mapstruct *m;
+    int mflags;
+
+    x = op->x + freearr_x[dir];
+    y = op->y + freearr_y[dir];
+
+    if(dir == 0) {
+    /* Can't steal from ourself! */
     return 0;
     }
 
-    /* it's already allied! */
-    if(QUERY_FLAG(tmp,FLAG_FRIENDLY)&&(tmp->attack_movement==PETMOVE)){
-    if(get_owner(tmp)==pl) {
-        new_draw_info(NDI_UNIQUE, 0,pl,
-              "Your follower loves your speech.\n");
-        return 0;
-    } else if (skill->level > tmp->level) {
-        /* you steal the follower.  Perhaps we should really look at the
-         * level of the owner above?
-         */
-        set_owner(tmp,pl);
-        new_draw_info_format(NDI_UNIQUE, 0,pl,
-         "You convince the %s to follow you instead!\n",
-         query_name(tmp));
-        /* Abuse fix - don't give exp since this can otherwise
-         * be used by a couple players to gets lots of exp.
-         */
-        return 0;
-    } else {
-        /* In this case, you can't steal it from the other player */
-        return 0;
-    }
-    } /* Creature was already a pet of someone */
+    m = op->map;
+    mflags = get_map_flags(m, &m ,x,y, &x, &y);
+    /* Out of map - can't do it.  If nothing alive on this space,
+     * don't need to look any further.
+     */
+    if ((mflags & P_OUT_OF_MAP) || !(mflags & P_IS_ALIVE))
+    return 0;
 
-    chance=skill->level*2+(pl->stats.Cha-2*tmp->stats.Int)/2;
+    /* If player can't move onto the space, can't steal from it. */
+    if (OB_TYPE_MOVE_BLOCK(op, GET_MAP_MOVE_BLOCK(m, x, y)))
+    return 0;
 
-    /* Ok, got a 'sucker' lets try to make them a follower */
-    if(chance>0 && tmp->level<(random_roll(0, chance-1, pl, PREFER_HIGH)-1)) {
-    new_draw_info_format(NDI_UNIQUE, 0,pl,
-         "You convince the %s to become your follower.\n",
-         query_name(tmp));
+    /* Find the topmost object at this spot */
+    for(tmp = get_map_ob(m,x,y);
+    tmp != NULL && tmp->above != NULL;
+        tmp = tmp->above);
 
-    set_owner(tmp,pl);
-    tmp->stats.exp = 0;
-    add_friendly_object(tmp);
-    SET_FLAG(tmp,FLAG_FRIENDLY);
-    tmp->attack_movement = PETMOVE;
-    return calc_skill_exp(pl,tmp, skill);
+    /* For all the stacked objects at this point, attempt a steal */
+    for(; tmp != NULL; tmp = next) {
+    next = tmp->below;
+    /* Minor hack--for multi square beings - make sure we get
+     * the 'head' coz 'tail' objects have no inventory! - b.t.
+     */
+    if (tmp->head) tmp=tmp->head;
+
+    if(tmp->type!=PLAYER && !QUERY_FLAG(tmp, FLAG_MONSTER)) continue;
+
+    /* do not reveal hidden DMs */
+    if (tmp->type == PLAYER && QUERY_FLAG(tmp, FLAG_WIZ) && tmp->contr->hidden) continue;
+    if (attempt_steal(tmp, op, skill)) {
+        if (tmp->type==PLAYER) /* no xp for stealing from another player */
+        return 0;
+
+        /* no xp for stealing from pets (of players) */
+        if (QUERY_FLAG(tmp, FLAG_FRIENDLY) && tmp->attack_movement == PETMOVE) {
+        object *owner = get_owner(tmp);
+        if (owner != NULL && owner->type == PLAYER)
+            return 0;
+        }
+
+        return (calc_skill_exp(op,tmp, skill));
     }
-    /* Charm failed.  Creature may be angry now */
-    else if((skill->level+((pl->stats.Cha-10)/2)) < random_roll(1, 2*tmp->level, pl, PREFER_LOW)) {
-    new_draw_info_format(NDI_UNIQUE, 0,pl,
-          "Your speech angers the %s!\n",query_name(tmp));
-    if(QUERY_FLAG(tmp,FLAG_FRIENDLY)) {
-        CLEAR_FLAG(tmp,FLAG_FRIENDLY);
-        remove_friendly_object(tmp);
-        tmp->attack_movement = 0;   /* needed? */
     }
-    CLEAR_FLAG(tmp,FLAG_UNAGGRESSIVE);
-    }
-    return 0;   /* Fall through - if we get here, we didn't charm anything */
+    return 0;
 }
 EoI
 }
@@ -1695,7 +1820,6 @@ _debug_stdalone "_sing_and_steal_around_stdalone:$*"
 while :;
 do
 
-#_sleep
 one=$((one+1))
 
 [ "$DIRECTION_OPT" ] && _number_to_direction_stdalone $DIRECTION_OPT || _set_next_direction_stdalone
@@ -1723,13 +1847,9 @@ _check_hp_and_return_home_stdalone $HP
 fi
 
 _say_script_time_stdalone
-#_sleep_stdalone
-#_set_next_direction_stdalone_stdalone
 
 done
 }
-
-
 
 
 # MAIN

@@ -19,8 +19,7 @@ MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 
 _say_help_stdalone(){
 _draw_stdalone 6  "$MY_BASE"
-_draw_stdalone 7  "Script to throw weapon killing monsters"
-_draw_stdalone 7  "by skill throwing."
+_draw_stdalone 7  "Script to level up skill hiding."
 _draw_stdalone 2  "To be used in the crossfire roleplaying game client."
 _draw_stdalone 6  "Syntax:"
 _draw_stdalone 7  "$0 <<NUMBER>> <<Options>>"
@@ -39,8 +38,7 @@ exit ${1:-2}
 
 _say_help(){
 _draw 6  "$MY_BASE"
-_draw 7  "Script to throw weapon killing monsters"
-_draw 7  "by skill throwing."
+_draw 7  "Script to level up skill hiding."
 _draw 2  "To be used in the crossfire roleplaying game client."
 _draw 6  "Syntax:"
 _draw 7  "$0 <<NUMBER>> <<Options>>"
@@ -778,6 +776,196 @@ esac
 DIRECTION_NUMBER=$DIRN
 }
 
+_check_food_level_stdalone(){
+_debug_stdalone "_check_food_level_stdalone:$*"
+
+test "$*" && MIN_FOOD_LEVEL="$@"
+MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
+MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-300}
+
+local FOOD_LVL=''
+local REPLY
+
+while :;
+do
+
+_request_stat_hp_stdalone # FOOD_LVL
+
+if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
+ #_eat_food_from_inventory_stdalone
+ _cast_create_food_and_eat_stdalone $EAT_FOOD || _eat_food_from_inventory_stdalone $EAT_FOOD
+ _request_stat_hp_stdalone
+  break
+else true
+fi
+
+test "$FOOD_LVL" && break
+
+sleep 0.1
+done
+}
+
+_eat_food_from_inventory_stdalone(){
+_debug_stdalone "_eat_food_from_inventory_stdalone:$*"
+
+local lEAT_FOOD="${@:-$EAT_FOOD}"
+lEAT_FOOD=${lEAT_FOOD:-"$FOOD_DEF"}
+test "$lEAT_FOOD" || return 254
+
+#_check_food_in_inventory_stdalone ## Todo: check if food is in INV
+_check_have_item_in_inventory_stdalone $lEAT_FOOD && _is_stdalone 1 1 apply $lEAT_FOOD
+#_is_stdalone 1 1 apply $lEAT_FOOD
+}
+
+_check_have_item_in_inventory_stdalone(){
+_debug_stdalone "_check_have_item_in_inventory_stdalone:$*"
+
+local oneITEM oldITEM ITEMS ITEMSA lITEM
+lITEM=${*:-"$ITEM"}
+test "$lITEM" || return 254
+
+TIMEB=`date +%s`
+
+unset oneITEM oldITEM ITEMS ITEMSA
+
+_empty_message_stream_stdalone
+echo request items inv
+while :;
+do
+read -t ${TMOUT:-1} oneITEM
+ _log_stdalone "_check_have_item_in_inventory_stdalone:$oneITEM"
+ _debug_stdalone "$oneITEM"
+
+ case $oneITEM in
+ $oldITEM|'') break 1;;
+ *"$lITEM"*|*"${lITEM// /?*}"*) _draw_stdalone 7 "Got that item $lITEM in inventory.";;
+ *scripttell*break*)  break ${oneITEM##*?break};;
+ *scripttell*exit*)   _exit_stdalone 1 $oneITEM;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
+ *) :;;
+ esac
+ ITEMS="${ITEMS}${oneITEM}\n"
+ oldITEM="$oneITEM"
+sleep 0.01
+done
+unset oldITEM oneITEM
+
+
+TIMEE=`date +%s`
+TIME=$((TIMEE-TIMEB))
+_debug_stdalone 4 "Fetching Inventory List: Elapsed $TIME sec."
+
+echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
+}
+
+_request_stat_hp_stdalone(){
+#Return hp,maxhp,sp,maxsp,grace,maxgrace,food
+
+#test "$*" || return 254
+
+_empty_message_stream_stdalone
+
+unset HP MHP SP MSP GR MGR FOOD_LVL REST
+echo request stat hp
+read -t ${TMOUT:-1} r s hp HP MHP SP MSP GR MGR FOOD_LVL REST
+#request stat hp %d %d %d %d %d %d %d\n",
+#cpl.stats.hp,cpl.stats.maxhp,cpl.stats.sp,cpl.stats.maxsp,cpl.stats.grace,cpl.stats.maxgrace,cpl.stats.food)
+ _log_stdalone "$REQUEST_LOG" "_request_stat_hp_stdalone $*:$HP $MHP $SP $MSP $GR $MGR $FOOD_LVL $REST"
+ _msg_stdalone 7 "$HP $MHP $SP $MSP $GR $MGR $FOOD_LVL $REST"
+
+MAXHP=$MHP
+MAXSP=$MSP
+MAXGR=$MGR
+test "$HP" -a "$MHP" -a "$SP" -a "$MSP" -a "$GR" -a "$MGR" -a "$FOOD_LVL"
+}
+
+_cast_create_food_and_eat_stdalone(){
+_debug_stdalone "_cast_create_food_and_eat_stdalone:$*"
+
+local lEAT_FOOD BUNGLE
+
+lEAT_FOOD="${*:-$EAT_FOOD}"
+lEAT_FOOD=${lEAT_FOOD:-"$FOOD_DEF"}
+lEAT_FOOD=${lEAT_FOOD:-food}
+
+ _set_pickup_stdalone 0
+
+_unwatch_stdalone $DRAWINFO
+_empty_message_stream_stdalone
+_watch_stdalone $DRAWINFO
+
+unset HAVE_NOT_SPELL
+# TODO: Check MANA
+_is_stdalone 1 1 cast create food $lEAT_FOOD
+while :;
+ do
+ unset REPLY
+ read -t $TMOUT
+ _log_stdalone "_cast_create_food_and_eat_stdalone:$REPLY"
+ _msg_stdalone 7 "$REPLY"
+ case $REPLY in
+ *Cast*what*spell*) HAVE_NOT_SPELL=1; break 1;; #Cast what spell?  Choose one of:
+ *ready*the*spell*)  break 1;;                  #You ready the spell create food
+ '')                 break 1;;
+ *scripttell*break*) break ${REPLY##*?break};;
+ *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
+ *) :;;
+ esac
+sleep 0.01
+done
+
+test "$HAVE_NOT_SPELL" && return 253
+
+_empty_message_stream_stdalone
+
+while :;
+do
+_is_stdalone 1 1 fire_stop # precaution
+sleep 0.1
+
+ while :;
+ do
+  _check_mana_for_create_food_stdalone && break
+  sleep 10
+ done
+
+# _check_mana_for_create_food_stdalone returns early
+_unwatch_stdalone $DRAWINFO
+_empty_message_stream_stdalone
+sleep 0.2
+
+_watch_stdalone $DRAWINFO
+_is_stdalone 1 1 fire center ## TODO: handle bungling the spell
+_is_stdalone 1 1 fire_stop
+
+ while :; do
+  unset BUNGLE
+  read -t $TMOUT BUNGLE
+  _log_stdalone "_cast_create_food_and_eat_stdalone:$BUNGLE"
+  _msg_stdalone 7 "BUNGLE=$BUNGLE"
+  case $BUNGLE in
+  *bungle*|*fumble*) break 1;;
+  '') break 2;;
+  *scripttell*break*) break ${BUNGLE##*?break};;
+  *scripttell*exit*)  _exit_stdalone 1 $BUNGLE;;
+  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
+  *) :;;
+  esac
+ sleep 0.01
+ done
+
+sleep 0.2
+done
+
+_unwatch_stdalone $DRAWINFO
+_is_stdalone 1 1 fire_stop
+_empty_message_stream_stdalone
+_sleep_stdalone
+
+_check_if_on_item_stdalone -l ${lEAT_FOOD:-haggis} && _is_stdalone 1 1 apply ## TODO: check if food is there on tile
+_empty_message_stream_stdalone
+}
 
 
 # loop to
@@ -785,6 +973,103 @@ DIRECTION_NUMBER=$DIRN
 # walk around
 # until hide expires
 
+_move_back_and_forth_stdalone(){  ##+++2018-01-08
+_debug_stdalone "_move_back_and_forth_stdalone:$*"
+STEPS=${1:-1}
+
+#test "$DIRB" -a "$DIRF" || return 0
+test "$DIRB" || return 0
+for i in `seq 1 1 $STEPS`
+do
+_is_stdalone 1 1 $DIRB
+_sleep_stdalone
+done
+
+if test "$2"; then shift
+ while test "$1";
+ do
+ #oIFS=$IFS
+ #IFS=';'
+ COMMANDS=`echo "$1" | tr ';' '\n'`
+ test "$COMMANDS" || break 1
+  echo "$COMMANDS" | while read line
+  do
+  $line
+  sleep 0.1
+  done
+
+ #IFS=$oIFS
+ shift
+ sleep 0.1
+ done
+fi
+
+test "$DIRF" || return 0
+for i in `seq 1 1 $STEPS`
+do
+_is_stdalone 1 1 $DIRF
+_sleep_stdalone
+done
+}
+
+_use_skill_hiding(){
+_debug_stdalone "_use_skill_hiding:$*"
+
+local lRV=
+
+while :;
+do
+_empty_message_stream_stdalone
+_is_stdalone 1 1 use_skill hiding
+
+ while :; do unset REPLY
+ read -t $TMOUT
+ _log_stdalone "_hide_and_walk_around_stdalone:$REPLY"
+ _debug_stdalone "$REPLY"
+
+ case $REPLY in
+ *'You fail to conceal yourself.'*)             break 1;;
+ *'You hide in the shadows.'*)           lRV=0; break 2;;
+ *'You moved out of hiding! You are visible!'*) break 1;;
+ *'Your invisibility spell runs out.'*)         break 1;;
+ *'You see '*'noticing your position.'*) lRV=0; break 2;;
+
+ *scripttell*break*)    break ${REPLY##*?break};;
+ *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
+ '') :;;
+ *) :;;
+ esac
+
+ sleep 0.01
+ done
+
+done
+
+return ${lRV:-1}
+}
+
+_hide_and_walk_around_stdalone(){
+_debug_stdalone "_hide_and_walk_around_stdalone:$*"
+
+while :;
+do
+one=$((one+1))
+
+_use_skill_hiding
+_move_back_and_forth_stdalone $MOVE_STEPS
+
+case $NUMBER in $one) break;; esac
+
+if _check_counter_stdalone; then
+_check_food_level_stdalone
+_check_hp_and_return_home_stdalone $HP
+fi
+
+_say_script_time_stdalone
+
+done
+}
 
 # MAIN
 
