@@ -361,6 +361,7 @@ exit ${RV:-0}
 _just_exit(){
 echo draw 3 "Exiting $0."
 echo unwatch
+beep -l 1000 -f 700
 exit ${1:-0}
 }
 

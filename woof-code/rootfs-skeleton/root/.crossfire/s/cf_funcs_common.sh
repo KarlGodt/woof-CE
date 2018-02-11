@@ -405,8 +405,9 @@ exit ${RV:-0}
 }
 
 _just_exit(){
-echo draw 3 "Exiting $0."
+_draw 3 "Exiting $0."
 _unwatch
+_beep_std
 exit ${1:-0}
 }
 
@@ -1158,7 +1159,7 @@ read -t ${TMOUT:-1} oneITEM
  $oldITEM|'') break 1;;
  *"$lITEM"*) _draw 7 "Got that item $lITEM in inventory.";;
  *scripttell*break*)  break ${oneITEM##*?break};;
- *scripttell*exit*)   _exit 1 $REPLY;;
+ *scripttell*exit*)   _exit 1 $oneITEM;;
  *'YOU HAVE DIED.'*) _just_exit;;
  esac
  ITEMS="${ITEMS}${oneITEM}\n"

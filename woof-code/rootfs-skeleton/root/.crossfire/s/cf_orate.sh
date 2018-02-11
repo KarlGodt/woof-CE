@@ -7,6 +7,7 @@ VERSION=1.1 # cleanups and add missing calls to
 VERSION=2.0 # made it standalone
 VERSION=2.1 # bugfixes and request enhancements 2018-02-09
 VERSION=2.1.1 # bugfix if -D option used, exit if "YOU HAVE DIED." msg
+VERSION=2.2 # add -A -B -Z parameters, variable name typo fixes
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -39,6 +40,9 @@ _draw_stdalone 10 "Simple number as first parameter:Just make NUMBER loop rounds
 _draw_stdalone 10 "-C # :like above, just make NUMBER loop rounds."
 _draw_stdalone 9  "-O # :Number of oratory attempts." #, default $ORATORY_ATTEMPTS_DEFAULT"
 _draw_stdalone 9  "-S # :Number of singing attempts." #, default $SINGING_ATTEMPTS_DEFAULT"
+_draw_stdalone 9  "-A # :Number of attack attempts per spot."
+_draw_stdalone 9  "-B : brace character."
+_draw_stdalone 9  "-Z : turn anti-clockwise."
 _draw_stdalone 8  "-D word :Direction to sing and orate to,"
 _draw_stdalone 8  " as n, ne, e, se, s, sw, w, nw."
 _draw_stdalone 8  " If no direction, turns clockwise all around on the spot."
@@ -60,6 +64,9 @@ _draw 10 "Simple number as first parameter:Just make NUMBER loop rounds."
 _draw 10 "-C # :like above, just make NUMBER loop rounds."
 _draw 9  "-O # :Number of oratory attempts." #, default $ORATORY_ATTEMPTS_DEFAULT"
 _draw 9  "-S # :Number of singing attempts." #, default $SINGING_ATTEMPTS_DEFAULT"
+_draw 9  "-A # :Number of attack attempts per spot."
+_draw 9  "-B : brace character."
+_draw 9  "-Z : turn anti-clockwise."
 _draw 8  "-D word :Direction to sing and orate to,"
 _draw 8  " as n, ne, e, se, s, sw, w, nw."
 _draw 8  " If no direction, turns clockwise all around on the spot."
@@ -272,8 +279,9 @@ exit ${RV:-0}
 }
 
 _just_exit_stdalone(){
-echo draw 3 "Exiting $0."
+_draw_stdalone 3 "Exiting $0."
 _unwatch_stdalone
+_beep_std_stdalone
 exit ${1:-0}
 }
 
@@ -771,7 +779,7 @@ read -t ${TMOUT:-1} oneITEM
 
  case $oneITEM in
  $oldITEM|'') break 1;;
- *"$lITEM"*|*"${lITEM// /?*}"*) _draw 7 "Got that item $lITEM in inventory.";;
+ *"$lITEM"*|*"${lITEM// /?*}"*) _draw_stdalone 7 "Got that item $lITEM in inventory.";;
  *scripttell*break*)  break ${oneITEM##*?break};;
  *scripttell*exit*)   _exit_stdalone 1 $oneITEM;;
  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
@@ -1196,13 +1204,16 @@ esac
 # O # :Oratory attempts
 # S # :Singing attempts
 # d   :debugging output
-while getopts C:O:S:D:dVhabdefgijklmnopqrstuvwxyzABEFGHIJKLMNPQRTUWXYZ oneOPT
+while getopts A:BC:O:S:D:ZdVhabdefgijklmnopqrstuvwxyzEFGHIJKLMNPQRTUWXY oneOPT
 do
 case $oneOPT in
+A) ATTACKS_SPOT=$OPTARG;;
+B) DO_BRACE=1;;
 C) NUMBER=$OPTARG;;
 D) DIRECTION_OPT=$OPTARG;;
 O) ORATORY_ATTEMPTS=${OPTARG:-$ORATORY_ATTEMPTS_DEFAULT};;
 S) SINGING_ATTEMPTS=${OPTARG:-$SINGING_ATTEMPTS_DEFAULT};;
+Z) DO_CLOCKWISE=1;;
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
 h) _say_help_stdalone 0;;
 V) _say_version_stdalone 0;;
@@ -1238,13 +1249,16 @@ esac
 # O # :Oratory attempts
 # S # :Singing attempts
 # d   :debugging output
-while getopts C:O:S:D:dVhabdefgijklmnopqrstuvwxyzABEFGHIJKLMNPQRTUWXYZ oneOPT
+while getopts A:BC:O:S:D:ZdVhabdefgijklmnopqrstuvwxyzEFGHIJKLMNPQRTUWXY oneOPT
 do
 case $oneOPT in
+A) ATTACKS_SPOT=$OPTARG;;
+B) DO_BRACE=1;;
 C) NUMBER=$OPTARG;;
 D) DIRECTION_OPT=$OPTARG;;
 O) ORATORY_ATTEMPTS=${OPTARG:-$ORATORY_ATTEMPTS_DEFAULT};;
 S) SINGING_ATTEMPTS=${OPTARG:-$SINGING_ATTEMPTS_DEFAULT};;
+Z) DO_CLOCKWISE=1;;
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
 h) _say_help 0;;
 V) _say_version 0;;
@@ -1502,6 +1516,20 @@ return ${lRV:-3}
 _set_next_direction_stdalone(){
 _debug_stdalone "_set_next_direction_stdalone:$*:$DIRN"
 
+if test "$DO_CLOCKWISE"; then
+ DIRN=$((DIRN-1))
+ test "$DIRN" -le 0 && DIRN=8
+else
+ DIRN=$((DIRN+1))
+ test "$DIRN" -ge 9 && DIRN=1
+fi
+_number_to_direction_stdalone $DIRN
+_draw_stdalone 2 "Will turn to direction $DIRECTION .."
+}
+
+__set_next_direction_stdalone(){
+_debug_stdalone "_set_next_direction_stdalone:$*:$DIRN"
+
 DIRN=$((DIRN-1))
 test "$DIRN" -le 0 && DIRN=8
 
@@ -1509,7 +1537,7 @@ _number_to_direction_stdalone $DIRN
 _draw_stdalone 2 "Will turn to direction $DIRECTION .."
 }
 
-__set_next_direction_stdalone(){
+___set_next_direction_stdalone(){
 _debug_stdalone "__set_next_direction_stdalone:$*:$DIRN"
 
 DIRN=$((DIRN+1))
@@ -1650,7 +1678,7 @@ _watch_stdalone $DRAWINFO
   case $REPLY in
   '') lRV=0; break 2;;
   *'You calm down the '*) CALMS=$((CALMS+1)); lRV=0;;
-  *"Too bad the "*"isn't listening!"*) _kill_monster_stdalone; break 1;;
+  *"Too bad the "*"isn't listening!"*) _kill_monster_stdalone $ATTACKS_SPOT; break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
   *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
   *'YOU HAVE DIED.'*) _just_exit_stdalone;;
@@ -1713,14 +1741,14 @@ local lRV=
 
   case $REPLY in
   #!FLAG_UNAGGRESSIVE && !FLAG_FRIENDLY
-  *'Too bad '*) _draw_stdalone 3 "Catched Too bad oratory"; break 2;; # try again singing the kobold isn't listening!
+  *'Too bad '*) _debug_stdalone 3 "Catched Too bad oratory"; break 2;; # try again singing the kobold isn't listening!
   #FLAG_FRIENDLY && PETMOVE && get_owner(tmp)==pl
   *'Your follower loves '*)          lRV=0; break 2;; # next creature or exit
   #FLAG_FRIENDLY && PETMOVE && (skill->level > tmp->level)
   *"You convince the "*" to follow you instead!"*)   FOLLOWS=$((FOLLOWS+1)); lRV=0; break 2;; # next monster
   *'You convince the '*' to become your follower.'*) FOLLOWS=$((FOLLOWS+1)); lRV=0; break 2;; # next monster
   #/* Charm failed. Creature may be angry now */ skill < random_roll
-  *"Your speech angers the "*) _draw_stdalone 3 "Catched Anger oratory";   break 2;;
+  *"Your speech angers the "*) _debug_stdalone 3 "Catched Anger oratory";   break 2;;
   #/* can't steal from other player */, /* Charm failed. Creature may not be angry now */
   '') break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
@@ -1737,7 +1765,7 @@ local lRV=
 
 _unwatch_stdalone $DRAWINFO
 _draw_stdalone 5 "With ${ORATORY_ATTEMPTS_DONE:-0} oratings you conceived ${FOLLOWS:-0} followers."
-#_sleep_stdalone
+_is_stdalone 1 1 showpets
 _debug_stdalone 3 "lRV=$lRV"
 return ${lRV:-1}
 }
@@ -1758,7 +1786,7 @@ case $? in
  0) _orate_to_monster_ready_skill_stdalone
   case $? in
   0) :;;
-  *) _kill_monster_stdalone;;
+  *) _kill_monster_stdalone $ATTACKS_SPOT;;
   esac
  ;;
  *) :;;
@@ -1800,7 +1828,7 @@ _direction_to_number_stdalone $DIRECTION_OPT
 _check_skill_available_stdalone singing || return 1
 _check_skill_available_stdalone oratory || return 1
 
-_brace_stdalone
+[ "$DO_BRACE" ] && _brace_stdalone
 _sing_and_orate_around_stdalone
 _unbrace_stdalone
 _say_end_msg_stdalone
@@ -1819,7 +1847,7 @@ _direction_to_number $DIRECTION_OPT
 _check_skill_available singing || return 1
 _check_skill_available oratory || return 1
 
-_brace
+[ "$DO_BRACE" ] && _brace
 _sing_and_orate_around
 _unbrace
 _say_end_msg

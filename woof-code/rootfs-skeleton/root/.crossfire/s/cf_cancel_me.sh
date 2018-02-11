@@ -129,8 +129,8 @@ echo request range
  case $tmpR in
  *"$lITEM"*) RANGE_ITEM_APPLIED=YES; lRV=0; break 2;;
  '')  break;;
- *scripttell*break*) break ${REPLY##*?break};;
- *scripttell*exit*)  _exit 1 $REPLY;;
+ *scripttell*break*) break ${tmpR##*?break};;
+ *scripttell*exit*)  _exit 1 $tmpR;;
  *'YOU HAVE DIED.'*) _just_exit;;
  esac
 

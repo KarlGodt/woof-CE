@@ -263,8 +263,9 @@ exit ${RV:-0}
 }
 
 _just_exit_stdalone(){
-echo draw 3 "Exiting $0."
+_draw_stdalone 3 "Exiting $0."
 _unwatch_stdalone
+_beep_std_stdalone
 exit ${1:-0}
 }
 
@@ -946,7 +947,7 @@ read -t ${TMOUT:-1} oneITEM
 
  case $oneITEM in
  $oldITEM|'') break 1;;
- *"$lITEM"*|*"${lITEM// /?*}"*) _draw 7 "Got that item $lITEM in inventory.";;
+ *"$lITEM"*|*"${lITEM// /?*}"*) _draw_stdalone 7 "Got that item $lITEM in inventory.";;
  *scripttell*break*)  break ${oneITEM##*?break};;
  *scripttell*exit*)   _exit_stdalone 1 $oneITEM;;
  *'YOU HAVE DIED.'*) _just_exit_stdalone;;

@@ -184,7 +184,7 @@ done
 unset dcnt line
 }
 
-_empty_message_stream_stdalone(){
+_empty_message_stream_stdalone(){ #unused
 local lREPLY
 while :;
 do

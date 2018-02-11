@@ -265,6 +265,7 @@ exit ${RV:-0}
 _just_exit_stdalone(){
 echo draw 3 "Exiting $0."
 _unwatch_stdalone
+_beep_std_stdalone
 exit ${1:-0}
 }
 
