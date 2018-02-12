@@ -6,6 +6,7 @@
 
 VERSION=0.0 # Initial version,
 VERSION=1.0 # release ready 2018-02-11
+VERSION=2.0 # made library cf_funcs_*.sh ready
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -13,6 +14,7 @@ MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 
 . $HOME/cf/s/cf_funcs_common.sh || exit 4
 . $HOME/cf/s/cf_funcs_food.sh   || exit 5
+. $HOME/cf/s/cf_funcs_move.sh   || exit 7
 . $HOME/cf/s/cf_funcs_skills.sh || exit 9
 . $HOME/cf/s/cf_funcs_fight.sh  || exit 10
 . $HOME/cf/s/cf_funcs_requests.sh || exit 12
@@ -1399,8 +1401,8 @@ _say_end_msg
 }
 
 
- _main_karate_stdalone "$@"
-#_main_karate_func "$@"
+#_main_karate_stdalone "$@"
+ _main_karate_func "$@"
 
 
 

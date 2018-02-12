@@ -12,7 +12,10 @@ local lRV=
 
 _empty_message_stream
 _watch $DRAWINFO
-_is 1 1 ready_skill punching  # force response, because when not changing
+case "$lSKILL" in
+punch*) _is 1 1 ready_skill ${SKILL_NOT_PUNCHING:-alchemy};;
+*)      _is 1 1 ready_skill punching;;  # force response, because when not changing
+esac
 _is 1 1 ready_skill "$lSKILL" # range attack, no message is printed
 
 while :; do unset REPLY

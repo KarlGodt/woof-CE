@@ -6,6 +6,7 @@
 
 VERSION=0.0 # Initial version
 VERSION=1.0 # release ready 2018-02-11
+VERSION=2.0 # made library cf_funcs_*.sh ready
 
 SKILL_NOT_PUNCHING=karate  #
 
@@ -15,6 +16,7 @@ MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 
 . $HOME/cf/s/cf_funcs_common.sh || exit 4
 . $HOME/cf/s/cf_funcs_food.sh   || exit 5
+. $HOME/cf/s/cf_funcs_move.sh   || exit 7
 . $HOME/cf/s/cf_funcs_skills.sh || exit 9
 . $HOME/cf/s/cf_funcs_fight.sh  || exit 10
 . $HOME/cf/s/cf_funcs_requests.sh || exit 12
@@ -67,7 +69,7 @@ exit ${1:-2}
 }
 
 _set_global_variables_stdalone(){
-LOGGING=${LOGGING:-''}  #bool, set to ANYTHING ie "1" to enable, empty to disable
+LOGGING=${LOGGING:-'1'}  #bool, set to ANYTHING ie "1" to enable, empty to disable
 #DEBUG=${DEBUG:-''}      #bool, set to ANYTHING ie "1" to enable, empty to disable
 MSGLEVEL=${MSGLEVEL:-6} #integer 1 emergency - 7 debug
 #case $MSGLEVEL in
@@ -1391,8 +1393,8 @@ _say_end_msg
 }
 
 
- _main_punch_stdalone "$@"
-#_main_punch_func "$@"
+#_main_punch_stdalone "$@"
+ _main_punch_func "$@"
 
 
 

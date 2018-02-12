@@ -43,8 +43,8 @@ esac
 DIRECTION_NUMBER=$DIRN
 }
 
-_set_next_direction(){ # clockwise
-_debug "_set_next_direction:$*:$DIRN"
+___set_next_direction(){ # clockwise
+_debug "___set_next_direction:$*:$DIRN"
 
 DIRN=$((DIRN-1))
 test "$DIRN" -le 0 && DIRN=8
@@ -59,6 +59,20 @@ _debug "__set_next_direction:$*:$DIRN"
 DIRN=$((DIRN+1))
 test "$DIRN" -ge 9 && DIRN=1
 
+_number_to_direction $DIRN
+_draw 2 "Will turn to direction $DIRECTION .."
+}
+
+_set_next_direction(){
+_debug_stdalone "_set_next_direction:$*:$DIRN"
+
+if test "$DO_CLOCKWISE"; then
+ DIRN=$((DIRN-1))
+ test "$DIRN" -le 0 && DIRN=8
+else
+ DIRN=$((DIRN+1))
+ test "$DIRN" -ge 9 && DIRN=1
+fi
 _number_to_direction $DIRN
 _draw 2 "Will turn to direction $DIRECTION .."
 }

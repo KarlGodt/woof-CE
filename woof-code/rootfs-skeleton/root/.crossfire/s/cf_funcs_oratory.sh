@@ -18,7 +18,7 @@ case $? in
  0) _orate_to_monster_ready_skill
   case $? in
   0) :;;
-  *) _kill_monster;;
+  *) _kill_monster_move;;
   esac
  ;;
  *) :;;
@@ -98,7 +98,7 @@ _watch $DRAWINFO
   case $REPLY in
   '') lRV=0; break 2;;
   *'You calm down the '*) CALMS=$((CALMS+1)); lRV=0;;
-  *"Too bad the "*"isn't listening!"*) _kill_monster; break 1;;
+  *"Too bad the "*"isn't listening!"*) _kill_monster_move; break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
   *scripttell*exit*)    _exit 1 $REPLY;;
   *'YOU HAVE DIED.'*) _just_exit;;
@@ -161,14 +161,14 @@ local lRV=
 
   case $REPLY in
   #!FLAG_UNAGGRESSIVE && !FLAG_FRIENDLY
-  *'Too bad '*) _draw 3 "Catched Too bad oratory"; break 2;; # try again singing the kobold isn't listening!
+  *'Too bad '*) _debug 3 "Catched Too bad oratory"; break 2;; # try again singing the kobold isn't listening!
   #FLAG_FRIENDLY && PETMOVE && get_owner(tmp)==pl
   *'Your follower loves '*)          lRV=0; break 2;; # next creature or exit
   #FLAG_FRIENDLY && PETMOVE && (skill->level > tmp->level)
   *"You convince the "*" to follow you instead!"*)   FOLLOWS=$((FOLLOWS+1)); lRV=0; break 2;; # next monster
   *'You convince the '*' to become your follower.'*) FOLLOWS=$((FOLLOWS+1)); lRV=0; break 2;; # next monster
   #/* Charm failed. Creature may be angry now */ skill < random_roll
-  *"Your speech angers the "*) _draw 3 "Catched Anger oratory";   break 2;;
+  *"Your speech angers the "*) _debug 3 "Catched Anger oratory";   break 2;;
   #/* can't steal from other player */, /* Charm failed. Creature may not be angry now */
   '') break 1;;
   *scripttell*break*)     break ${REPLY##*?break};;
@@ -185,7 +185,7 @@ local lRV=
 
 _unwatch $DRAWINFO
 _draw 5 "With ${ORATORY_ATTEMPTS_DONE:-0} oratings you conceived ${FOLLOWS:-0} followers."
-#_sleep
+_is 1 1 showpets
 _debug 3 "lRV=$lRV"
 return ${lRV:-1}
 }
