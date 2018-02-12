@@ -5,7 +5,7 @@
 # script to level up the skill hiding
 
 VERSION=0.0 # Initial version,
-
+VERSION=1.0 # first reliable version 2018-02-12
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -26,8 +26,8 @@ _draw_stdalone 7  "$0 <<NUMBER>> <<Options>>"
 _draw_stdalone 8  "Options:"
 _draw_stdalone 10 "Simple number as first parameter:Just make NUMBER loop rounds."
 _draw_stdalone 10 "-C # :like above, just make NUMBER loop rounds."
-#_draw_stdalone 9  "-O # :Number of oratory attempts." #, default $ORATORY_ATTEMPTS_DEFAULT"
-#_draw_stdalone 9  "-S # :Number of singing attempts." #, default $SINGING_ATTEMPTS_DEFAULT"
+_draw_stdalone 9  "-S # :Number of steps walking." #, default $SINGING_ATTEMPTS_DEFAULT"
+_draw_stdalone 9  "-Y : Support mode to run in background."
 _draw_stdalone 8  "-D word :Direction to throw to,"
 _draw_stdalone 8  " as n, ne, e, se, s, sw, w, nw."
 _draw_stdalone 8  " If no direction, turns clockwise all around on the spot."
@@ -45,8 +45,8 @@ _draw 7  "$0 <<NUMBER>> <<Options>>"
 _draw 8  "Options:"
 _draw 10 "Simple number as first parameter:Just make NUMBER loop rounds."
 _draw 10 "-C # :like above, just make NUMBER loop rounds."
-#_draw 9  "-O # :Number of oratory attempts." #, default $ORATORY_ATTEMPTS_DEFAULT"
-#_draw 9  "-S # :Number of singing attempts." #, default $SINGING_ATTEMPTS_DEFAULT"
+_draw 9  "-S # :Number of steps walking." #, default $SINGING_ATTEMPTS_DEFAULT"
+_draw 9  "-Y : Support mode to run in background."
 _draw 8  "-D word :Direction to sing and orate to,"
 _draw 8  " as n, ne, e, se, s, sw, w, nw."
 _draw 8  " If no direction, turns clockwise all around on the spot."
@@ -967,6 +967,103 @@ _check_if_on_item_stdalone -l ${lEAT_FOOD:-haggis} && _is_stdalone 1 1 apply ## 
 _empty_message_stream_stdalone
 }
 
+#** we may get attacked and die **#
+_check_hp_and_return_home_stdalone(){
+_debug_stdalone "_check_hp_and_return_home_stdalone:$*"
+
+local currHP currHPMin
+currHP=${1:-$HP}
+currHPMin=${2:-$HP_MIN_DEF}
+currHPMin=${currHPMin:-$((MHP/10))}
+
+unset HP
+_msg_stdalone 7 "currHP=$currHP currHPMin=$currHPMin"
+if test "$currHP" -le ${currHPMin:-20}; then
+_emergency_exit_stdalone
+fi
+}
+
+_do_parameters_stdalone(){
+_debug_stdalone "_do_parameters_stdalone:$*"
+
+# dont forget to pass parameters when invoking this function
+test "$*" || return 0
+
+case $1 in
+*help)    _say_help_stdalone 0;;
+*version) _say_version_stdalone 0;;
+--?*)  _exit_stdalone 3 "No other long options than help and version recognized.";;
+--*)   _exit_stdalone 3 "Unhandled first parameter '$1' .";;
+-?*) :;;
+[0-9]*) NUMBER=$1
+        test "${NUMBER//[[:digit:]]/}" && _exit_stdalone 3 "NUMBER '$1' is not an integer digit."
+        shift;;
+*) _exit_stdalone 3 "Unknown first parameter '$1' .";;
+esac
+
+# C # :Count loop rounds
+
+# d   :debugging output
+while getopts C:D:S:YdVhabdefgijklmnopqrstuvwxyzABEFGHIJKLMNOPQRTUWXZ oneOPT
+do
+case $oneOPT in
+C) NUMBER=$OPTARG;;
+D) DIRECTION_OPT=$OPTARG;;
+S) MOVE_STEPS=$OPTARG;;
+Y) SUPPORT_MODE=1;;
+d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
+h) _say_help_stdalone 0;;
+V) _say_version_stdalone 0;;
+
+'') _draw_stdalone 2 "FIXME: Empty positional parameter ...?";;
+*) _draw_stdalone 3 "Unrecognized parameter '$oneOPT' .";;
+esac
+
+sleep 0.1
+done
+
+}
+
+_do_parameters(){
+_debug "_do_parameters:$*"
+
+# dont forget to pass parameters when invoking this function
+test "$*" || return 0
+
+case $1 in
+*help)    _say_help 0;;
+*version) _say_version 0;;
+--?*)  _exit 3 "No other long options than help and version recognized.";;
+--*)   _exit 3 "Unhandled first parameter '$1' .";;
+-?*) :;;
+[0-9]*) NUMBER=$1
+        test "${NUMBER//[[:digit:]]/}" && _exit 3 "NUMBER '$1' is not an integer digit."
+        shift;;
+*) _exit 3 "Unknown first parameter '$1' .";;
+esac
+
+# C # :Count loop rounds
+
+# d   :debugging output
+while getopts C:D:S:YdVhabdefgijklmnopqrstuvwxyzABEFGHIJKLMNOPQRTUWXZ oneOPT
+do
+case $oneOPT in
+C) NUMBER=$OPTARG;;
+D) DIRECTION_OPT=$OPTARG;;
+S) MOVE_STEPS=$OPTARG;;
+Y) SUPPORT_MODE=1;;
+d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
+h) _say_help 0;;
+V) _say_version 0;;
+
+'') _draw 2 "FIXME: Empty positional parameter ...?";;
+*) _draw 3 "Unrecognized parameter '$oneOPT' .";;
+esac
+
+sleep 0.1
+done
+
+}
 
 # loop to
 # hide,
@@ -1012,19 +1109,28 @@ _sleep_stdalone
 done
 }
 
-_use_skill_hiding(){
-_debug_stdalone "_use_skill_hiding:$*"
+#/* HIDE CODE. The user becomes undetectable (not just 'invisible') for
+# * a short while (success and duration dependant on player SK_level,
+# * dexterity, [ NOT charisma ], terrain, and map difficulty).
+# * Players have a good chance of becoming 'unhidden' if they move
+# * and like invisiblity will be come visible if they attack
+# * Implemented by b.t. (thomas@astro.psu.edu)
+# * July 7, 1995 - made hiding possible for monsters. -b.t.
+# */
+_use_skill_hiding_stdalone(){
+_debug_stdalone "_use_skill_hiding_stdalone:$*"
 
 local lRV=
 
 while :;
 do
 _empty_message_stream_stdalone
+_watch_stdalone
 _is_stdalone 1 1 use_skill hiding
 
  while :; do unset REPLY
  read -t $TMOUT
- _log_stdalone "_hide_and_walk_around_stdalone:$REPLY"
+ _log_stdalone "_use_skill_hiding_stdalone:$REPLY"
  _debug_stdalone "$REPLY"
 
  case $REPLY in
@@ -1033,11 +1139,13 @@ _is_stdalone 1 1 use_skill hiding
  *'You moved out of hiding! You are visible!'*) break 1;;
  *'Your invisibility spell runs out.'*)         break 1;;
  *'You see '*'noticing your position.'*) lRV=0; break 2;;
-
+ *'You are as hidden as you can get.'*)  lRV=0; break 2;;
+ *"You don't need to hide while invisible!"*) lRV=0; break 2;;
+ *"Your attempt to hide breaks the invisibility spell!"*) break 1;;
  *scripttell*break*)    break ${REPLY##*?break};;
  *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
- '') :;;
+ '') break 1;;  # if(terrain<-10) /* not enough cover here */
  *) :;;
  esac
 
@@ -1046,6 +1154,7 @@ _is_stdalone 1 1 use_skill hiding
 
 done
 
+_unwatch_stdalone
 return ${lRV:-1}
 }
 
@@ -1056,8 +1165,10 @@ while :;
 do
 one=$((one+1))
 
-_use_skill_hiding
-_move_back_and_forth_stdalone $MOVE_STEPS
+_use_skill_hiding_stdalone
+if [ "$SUPPORT_MODE" ]; then sleep 5
+else _move_back_and_forth_stdalone $MOVE_STEPS
+fi
 
 case $NUMBER in $one) break;; esac
 
