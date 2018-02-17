@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# 2018-01-10 : Code overhaul,
-# made duplicate code in functions.
-
-export PATH=/bin:/usr/bin
+VERSION=0.0
+VERSION=1.0 # posted on forum.metalforge.net
+VERSION=2.0 # 2018-01-10 code overhaul now using functions, posted on wiki.cross-fire.org
+VERSION=2.1 # 2018-02-17 more code overhauling
 
 MARK_ITEM='icecube'
 ITEM='flint and steel'
@@ -14,14 +14,22 @@ MSGLEVEL=7
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 
-#test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-#_set_global_variables "$@"
-
 test -f "${MY_SELF%/*}"/cf_funcs_common.sh && . "${MY_SELF%/*}"/cf_funcs_common.sh
 _set_global_variables "$@"
 
 # *** Override any VARIABLES in cf_functions.sh *** #
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+
+_say_help(){
+_draw 5 "$MY_BASE"
+_draw 5 "Script to melt icecubes in inventory."
+_draw 2  "To be used in the crossfire roleplaying game client."
+_draw 5 "Syntax:"
+_draw 5 "script $0 <<number>>"
+_draw 5 "For example: 'script $0 5'"
+_draw 5 "will issue 5 times mark icecube and apply flint and steel."
+        exit 0
+}
 
 # *** Here begins program *** #
 _say_start_msg "$@"
@@ -33,27 +41,14 @@ do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help"*)
-
-_draw 5 "$MY_BASE"
-_draw 5 "Script to melt icecubes in inventory."
-_draw 2  "To be used in the crossfire roleplaying game client."
-_draw 5 "Syntax:"
-_draw 5 "script $0 <<number>>"
-_draw 5 "For example: 'script $0 5'"
-_draw 5 "will issue 5 times mark icecube and apply flint and steel."
-        exit 0
-;;
+case "$PARAM_1" in
+-h|*"help"*) _say_help;;
 -d) DEBUG=$((DEBUG+1));;
 -V) _say_version;;
-*)
-# *** testing parameters for validity *** #
-PARAM_1test="${PARAM_1//[[:digit:]]/}"
-test "$PARAM_1test" && {
-_draw 3 "Only :digit: numbers as first option allowed."
-        exit 1 #exit if other input than letters
-        }
-
+*) # *** testing parameters for validity *** #
+   PARAM_1test="${PARAM_1//[[:digit:]]/}"
+   test "$PARAM_1test" && _exit 1 "Only :digit: numbers as first option allowed."
+   #exit if other input than letters
 NUMBER=$PARAM_1
 ;;
 esac
@@ -65,29 +60,31 @@ done
 # functions:
 _mark_item(){
 _debug "_mark_item:$*"
+
 local lITEM=${*:-"$MARK_ITEM"}
+
 lITEM=${lITEM:-"$ITEM"}
 lITEM=${lITEM:-icecube}
+
 test "$lITEM" || return 254
 
 local lRV=0
 
 _is 1 1 mark "$lITEM"
 
- while [ 1 ]; do
- unset REPLY
+ while :; do
+  unset REPLY
  read -t $TMOUT
- _log "_mark_item:$REPLY"
- _debug "$REPLY"
+  _log "_mark_item:$REPLY"
+  _debug "$REPLY"
  case $REPLY in
- *Could*not*find*an*object*that*matches*) lRV=1;break 1;;
- *scripttell*break*) break ${REPLY##*?break};;
- *scripttell*exit*)  _exit 1 $REPLY;;
- *'YOU HAVE DIED.'*) _just_exit;;
- '') break;;
+  *Could*not*find*an*object*that*matches*) lRV=1;break 1;;
+  *scripttell*break*) break ${REPLY##*?break};;
+  *scripttell*exit*)  _exit 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit;;
+  '') break;;
  esac
- #unset REPLY
- sleep 0.1s
+ sleep 0.1
  done
 
 return ${lRV:-0}
@@ -95,32 +92,37 @@ return ${lRV:-0}
 
 _apply_item(){
 _debug "_apply_item:$*"
+
 local lITEM=${*:-"$ITEM"}
+
 lITEM=${lITEM:-"flint and steel"}
+
 test "$lITEM" || return 254
 
 local lRV=0
+
 _is 1 1 apply "$lITEM"
 
- while [ 1 ]; do
- unset REPLY
+ while :; do
+  unset REPLY
  read -t $TMOUT
- _log "_apply_item:$REPLY"
- _debug "$REPLY"
+  _log "_apply_item:$REPLY"
+  _debug "$REPLY"
  case $REPLY in
- *used*up*flint*and*steel*) lRV=5; break 1;;
- *Could*not*find*any*match*to*the*flint*and*steel*) lRV=6; break 1;;
- *You*need*to*mark*a*lightable*object.*) NO_FAIL=1; lRV=7; break 1;;
- '')     lRV=1; break 1;;
- *fail*) lRV=1; FAIL=$((FAIL+1)); break 1;;
- *You*light*the*icecube*with*the*flint*and*steel.*) lRV=0; SUCC=$((SUCC+1)); break 1;;
- *scripttell*break*) break ${REPLY##*?break};;
- *scripttell*exit*)  _exit 1 $REPLY;;
- *'YOU HAVE DIED.'*) _just_exit;;
- *) :;;
+  *You*light*the*icecube*with*the*flint*and*steel.*) lRV=0; SUCC=$((SUCC+1)); break 1;;
+  *fail*)                                            lRV=1; FAIL=$((FAIL+1)); break 1;;
+  *used*up*flint*and*steel*)                         lRV=5; break 1;;
+  *Could*not*find*any*match*to*the*flint*and*steel*) lRV=6; break 1;;
+  *You*need*to*mark*a*lightable*object.*)            lRV=7; break 1;;
+
+  *scripttell*break*) break ${REPLY##*?break};;
+  *scripttell*exit*)  _exit 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit;;
+
+  '')     lRV=1; break 1;;
+  *) :;;
  esac
- #unset REPLY
- sleep 0.1s
+ sleep 0.1
  done
 
 return ${lRV:-0}
@@ -155,8 +157,7 @@ _mark_item icecube || break 2
 
 _sleep
 
- NO_FAIL=
- until [ "$NO_FAIL" ]
+ while :;
  do
 
  _apply_item "flint and steel"
@@ -176,9 +177,8 @@ _sleep
  _say_count
  _sleep
 
- done #NO_FAIL
+ done
 
-#test "$NUMBER" && { test "$NUMBER" = "$cnt" && break 1; }
 case $NUMBER in $one) break 1;; esac
 
 done #main while loop

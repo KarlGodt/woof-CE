@@ -7,6 +7,9 @@
 VERSION=0.0 # Initial version,
 VERSION=1.0 # release ready 2018-02-11
 VERSION=2.0 # made library cf_funcs_*.sh ready
+# published https://pastebin.com/SQD7uhZw 2018-02-12 for one year
+
+
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script

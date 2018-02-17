@@ -65,6 +65,7 @@ VERSION=3.0 # made the whole script standalone possible
 # functions got *_stdalone post-syllable
 VERSION=3.1 # code cleanup
 VERSION=3.1.1 # false variable names fixed
+VERSION=3.2 # fix missings and end msg when using funcs libraries files
 
 SEARCH_ATTEMPTS_DEFAULT=9
 #DISARM variable set to skill, invokation OR cast
@@ -85,6 +86,7 @@ MSGLEVEL=6 # Message Levels 1-7 to print to the msg pane
 . $HOME/cf/s/cf_funcs_traps.sh  || exit 6
 . $HOME/cf/s/cf_funcs_move.sh   || exit 7
 . $HOME/cf/s/cf_funcs_chests.sh || exit 8
+. $HOME/cf/s/cf_funcs_requests.sh || exit 12
 
 _say_help_stdalone(){
 _draw_stdalone 6  "$MY_BASE"
@@ -2230,7 +2232,7 @@ test "$PL_SPEED4" && __set_sync_sleep ${PL_SPEED4} || _set_sync_sleep "$PL_SPEED
 
 #_check_if_on_item_examine chest || return 1
 #_check_if_on_chest_request_items_on || return 1
-_check_if_on_chest || return 1
+_check_if_on_chest -l || return 1
 
 _sleep
 
@@ -2275,10 +2277,9 @@ _disarm_traps_stdalone
 _open_chests_stdalone
 }
 
-#_main_open_chests_func "$@"
- _main_open_chests_stdalone "$@"
+ _main_open_chests_func "$@" && _draw 8 "You opened ${CHEST_COUNT:-0} chest(s)."
+ _say_end_msg
+#_main_open_chests_stdalone "$@" && _draw_stdalone 8 "You opened ${CHEST_COUNT:-0} chest(s)."
+#_say_end_msg_stdalone
 
-_draw_stdalone 8 "You opened ${CHEST_COUNT:-0} chest(s)."
-
-_say_end_msg_stdalone
 ###END###
