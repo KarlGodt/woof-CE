@@ -4,6 +4,7 @@
 
 _kill_monster_move(){
 _debug "_kill_monster_move:$*"
+_log   "_kill_monster_move:$*"
 
 local lATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
 
@@ -19,6 +20,7 @@ _empty_message_stream
 
 _kill_monster_fire(){
 _debug "_kill_monster_fire:$*"
+_log   "_kill_monster_fire:$*"
 
 local lATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
 
@@ -36,6 +38,7 @@ _empty_message_stream
 
 _brace(){
 _debug "_brace:$*"
+_log   "_brace:$*"
 
 _watch $DRAWINFO
 while :
@@ -63,6 +66,7 @@ _empty_message_stream
 
 _unbrace(){
 _debug "_unbrace:$*"
+_log   "_unbrace:$*"
 
 _watch $DRAWINFO
 while :
@@ -90,6 +94,7 @@ _empty_message_stream
 
 _melee_around(){
 _debug "_melee_around:$*"
+_log   "_melee_around:$*"
 
 while :;
 do
@@ -107,6 +112,7 @@ case $NUMBER in $one) break;; esac
 
 if _check_counter; then
 _check_food_level
+_check_hp
 _check_hp_and_return_home $HP
 _check_skill_available $SKILL_MELEE || return 1
 fi
@@ -119,6 +125,7 @@ done
 
 _karate_around(){
 _debug "_karate_around:$*"
+_log   "_karate_around:$*"
 
 while :;
 do
@@ -136,6 +143,7 @@ case $NUMBER in $one) break;; esac
 
 if _check_counter; then
 _check_food_level
+_check_hp
 _check_hp_and_return_home $HP
 _check_skill_available karate || return 1
 fi
@@ -147,6 +155,7 @@ done
 
 _claw_around(){
 _debug "_claw_around:$*"
+_log   "_claw_around:$*"
 
 while :;
 do
@@ -164,6 +173,7 @@ case $NUMBER in $one) break;; esac
 
 if _check_counter; then
 _check_food_level
+_check_hp
 _check_hp_and_return_home $HP
 _check_skill_available clawing || return 1
 fi
@@ -175,6 +185,7 @@ done
 
 _flame_touch_around(){
 _debug "_flame_touch_around:$*"
+_log   "_flame_touch_around:$*"
 
 while :;
 do
@@ -192,6 +203,7 @@ case $NUMBER in $one) break;; esac
 
 if _check_counter; then
 _check_food_level
+_check_hp
 _check_hp_and_return_home $HP
 _check_skill_available flame touch || return 1
 fi
@@ -203,6 +215,7 @@ done
 
 _punch_around(){
 _debug "_punch_around:$*"
+_log   "_punch_around:$*"
 
 while :;
 do
@@ -220,6 +233,7 @@ case $NUMBER in $one) break;; esac
 
 if _check_counter; then
 _check_food_level
+_check_hp
 _check_hp_and_return_home $HP
 _check_skill_available punching || return 1
 fi

@@ -7,6 +7,9 @@
 VERSION=0.0 # Initial version,
 VERSION=1.0 # release ready 2018-02-11
 VERSION=2.0 # made library cf_funcs_*.sh ready
+VERSION=3.0 # add healing codes, more logging
+
+HEAL_ITEM='rod of heal'
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -18,6 +21,7 @@ MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 . $HOME/cf/s/cf_funcs_skills.sh || exit 9
 . $HOME/cf/s/cf_funcs_fight.sh  || exit 10
 . $HOME/cf/s/cf_funcs_requests.sh || exit 12
+. $HOME/cf/s/cf_funcs_heal.sh   || exit 13
 
 _say_help_stdalone(){
 _draw_stdalone 6  "$MY_BASE"
@@ -37,6 +41,7 @@ _draw_stdalone 8  " as n, ne, e, se, s, sw, w, nw."
 _draw_stdalone 8  " If no direction, turns clockwise all around on the spot."
 _draw_stdalone 11 "-V   :Print version information."
 _draw_stdalone 10 "-d   :Print debugging to msgpane."
+_draw_stdalone 10 "-L   :Turn on logging."
 exit ${1:-2}
 }
 
@@ -58,6 +63,7 @@ _draw 8  " as n, ne, e, se, s, sw, w, nw."
 _draw 8  " If no direction, turns clockwise all around on the spot."
 _draw 11 "-V   :Print version information."
 _draw 10 "-d   :Print debugging to msgpane."
+_draw 10 "-L   :Turn on logging."
 exit ${1:-2}
 }
 
@@ -91,6 +97,10 @@ FUNCTION_CHECK_FOR_SPACE=_check_for_space_stdalone # request map pos works
 case $* in
 *-version" "*) CLIENT_VERSION="$2"
 case $CLIENT_VERSION in 0.*|1.[0-9].*|1.1[0-2].*)
+# Some older clients use both formattings by drawinfo and drawextinfo,
+# especially the gtk+-2.0 clients v1.11.0 and earlier.
+# So setting the DRAWINFO variable here is of no real use.
+# _check_drawinfo() should take care of this now.
 DRAWINFO=drawextinfo #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
                      #     except use_skill alchemy :watch drawinfo 0 The cauldron emits sparks.
                      # and except apply             :watch drawinfo 0 You open cauldron.
@@ -135,6 +145,7 @@ mkdir -p "$TMP_DIR"
   REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
 REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
      ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
+    INV_LOG="$TMP_DIR"/"$MY_BASE".$$.inv
   ERROR_LOG="$TMP_DIR"/"$MY_BASE".$$.err
 exec 2>>"$ERROR_LOG"
 }
@@ -176,7 +187,7 @@ _is_stdalone 0 0 examine
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log_stdalone "_check_drawinfo_stdalone:$cnt0:$REPLY"
+ _log_stdalone "$REPLY_LOG" "_check_drawinfo_stdalone:$cnt0:$REPLY"
  _msg_stdalone 7 "$cnt0:$REPLY"
 
  case $REPLY in
@@ -497,7 +508,7 @@ _is_stdalone 1 1 ready_skill "$lSKILL" # range attack, no message is printed
 
 while :; do unset REPLY
 read -t $TMOUT
-  _log_stdalone "_check_skill_available_stdalone:$REPLY"
+  _log_stdalone "$REPLY_LOG" "_check_skill_available_stdalone:$REPLY"
 _debug_stdalone "$REPLY"
 
  case $REPLY in
@@ -822,7 +833,7 @@ do
 _is_stdalone 1 1 brace
  while :; do unset REPLY
  read -t $TMOUT
- _log_stdalone "_brace_stdalone:$REPLY"
+ _log_stdalone "$REPLY_LOG" "_brace_stdalone:$REPLY"
  _debug_stdalone "$REPLY"
  case $REPLY in
  *'You are braced.'*) break 2;;
@@ -852,7 +863,7 @@ do
 _is_stdalone 1 1 brace
  while :; do unset REPLY
  read -t $TMOUT
- _log_stdalone "_unbrace_stdalone:$REPLY"
+ _log_stdalone "$REPLY_LOG" "_unbrace_stdalone:$REPLY"
  _debug_stdalone "$REPLY"
  case $REPLY in
  *'You are braced.'*) break 1;;
@@ -954,7 +965,7 @@ echo request items inv
 while :;
 do
 read -t ${TMOUT:-1} oneITEM
- _log_stdalone "_check_have_item_in_inventory_stdalone:$oneITEM"
+ _log_stdalone "$INV_LOG" "_check_have_item_in_inventory_stdalone:$oneITEM"
  _debug_stdalone "$oneITEM"
 
  case $oneITEM in
@@ -1022,7 +1033,7 @@ while :;
  do
  unset REPLY
  read -t $TMOUT
- _log_stdalone "_cast_create_food_and_eat_stdalone:$REPLY"
+ _log_stdalone "$REPLY_LOG" "_cast_create_food_and_eat_stdalone:$REPLY"
  _msg_stdalone 7 "$REPLY"
  case $REPLY in
  *Cast*what*spell*) HAVE_NOT_SPELL=1; break 1;; #Cast what spell?  Choose one of:
@@ -1064,7 +1075,7 @@ _is_stdalone 1 1 fire_stop
  while :; do
   unset BUNGLE
   read -t $TMOUT BUNGLE
-  _log_stdalone "_cast_create_food_and_eat_stdalone:$BUNGLE"
+  _log_stdalone "$REPLY_LOG" "_cast_create_food_and_eat_stdalone:$BUNGLE"
   _msg_stdalone 7 "BUNGLE=$BUNGLE"
   case $BUNGLE in
   *bungle*|*fumble*) break 1;;
@@ -1194,14 +1205,14 @@ local REPLY
 # It needs the SP variable set by
 # _check_food_level()
 
-_watch_stdalone
+_watch_stdalone $DRAWINFO
 _is_stdalone 1 0 cast create
 
 while :;
 do
 
 read -t ${TMOUT:-1}
-   _log_stdalone "_check_mana_for_create_food_stdalone:$REPLY"
+   _log_stdalone "$REPLY_LOG" "_check_mana_for_create_food_stdalone:$REPLY"
  _msg_stdalone 7 "_check_mana_for_create_food_stdalone:$REPLY"
 
  case $REPLY in
@@ -1223,7 +1234,7 @@ sleep 0.01
 unset REPLY
 done
 
-_unwatch_stdalone
+_unwatch_stdalone $DRAWINFO
 return 1
 }
 
@@ -1264,13 +1275,14 @@ esac
 # C # :Count loop rounds
 
 # d   :debugging output
-while getopts A:BC:D:ZdVhabdefgijklmnopqrstuvwxyzEFGHIJKLMNOPQRSTUWXY oneOPT
+while getopts A:BC:D:LZdVhabdefgijklmnopqrstuvwxyzEFGHIJKMNOPQRSTUWXY oneOPT
 do
 case $oneOPT in
 A) ATTACKS_SPOT=$OPTARG;;
 B) DO_BRACE=1;;
 C) NUMBER=$OPTARG;;
 D) DIRECTION_OPT=$OPTARG;;
+L) LOGGING=$((LOGGING+1));;
 Z) DO_CLOCKWISE=1;;
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
 h) _say_help_stdalone 0;;
@@ -1306,13 +1318,14 @@ esac
 # C # :Count loop rounds
 
 # d   :debugging output
-while getopts A:BC:D:ZdVhabdefgijklmnopqrstuvwxyzABEFGHIJKLMNOPQRSTUWXYZ oneOPT
+while getopts A:BC:D:LZdVhabdefgijklmnopqrstuvwxyzABEFGHIJKMNOPQRSTUWXYZ oneOPT
 do
 case $oneOPT in
 A) ATTACKS_SPOT=$OPTARG;;
 B) DO_BRACE=1;;
 C) NUMBER=$OPTARG;;
 D) DIRECTION_OPT=$OPTARG;;
+L) LOGGING=$((LOGGING+1));;
 Z) DO_CLOCKWISE=1;;
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
 h) _say_help 0;;
@@ -1323,6 +1336,61 @@ V) _say_version 0;;
 esac
 
 sleep 0.1
+done
+
+}
+
+__check_hp_stdalone(){
+_debug_stdalone "__check_hp_stdalone:$*"
+_log_stdalone   "__check_hp_stdalone:$*"
+
+while :; do
+ unset HP MAXHP
+ _request_stat_hp_stdalone
+ case $HP in '') :;; *) break 1;; esac
+done
+
+  if test $MAXHP -le 20; then return 0
+elif test $HP -le 100; then
+     test $HP -gt $(( ( MAXHP / 10 ) * 9 ))
+else test $HP -gt $(( ( MAXHP / 100 ) * 90 ))
+fi
+}
+
+_heal_stdalone(){
+_debug_stdalone "_heal_stdalone:$*"
+_log_stdalone   "_heal_stdalone:$*"
+
+local lITEM=${*:-"$HEAL_ITEM"}
+
+case $lITEM in
+*rod*|*staff*|*wand*|*horn*|*scroll*) _check_have_item_in_inventory_stdalone $lITEM || return 1;;
+*) :;;
+esac
+
+case $lITEM in
+*rod*|*staff*|*wand*|*horn*)
+ _is_stdalone 1 1 apply -u $lITEM
+ _is_stdalone 1 1 apply -a $lITEM
+ _is_stdalone 1 1 fire 0
+ _is_stdalone 1 1 fire_stop
+ ;;
+*scroll*) _is_stdalone 1 1 apply $lITEM;;
+'') :;;
+*) _is_stdalone 1 1 invoke $lITEM;;
+esac
+
+}
+
+_check_hp_stdalone(){
+_debug_stdalone "_check_hp_stdalone:$*"
+_log_stdalone   "_check_hp_stdalone:$*"
+
+while :;
+do
+ __check_hp_stdalone && return 0
+ _heal_stdalone
+ _sleep_stdalone
 done
 
 }
@@ -1344,13 +1412,12 @@ one=$((one+1))
 
 _kill_monster_stdalone $ATTACKS_SPOT
 
-#_draw_stdalone 2 "You calmed ${CALMS:-0} and convinced ${FOLLOWS:-0} monsters."
-
 case $NUMBER in $one) break;; esac
 #case $KARATE_ATTEMPTS in $KARATE_ATTEMPTS_DONE) break;; esac
 
 if _check_counter_stdalone; then
 _check_food_level_stdalone
+_check_hp_stdalone
 _check_hp_and_return_home_stdalone $HP
 _check_skill_available_stdalone karate || return 1
 fi
@@ -1372,11 +1439,12 @@ test "$PL_SPEED1" && __set_sync_sleep_stdalone ${PL_SPEED1} || _set_sync_sleep_s
 
 
 _direction_to_number_stdalone $DIRECTION_OPT
-_check_skill_available_stdalone karate || return 1
 
+if _check_skill_available_stdalone karate; then
 [ "$DO_BRACE" ] && _brace_stdalone
 _karate_around_stdalone
 _unbrace_stdalone
+fi
 
 _say_end_msg_stdalone
 }
@@ -1391,11 +1459,12 @@ test "$PL_SPEED1" && __set_sync_sleep ${PL_SPEED1} || _set_sync_sleep "$PL_SPEED
 
 
 _direction_to_number $DIRECTION_OPT
-_check_skill_available karate || return 1
 
+if _check_skill_available karate; then
 [ "$DO_BRACE" ] && _brace
 _karate_around
 _unbrace
+fi
 
 _say_end_msg
 }

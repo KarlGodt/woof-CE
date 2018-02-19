@@ -18,7 +18,7 @@ local REPLY
 # drawinfo lines.
 # It needs the SP variable set by
 # _check_food_level()
-_watch
+_watch $DRAWINFO
 _is 1 0 cast create
 
 while :;
@@ -47,7 +47,7 @@ sleep 0.01
 unset REPLY
 done
 
-_unwatch
+_unwatch $DRAWINFO
 return 1
 }
 
@@ -141,7 +141,12 @@ _is 1 1 fire_stop
 _empty_message_stream
 _sleep
 
-_check_if_on_item -l ${lEAT_FOOD:-haggis} && _is 1 1 apply ## TODO: check if food is there on tile
+_check_if_on_item -l ${lEAT_FOOD:-haggis}
+case $? in 0) _is 1 1 apply;;
+*) _is 1 1 get all
+   _is 1 1 apply ${lEAT_FOOD:-haggis};;
+esac
+
 _empty_message_stream
 }
 

@@ -47,6 +47,10 @@ FUNCTION_CHECK_FOR_SPACE=_check_for_space # request map pos works
 case $* in
 *-version" "*) CLIENT_VERSION="$2"
 case $CLIENT_VERSION in 0.*|1.[0-9].*|1.1[0-2].*)
+# Some older clients use both formattings by drawinfo and drawextinfo,
+# especially the gtk+-2.0 clients v1.11.0 and earlier.
+# So setting the DRAWINFO variable here is of no real use.
+# _check_drawinfo() should take care of this now.
 DRAWINFO=drawextinfo #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
                      #     except use_skill alchemy :watch drawinfo 0 The cauldron emits sparks.
                      # and except apply             :watch drawinfo 0 You open cauldron.
@@ -100,15 +104,63 @@ _draw 6 "$MY_BASE Version:${VERSION:-0.0}"
 exit ${1:-2}
 }
 
-_watch(){
+__watch(){
 echo unwatch ${*:-$DRAWINFO}
 sleep 0.4
 echo   watch ${*:-$DRAWINFO}
 }
 
-_unwatch(){
+__unwatch(){
 echo unwatch ${*:-$DRAWINFO}
 }
+
+___watch(){
+case $* in draw*)
+echo unwatch drawinfo
+echo unwatch drawextinfo
+sleep 0.4
+echo   watch drawinfo
+echo   watch drawextinfo;;
+*)
+echo unwatch "${@}"
+sleep 0.4
+echo   watch "${@}";;
+esac
+}
+
+___unwatch(){
+case $* in draw*)
+echo unwatch drawinfo
+echo unwatch drawextinfo;;
+*) echo unwatch "${@}"
+esac
+}
+
+_watch(){
+case $* in
+'')
+ echo unwatch
+ sleep 0.2
+ echo watch;;
+*)
+for i in $*; do
+ echo unwatch $i
+ sleep 0.2
+ echo   watch $i
+done;;
+esac
+}
+
+_unwatch(){
+case $* in
+'') echo unwatch;;
+*)
+for i in $*; do
+ echo unwatch $i
+done;;
+esac
+}
+
 
 _sleep(){
 SLEEP=${SLEEP//,/.}
@@ -325,8 +377,8 @@ unset lREPLY
 done
 }
 
-_check_drawinfo(){  ##+++2018-01-08
-_debug "_check_drawinfo:$*"
+__check_drawinfo(){  ##+++2018-01-08
+_debug "__check_drawinfo:$*"
 
 oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
 oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
@@ -351,9 +403,8 @@ _is 0 0 examine
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log "_check_drawinfo:$cnt0:$REPLY"
+ _log "__check_drawinfo:$cnt0:$REPLY"
     _msg 7 "$cnt0:$REPLY"
- #_debug 3 "$cnt0:$REPLY"
 
  case $REPLY in
  *drawinfo*'You search'*|*drawinfo*'You spot'*)       DRAWINFO0=drawinfo;    break 2;;
@@ -385,6 +436,60 @@ test "$DRAWINFO0" = "$DRAWINFO" || {
 DEBUG=$oDEBUG
 LOGGING=$oLOGGING
 _draw 6 "Done."
+}
+
+_check_drawinfo(){  ##+++2018-02-19
+_debug "_check_drawinfo:$*"
+
+oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
+oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
+
+_draw 2 "Checking drawinfo ..."
+
+echo watch
+
+while :;
+do
+
+# I use search here to provoke
+# a response from the server
+_is 1 1 save
+_is 1 1 ready_skill xxx
+
+ unset cnt0 TICKS HAVE_DRAWINFO HAVE_DRAWEXTINFO
+ while :
+ do
+ cnt0=$((cnt0+1))
+ read -t $TMOUT
+ _log "_check_drawinfo:$cnt0:$REPLY"
+    _msg 7 "$cnt0:$REPLY"
+
+ case $REPLY in
+ *drawinfo*)         HAVE_DRAWINFO=drawinfo;;
+ *drawextinfo*)   HAVE_DRAWEXTINFO=drawextinfo;;
+ *tick*) TICKS=$((TICKS+1)); test "$TICKS" -gt 39 && break 2;; # 5 seconds
+ '') break 1;;
+ *) :;;
+ esac
+
+ sleep 0.001
+ done
+
+_sleep
+done
+
+echo unwatch
+_empty_message_stream
+unset cnt0
+
+DRAWINFO="$HAVE_DRAWINFO $HAVE_DRAWEXTINFO"
+DRAWINFO=`echo $DRAWINFO`
+_msg_stdalone 5 "Client recognizes $DRAWINFO"
+
+DEBUG=$oDEBUG
+LOGGING=$oLOGGING
+_draw 6 "Done."
+test "$DRAWINFO"
 }
 
 # *** EXIT FUNCTIONS *** #
@@ -1152,7 +1257,7 @@ echo request items inv
 while :;
 do
 read -t ${TMOUT:-1} oneITEM
- _log "_check_have_item_in_inventory:$oneITEM"
+ _log "$INV_LOG" "_check_have_item_in_inventory:$oneITEM"
  _debug "$oneITEM"
 
  case $oneITEM in
