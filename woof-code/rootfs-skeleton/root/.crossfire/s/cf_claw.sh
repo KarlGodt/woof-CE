@@ -161,8 +161,8 @@ _check_drawinfo_stdalone
 _draw_stdalone 5 "Checking the parameters ($*)..."
 }
 
-_check_drawinfo_stdalone(){  ##+++2018-01-08
-_debug_stdalone "_check_drawinfo_stdalone:$*"
+__check_drawinfo_stdalone(){  ##+++2018-01-08
+_debug_stdalone "__check_drawinfo_stdalone:$*"
 
 oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
 oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
@@ -187,7 +187,7 @@ _is_stdalone 0 0 examine
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log_stdalone "$REPLY_LOG" "_check_drawinfo_stdalone:$cnt0:$REPLY"
+ _log_stdalone "$REPLY_LOG" "__check_drawinfo_stdalone:$cnt0:$REPLY"
  _msg_stdalone 7 "$cnt0:$REPLY"
 
  case $REPLY in
@@ -220,6 +220,61 @@ test "$DRAWINFO0" = "$DRAWINFO" || {
 DEBUG=$oDEBUG
 LOGGING=$oLOGGING
 _draw_stdalone 6 "Done."
+test "$DRAWINFO"
+}
+
+_check_drawinfo_stdalone(){  ##+++2018-02-18
+_debug_stdalone "_check_drawinfo_stdalone:$*"
+
+oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
+oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
+
+_draw_stdalone 2 "Checking drawinfo ..."
+
+echo watch
+
+while :;
+do
+
+# I use search here to provoke
+# a response from the server
+_is 1 1 save
+_is 1 1 ready_skill xxx
+
+ unset cnt0 TICKS
+ while :
+ do
+ cnt0=$((cnt0+1))
+ read -t $TMOUT
+ _log_stdalone "$REPLY_LOG" "_check_drawinfo_stdalone:$cnt0:$REPLY"
+ _msg_stdalone 7 "$cnt0:$REPLY"
+
+ case $REPLY in
+ *drawinfo*)         HAVE_DRAWINFO=drawinfo;;
+ *drawextinfo*)   HAVE_DRAWEXTINFO=drawextinfo;;
+ *tick*) TICKS=$((TICKS+1)); test "$TICKS" -gt 39 && break 2;;  # 5 seconds
+ '') break 1;;
+ *) :;;
+ esac
+
+ sleep 0.001
+ done
+
+_sleep_stdalone
+done
+
+echo unwatch
+_empty_message_stream_stdalone
+unset cnt0
+
+_msg_stdalone 5 "Client recognizes '$HAVE_DRAWINFO' '$HAVE_DRAWEXTINFO'"
+DRAWINFO="$HAVE_DRAWINFO $HAVE_DRAWEXTINFO"
+DRAWINFO=`echo $DRAWINFO`
+
+DEBUG=$oDEBUG
+LOGGING=$oLOGGING
+_draw_stdalone 6 "Done."
+test "$DRAWINFO"
 }
 
 _tell_script_time_stdalone(){
@@ -464,19 +519,46 @@ _unwatch_stdalone(){
 echo unwatch ${*:-$DRAWINFO}
 }
 
+_watch_stdalone(){
+case $* in
+'')
+ echo unwatch
+ sleep 0.2
+ echo watch;;
+*)
+for i in $*; do
+ echo unwatch $i
+ sleep 0.2
+ echo   watch $i
+done;;
+esac
+}
+
+_unwatch_stdalone(){
+case $* in
+'') echo unwatch;;
+*)
+for i in $*; do
+ echo unwatch $i
+done;;
+esac
+}
+
 _is_stdalone(){
 # issue <repeat> <must_send> <command> - send
 #  <command> to server on behalf of client.
 #  <repeat> is the number of times to execute command
 #  <must_send> tells whether or not the command must sent at all cost (1 or 0).
 #  <repeat> and <must_send> are optional parameters.
-    _debug_stdalone "issue $*"
+    _debug_stdalone "_is_stdalone:$*"
+    _log_stdalone   "_is_stdalone:$*"
     echo issue "$@"
     sleep 0.2
 }
 
 __is_stdalone(){
-_msg_stdalone 7 "$*"
+_msg_stdalone 7 "__is_stdalone:$*"
+_log_stdalone "__is_stdalone:$*"
 Z1=$1; shift
 Z2=$1; shift
 _msg_stdalone 7 "$*"
@@ -495,6 +577,7 @@ return 0
 
 _check_skill_available_stdalone(){
 _debug_stdalone "_check_skill_available_stdalone:$*"
+_log_stdalone   "_check_skill_available_stdalone:$*"
 
 local lSKILL=${*:-"$SKILL"}
 test "$lSKILL" || return 254
@@ -536,8 +619,8 @@ return ${lRV:-3}
 
 _request_stat_cmbt_stdalone(){
 #Return wc,ac,dam,speed,weapon_sp
-
-#test "$*" || return 254
+_debug_stdalone "_request_stat_cmbt_stdalone:$*"
+_log_stdalone   "_request_stat_cmbt_stdalone:$*"
 
 _empty_message_stream_stdalone
 
@@ -550,12 +633,13 @@ read -t ${TMOUT:-1} r s c WC AC DAM SPEED WP_SPEED REST
  _msg_stdalone 7 "$WC $AC $DAM $SPEED $WP_SPEED $REST"
 
 PL_SPEED=$SPEED
-test "$WC" -a "$AC" -a "$DAM" -a "$SPEED" -a "$WP_SPEED"
+test "x$WC" != 'x' -a "x$AC" != 'x' -a "x$DAM" != 'x' -a "x$SPEED" != 'x' -a "x$WP_SPEED" != 'x'
 }
 
 
 __get_player_speed_stdalone(){
 _debug_stdalone "__get_player_speed_stdalone:$*"
+_log_stdalone   "__get_player_speed_stdalone:$*"
 
 if test "$1" = '-l'; then # loop counter
  _check_counter_stdalone || return 1
@@ -578,6 +662,7 @@ return 0
 
 _get_player_speed_stdalone(){
 _debug_stdalone "_get_player_speed_stdalone:$*"
+_log_stdalone   "_get_player_speed_stdalone:$*"
 
 if test "$1" = '-l'; then # loop counter
  _check_counter_stdalone || return 1
@@ -598,6 +683,7 @@ return 0
 
 _player_speed_to_human_readable_stdalone(){
 _debug_stdalone "_player_speed_to_human_readable_stdalone:$*"
+_log_stdalone   "_player_speed_to_human_readable_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED}
 test "$lPL_SPEED" || return 254
@@ -645,19 +731,20 @@ LC_NUMERIC=$oLC_NUMERIC
 }
 
 _round_up_and_down_stdalone(){  ##+++2018-01-08
-echo "_round_up_and_down_stdalone:$1" >&2
+[ "$DEBUG" ] && echo "_round_up_and_down_stdalone:$1" >&2
+_log_stdalone "_round_up_and_down_stdalone:$*"
                #123
 STELLEN=${#1}  #3
-echo "STELLEN=$STELLEN" >&2
+[ "$DEBUG" ] && echo "STELLEN=$STELLEN" >&2
 
 LETZTSTELLE=${1:$((STELLEN-1))} #123:2
-echo "LETZTSTELLE=$LETZTSTELLE" >&2
+[ "$DEBUG" ] && echo "LETZTSTELLE=$LETZTSTELLE" >&2
 
 VORLETZTSTELLE=${1:$((STELLEN-2)):1} #123:1:1
-echo "VORLETZTSTELLE=$VORLETZTSTELLE" >&2
+[ "$DEBUG" ] && echo "VORLETZTSTELLE=$VORLETZTSTELLE" >&2
 
 GERUNDET_BASIS=${1:0:$((STELLEN-1))} #123:0:2
-echo "GERUNDET_BASIS=$GERUNDET_BASIS" >&2
+[ "$DEBUG" ] && echo "GERUNDET_BASIS=$GERUNDET_BASIS" >&2
 
 case $LETZTSTELLE in
 0)     GERUNDET="${GERUNDET_BASIS}0";;
@@ -671,6 +758,7 @@ echo $GERUNDET
 
 _set_sync_sleep_stdalone(){
 _debug_stdalone "_set_sync_sleep_stdalone:$*"
+_log_stdalone   "_set_sync_sleep_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED}
 lPL_SPEED=${lPL_SPEED:-50000}
@@ -710,6 +798,7 @@ _info_stdalone "Setting SLEEP=$SLEEP ,TMOUT=$TMOUT ,DELAY_DRAWINFO=$DELAY_DRAWIN
 
 __set_sync_sleep_stdalone(){
 _debug_stdalone "__set_sync_sleep_stdalone:$*"
+_log_stdalone   "__set_sync_sleep_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED1}
 lPL_SPEED=${lPL_SPEED:-50}
@@ -795,6 +884,7 @@ DIRECTION_NUMBER=$DIRN
 
 __kill_monster_stdalone(){
 _debug_stdalone "__kill_monster_stdalone:$*"
+_log_stdalone   "__kill_monster_stdalone:$*"
 
 local lATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
 
@@ -810,6 +900,7 @@ _empty_message_stream_stdalone
 
 _kill_monster_stdalone(){
 _debug_stdalone "_kill_monster_stdalone:$*"
+_log_stdalone   "_kill_monster_stdalone:$*"
 
 local lATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
 
@@ -826,6 +917,7 @@ _empty_message_stream_stdalone
 
 _brace_stdalone(){
 _debug_stdalone "_brace_stdalone:$*"
+_log_stdalone   "_brace_stdalone:$*"
 
 _watch_stdalone $DRAWINFO
 while :
@@ -856,6 +948,7 @@ _empty_message_stream_stdalone
 
 _unbrace_stdalone(){
 _debug_stdalone "_unbrace_stdalone:$*"
+_log_stdalone   "_unbrace_stdalone:$*"
 
 _watch_stdalone $DRAWINFO
 while :
@@ -886,6 +979,7 @@ _empty_message_stream_stdalone
 
 _set_next_direction_stdalone(){
 _debug_stdalone "_set_next_direction_stdalone:$*:$DIRN"
+_log_stdalone   "_set_next_direction_stdalone:$*:$DIRN"
 
 if test "$DO_CLOCKWISE"; then
  DIRN=$((DIRN-1))
@@ -900,6 +994,7 @@ _draw_stdalone 2 "Will turn to direction $DIRECTION .."
 
 _check_food_level_stdalone(){
 _debug_stdalone "_check_food_level_stdalone:$*"
+_log_stdalone   "_check_food_level_stdalone:$*"
 
 test "$*" && MIN_FOOD_LEVEL="$@"
 MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
@@ -914,7 +1009,6 @@ do
 _request_stat_hp_stdalone # FOOD_LVL
 
 if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
- #_eat_food_from_inventory_stdalone
  _cast_create_food_and_eat_stdalone $EAT_FOOD || _eat_food_from_inventory_stdalone $EAT_FOOD
  _request_stat_hp_stdalone
   break
@@ -929,18 +1023,18 @@ done
 
 _eat_food_from_inventory_stdalone(){
 _debug_stdalone "_eat_food_from_inventory_stdalone:$*"
+_log_stdalone   "_eat_food_from_inventory_stdalone:$*"
 
 local lEAT_FOOD="${@:-$EAT_FOOD}"
 lEAT_FOOD=${lEAT_FOOD:-"$FOOD_DEF"}
 test "$lEAT_FOOD" || return 254
 
-#_check_food_in_inventory_stdalone ## Todo: check if food is in INV
 _check_have_item_in_inventory_stdalone $lEAT_FOOD && _is_stdalone 1 1 apply $lEAT_FOOD
-#_is_stdalone 1 1 apply $lEAT_FOOD
 }
 
 _check_have_item_in_inventory_stdalone(){
 _debug_stdalone "_check_have_item_in_inventory_stdalone:$*"
+_log_stdalone   "_check_have_item_in_inventory_stdalone:$*"
 
 local oneITEM oldITEM ITEMS ITEMSA lITEM
 lITEM=${*:-"$ITEM"}
@@ -982,8 +1076,8 @@ echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s 
 
 _request_stat_hp_stdalone(){
 #Return hp,maxhp,sp,maxsp,grace,maxgrace,food
-
-#test "$*" || return 254
+_debug_stdalone "_request_stat_hp_stdalone:$*"
+_log_stdalone   "_request_stat_hp_stdalone:$*"
 
 _empty_message_stream_stdalone
 
@@ -998,11 +1092,12 @@ read -t ${TMOUT:-1} r s hp HP MHP SP MSP GR MGR FOOD_LVL REST
 MAXHP=$MHP
 MAXSP=$MSP
 MAXGR=$MGR
-test "$HP" -a "$MHP" -a "$SP" -a "$MSP" -a "$GR" -a "$MGR" -a "$FOOD_LVL"
+test "x$HP" != 'x' -a "x$MHP" != 'x' -a "x$SP" != 'x' -a "x$MSP" != 'x' -a "x$GR" != 'x' -a "x$MGR" != 'x' -a "x$FOOD_LVL" != 'x'
 }
 
 _cast_create_food_and_eat_stdalone(){
 _debug_stdalone "_cast_create_food_and_eat_stdalone:$*"
+_log_stdalone   "_cast_create_food_and_eat_stdalone:$*"
 
 local lEAT_FOOD BUNGLE
 
@@ -1096,6 +1191,7 @@ _set_pickup_stdalone(){
 
 _check_if_on_item_stdalone(){
 _debug_stdalone "_check_if_on_item_stdalone:$*"
+_log_stdalone   "_check_if_on_item_stdalone:$*"
 
 local DO_LOOP TOPMOST lMSG lRV
 unset DO_LOOP TOPMOST lMSG lRV
@@ -1181,6 +1277,7 @@ test "$DO_LOOP" && return 1 || _exit_stdalone 1 $lMSG
 
 _check_mana_for_create_food_stdalone(){
 _debug_stdalone "_check_mana_for_create_food_stdalone:$*"
+_log_stdalone   "_check_mana_for_create_food_stdalone:$*"
 
 local lSP=${*:-$SP}
 test "$lSP" || return 254
@@ -1230,6 +1327,7 @@ return 1
 #** we may get attacked and die **#
 _check_hp_and_return_home_stdalone(){
 _debug_stdalone "_check_hp_and_return_home_stdalone:$*"
+_log_stdalone   "_check_hp_and_return_home_stdalone:$*"
 
 local currHP currHPMin
 currHP=${1:-$HP}
@@ -1245,6 +1343,7 @@ fi
 
 _do_parameters_stdalone(){
 _debug_stdalone "_do_parameters_stdalone:$*"
+_log_stdalone   "_do_parameters_stdalone:$*"
 
 # dont forget to pass parameters when invoking this function
 test "$*" || return 0
@@ -1288,6 +1387,7 @@ done
 
 _do_parameters(){
 _debug "_do_parameters:$*"
+_log   "_do_parameters:$*"
 
 # dont forget to pass parameters when invoking this function
 test "$*" || return 0
@@ -1391,6 +1491,7 @@ done
 
 _claw_around_stdalone(){
 _debug_stdalone "_claw_around_stdalone:$*"
+_log_stdalone   "_claw_around_stdalone:$*"
 
 while :;
 do
@@ -1419,6 +1520,9 @@ done
 # MAIN
 
 _main_claw_stdalone(){
+_debug_stdalone "_main_claw_stdalone:$*"
+_log_stdalone   "_main_claw_stdalone:$*"
+
 _set_global_variables_stdalone $*
 _say_start_msg_stdalone $*
 _do_parameters_stdalone $*
@@ -1439,6 +1543,9 @@ _say_end_msg_stdalone
 }
 
 _main_claw_func(){
+_debug "_main_claw_func:$*"
+_log   "_main_claw_func:$*"
+
 _set_global_variables $*
 _say_start_msg $*
 _do_parameters $*

@@ -105,10 +105,8 @@ one=$((one+1))
 
 _kill_monster_fire $ATTACKS_SPOT
 
-#_draw 2 "You calmed ${CALMS:-0} and convinced ${FOLLOWS:-0} monsters."
-
 case $NUMBER in $one) break;; esac
-#case $KARATE_ATTEMPTS in $KARATE_ATTEMPTS_DONE) break;; esac
+#case $MELEE_ATTEMPTS in $MELEE_ATTEMPTS_DONE) break;; esac
 
 if _check_counter; then
 _check_food_level
@@ -135,8 +133,6 @@ one=$((one+1))
 [ "$DIRECTION_OPT" ] && _number_to_direction $DIRECTION_OPT || _set_next_direction
 
 _kill_monster_fire $ATTACKS_SPOT
-
-#_draw 2 "You calmed ${CALMS:-0} and convinced ${FOLLOWS:-0} monsters."
 
 case $NUMBER in $one) break;; esac
 #case $KARATE_ATTEMPTS in $KARATE_ATTEMPTS_DONE) break;; esac
@@ -166,8 +162,6 @@ one=$((one+1))
 
 _kill_monster_fire $ATTACKS_SPOT
 
-#_draw 2 "You calmed ${CALMS:-0} and convinced ${FOLLOWS:-0} monsters."
-
 case $NUMBER in $one) break;; esac
 #case $CLAW_ATTEMPTS in $CLAW_ATTEMPTS_DONE) break;; esac
 
@@ -196,8 +190,6 @@ one=$((one+1))
 
 _kill_monster_fire $ATTACKS_SPOT
 
-#_draw 2 "You calmed ${CALMS:-0} and convinced ${FOLLOWS:-0} monsters."
-
 case $NUMBER in $one) break;; esac
 #case $FLAME_TOUCH_ATTEMPTS in $FLAME_TOUCH_ATTEMPTS_DONE) break;; esac
 
@@ -225,8 +217,6 @@ one=$((one+1))
 [ "$DIRECTION_OPT" ] && _number_to_direction $DIRECTION_OPT || _set_next_direction
 
 _kill_monster_fire $ATTACKS_SPOT
-
-#_draw 2 "You calmed ${CALMS:-0} and convinced ${FOLLOWS:-0} monsters."
 
 case $NUMBER in $one) break;; esac
 #case $PUNCH_ATTEMPTS in $PUNCH_ATTEMPTS_DONE) break;; esac

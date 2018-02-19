@@ -86,7 +86,7 @@ exit ${1:-2}
 }
 
 _set_global_variables_stdalone(){
-LOGGING=${LOGGING:-'1'}  #bool, set to ANYTHING ie "1" to enable, empty to disable
+LOGGING=${LOGGING:-''}  #bool, set to ANYTHING ie "1" to enable, empty to disable
 #DEBUG=${DEBUG:-''}      #bool, set to ANYTHING ie "1" to enable, empty to disable
 MSGLEVEL=${MSGLEVEL:-6} #integer 1 emergency - 7 debug
 #case $MSGLEVEL in
@@ -174,9 +174,9 @@ _check_drawinfo_stdalone
 _draw_stdalone 5 "Checking the parameters ($*)..."
 }
 
-_check_drawinfo_stdalone(){  ##+++2018-01-08
-_debug_stdalone "_check_drawinfo_stdalone:$*"
-_log_stdalone   "_check_drawinfo_stdalone:$*"
+__check_drawinfo_stdalone(){  ##+++2018-01-08
+_debug_stdalone "__check_drawinfo_stdalone:$*"
+_log_stdalone   "__check_drawinfo_stdalone:$*"
 
 oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
 oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
@@ -201,7 +201,7 @@ _is_stdalone 0 0 examine
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
- _log_stdalone "$REPLY_LOG" "_check_drawinfo_stdalone:$cnt0:$REPLY"
+ _log_stdalone "$REPLY_LOG" "__check_drawinfo_stdalone:$cnt0:$REPLY"
  _msg_stdalone 7 "$cnt0:$REPLY"
 
  case $REPLY in
@@ -234,6 +234,61 @@ test "$DRAWINFO0" = "$DRAWINFO" || {
 DEBUG=$oDEBUG
 LOGGING=$oLOGGING
 _draw_stdalone 6 "Done."
+test "$DRAWINFO"
+}
+
+_check_drawinfo_stdalone(){  ##+++2018-02-18
+_debug_stdalone "_check_drawinfo_stdalone:$*"
+
+oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
+oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
+
+_draw_stdalone 2 "Checking drawinfo ..."
+
+echo watch
+
+while :;
+do
+
+# I use search here to provoke
+# a response from the server
+_is 1 1 save
+_is 1 1 ready_skill xxx
+
+ unset cnt0 TICKS
+ while :
+ do
+ cnt0=$((cnt0+1))
+ read -t $TMOUT
+ _log_stdalone "$REPLY_LOG" "_check_drawinfo_stdalone:$cnt0:$REPLY"
+ _msg_stdalone 7 "$cnt0:$REPLY"
+
+ case $REPLY in
+ *drawinfo*)         HAVE_DRAWINFO=drawinfo;;
+ *drawextinfo*)   HAVE_DRAWEXTINFO=drawextinfo;;
+ *tick*) TICKS=$((TICKS+1)); test "$TICKS" -gt 39 && break 2;;  # 5 seconds
+ '') break 1;;
+ *) :;;
+ esac
+
+ sleep 0.001
+ done
+
+_sleep_stdalone
+done
+
+echo unwatch
+_empty_message_stream_stdalone
+unset cnt0
+
+_msg_stdalone 5 "Client recognizes '$HAVE_DRAWINFO' '$HAVE_DRAWEXTINFO'"
+DRAWINFO="$HAVE_DRAWINFO $HAVE_DRAWEXTINFO"
+DRAWINFO=`echo $DRAWINFO`
+
+DEBUG=$oDEBUG
+LOGGING=$oLOGGING
+_draw_stdalone 6 "Done."
+test "$DRAWINFO"
 }
 
 _tell_script_time_stdalone(){
@@ -469,14 +524,39 @@ _msg_stdalone 7 "_empty_message_stream_stdalone:$lREPLY"
 done
 }
 
-_watch_stdalone(){
+__watch_stdalone(){
 echo unwatch ${*:-$DRAWINFO}
 sleep 0.4
 echo   watch ${*:-$DRAWINFO}
 }
 
-_unwatch_stdalone(){
+__unwatch_stdalone(){
 echo unwatch ${*:-$DRAWINFO}
+}
+
+_watch_stdalone(){
+case $* in
+'')
+ echo unwatch
+ sleep 0.2
+ echo watch;;
+*)
+for i in $*; do
+ echo unwatch $i
+ sleep 0.2
+ echo   watch $i
+done;;
+esac
+}
+
+_unwatch_stdalone(){
+case $* in
+'') echo unwatch;;
+*)
+for i in $*; do
+ echo unwatch $i
+done;;
+esac
 }
 
 _is_stdalone(){
@@ -485,13 +565,15 @@ _is_stdalone(){
 #  <repeat> is the number of times to execute command
 #  <must_send> tells whether or not the command must sent at all cost (1 or 0).
 #  <repeat> and <must_send> are optional parameters.
-    _debug_stdalone "issue $*"
+    _debug_stdalone "_is_stdalone:$*"
+    _log_stdalone   "_is_stdalone:$*"
     echo issue "$@"
     sleep 0.2
 }
 
 __is_stdalone(){
-_msg_stdalone 7 "$*"
+_msg_stdalone 7 "__is_stdalone:$*"
+_log_stdalone "__is_stdalone:$*"
 Z1=$1; shift
 Z2=$1; shift
 _msg_stdalone 7 "$*"
@@ -554,8 +636,6 @@ _request_stat_cmbt_stdalone(){
 #Return wc,ac,dam,speed,weapon_sp
 _debug_stdalone "_request_stat_cmbt_stdalone:$*"
 _log_stdalone   "_request_stat_cmbt_stdalone:$*"
-
-#test "$*" || return 254
 
 _empty_message_stream_stdalone
 
@@ -1035,8 +1115,6 @@ _request_stat_hp_stdalone(){
 _debug_stdalone "_request_stat_hp_stdalone:$*"
 _log_stdalone   "_request_stat_hp_stdalone:$*"
 #Return hp,maxhp,sp,maxsp,grace,maxgrace,food
-
-#test "$*" || return 254
 
 _empty_message_stream_stdalone
 

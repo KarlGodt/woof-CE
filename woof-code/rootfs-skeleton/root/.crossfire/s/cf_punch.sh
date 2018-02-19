@@ -224,9 +224,10 @@ test "$DRAWINFO0" = "$DRAWINFO" || {
 DEBUG=$oDEBUG
 LOGGING=$oLOGGING
 _draw_stdalone 6 "Done."
+test "$DRAWINFO"
 }
 
-_check_drawinfo_stdalone(){  ##+++2018-01-08
+_check_drawinfo_stdalone(){  ##+++2018-02-18
 _debug_stdalone "_check_drawinfo_stdalone:$*"
 
 oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
@@ -277,6 +278,7 @@ DRAWINFO=`echo $DRAWINFO`
 DEBUG=$oDEBUG
 LOGGING=$oLOGGING
 _draw_stdalone 6 "Done."
+test "$DRAWINFO"
 }
 
 _tell_script_time_stdalone(){
@@ -575,13 +577,15 @@ _is_stdalone(){
 #  <repeat> is the number of times to execute command
 #  <must_send> tells whether or not the command must sent at all cost (1 or 0).
 #  <repeat> and <must_send> are optional parameters.
-    _debug_stdalone "issue $*"
+    _debug_stdalone "_is_stdalone:$*"
+    _log_stdalone   "_is_stdalone:$*"
     echo issue "$@"
     sleep 0.2
 }
 
 __is_stdalone(){
-_msg_stdalone 7 "$*"
+_msg_stdalone 7 "__is_stdalone:$*"
+_log_stdalone "__is_stdalone:$*"
 Z1=$1; shift
 Z2=$1; shift
 _msg_stdalone 7 "$*"
@@ -647,8 +651,6 @@ _request_stat_cmbt_stdalone(){
 _debug_stdalone "_request_stat_cmbt_stdalone:$*"
 _log_stdalone   "_request_stat_cmbt_stdalone:$*"
 
-#test "$*" || return 254
-
 _empty_message_stream_stdalone
 
 unset WC AC DAM SPEED WP_SPEED REST
@@ -666,6 +668,7 @@ test "$WC" -a "$AC" -a "$DAM" -a "$SPEED" -a "$WP_SPEED"
 
 __get_player_speed_stdalone(){
 _debug_stdalone "__get_player_speed_stdalone:$*"
+_log_stdalone   "__get_player_speed_stdalone:$*"
 
 if test "$1" = '-l'; then # loop counter
  _check_counter_stdalone || return 1
@@ -688,6 +691,7 @@ return 0
 
 _get_player_speed_stdalone(){
 _debug_stdalone "_get_player_speed_stdalone:$*"
+_log_stdalone   "_get_player_speed_stdalone:$*"
 
 if test "$1" = '-l'; then # loop counter
  _check_counter_stdalone || return 1
@@ -708,6 +712,7 @@ return 0
 
 _player_speed_to_human_readable_stdalone(){
 _debug_stdalone "_player_speed_to_human_readable_stdalone:$*"
+_log_stdalone   "_player_speed_to_human_readable_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED}
 test "$lPL_SPEED" || return 254
@@ -755,19 +760,20 @@ LC_NUMERIC=$oLC_NUMERIC
 }
 
 _round_up_and_down_stdalone(){  ##+++2018-01-08
-echo "_round_up_and_down_stdalone:$1" >&2
+[ "$DEBUG" ] && echo "_round_up_and_down_stdalone:$1" >&2
+_log_stdalone "_round_up_and_down_stdalone:$*"
                #123
 STELLEN=${#1}  #3
-echo "STELLEN=$STELLEN" >&2
+[ "$DEBUG" ] && echo "STELLEN=$STELLEN" >&2
 
 LETZTSTELLE=${1:$((STELLEN-1))} #123:2
-echo "LETZTSTELLE=$LETZTSTELLE" >&2
+[ "$DEBUG" ] && echo "LETZTSTELLE=$LETZTSTELLE" >&2
 
 VORLETZTSTELLE=${1:$((STELLEN-2)):1} #123:1:1
-echo "VORLETZTSTELLE=$VORLETZTSTELLE" >&2
+[ "$DEBUG" ] && echo "VORLETZTSTELLE=$VORLETZTSTELLE" >&2
 
 GERUNDET_BASIS=${1:0:$((STELLEN-1))} #123:0:2
-echo "GERUNDET_BASIS=$GERUNDET_BASIS" >&2
+[ "$DEBUG" ] && echo "GERUNDET_BASIS=$GERUNDET_BASIS" >&2
 
 case $LETZTSTELLE in
 0)     GERUNDET="${GERUNDET_BASIS}0";;
@@ -781,6 +787,7 @@ echo $GERUNDET
 
 _set_sync_sleep_stdalone(){
 _debug_stdalone "_set_sync_sleep_stdalone:$*"
+_log_stdalone   "_set_sync_sleep_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED}
 lPL_SPEED=${lPL_SPEED:-50000}
@@ -820,6 +827,7 @@ _info_stdalone "Setting SLEEP=$SLEEP ,TMOUT=$TMOUT ,DELAY_DRAWINFO=$DELAY_DRAWIN
 
 __set_sync_sleep_stdalone(){
 _debug_stdalone "__set_sync_sleep_stdalone:$*"
+_log_stdalone   "__set_sync_sleep_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED1}
 lPL_SPEED=${lPL_SPEED:-50}
@@ -905,6 +913,7 @@ DIRECTION_NUMBER=$DIRN
 
 __kill_monster_stdalone(){
 _debug_stdalone "__kill_monster_stdalone:$*"
+_log_stdalone   "__kill_monster_stdalone:$*"
 
 local lATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
 
@@ -920,6 +929,7 @@ _empty_message_stream_stdalone
 
 _kill_monster_stdalone(){
 _debug_stdalone "_kill_monster_stdalone:$*"
+_log_stdalone   "_kill_monster_stdalone:$*"
 
 local lATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
 
@@ -936,6 +946,7 @@ _empty_message_stream_stdalone
 
 _brace_stdalone(){
 _debug_stdalone "_brace_stdalone:$*"
+_log_stdalone   "_brace_stdalone:$*"
 
 _watch_stdalone $DRAWINFO
 while :
@@ -966,6 +977,7 @@ _empty_message_stream_stdalone
 
 _unbrace_stdalone(){
 _debug_stdalone "_unbrace_stdalone:$*"
+_log_stdalone   "_unbrace_stdalone:$*"
 
 _watch_stdalone $DRAWINFO
 while :
@@ -996,6 +1008,7 @@ _empty_message_stream_stdalone
 
 _set_next_direction_stdalone(){
 _debug_stdalone "_set_next_direction_stdalone:$*:$DIRN"
+_log_stdalone   "_set_next_direction_stdalone:$*:$DIRN"
 
 if test "$DO_CLOCKWISE"; then
  DIRN=$((DIRN-1))
@@ -1010,6 +1023,7 @@ _draw_stdalone 2 "Will turn to direction $DIRECTION .."
 
 _check_food_level_stdalone(){
 _debug_stdalone "_check_food_level_stdalone:$*"
+_log_stdalone   "_check_food_level_stdalone:$*"
 
 test "$*" && MIN_FOOD_LEVEL="$@"
 MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
@@ -1038,6 +1052,7 @@ done
 
 _eat_food_from_inventory_stdalone(){
 _debug_stdalone "_eat_food_from_inventory_stdalone:$*"
+_log_stdalone   "_eat_food_from_inventory_stdalone:$*"
 
 local lEAT_FOOD="${@:-$EAT_FOOD}"
 lEAT_FOOD=${lEAT_FOOD:-"$FOOD_DEF"}
@@ -1092,8 +1107,6 @@ _request_stat_hp_stdalone(){
 #Return hp,maxhp,sp,maxsp,grace,maxgrace,food
 _debug_stdalone "_request_stat_hp_stdalone:$*"
 _log_stdalone   "_request_stat_hp_stdalone:$*"
-
-#test "$*" || return 254
 
 _empty_message_stream_stdalone
 
@@ -1511,7 +1524,7 @@ done
 
 _punch_around_stdalone(){
 _debug_stdalone "_punch_around_stdalone:$*"
-_log_stdalone "_punch_around_stdalone:$*"
+_log_stdalone   "_punch_around_stdalone:$*"
 
 while :;
 do

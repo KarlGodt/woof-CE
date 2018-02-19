@@ -4,6 +4,8 @@
 
 __open_chests(){
 _debug "__open_chests:$*"
+_log   "__open_chests:$*"
+
 _draw 5 "Opening chests ..."
 
 unset one
@@ -22,7 +24,7 @@ _draw 5 "${NUMBER_CHEST:-?} chest(s) to open ..."
 
 _move_back_and_forth 2
 
-_watch
+_watch $DRAWINFO
 _is 1 1 apply
 #_sleep
 unset OPEN_COUNT
@@ -41,7 +43,7 @@ unset OPEN_COUNT
  esac
  sleep 0.01
  done
-_unwatch
+_unwatch $DRAWINFO
 test "$OPEN_COUNT" && CHEST_COUNT=$((CHEST_COUNT+1))
 # TODO : You find*Rune of*
 #You find Blades trap in the chest.
@@ -78,6 +80,7 @@ done
 
 _open_chests(){
 _debug "_open_chests:$*"
+_log   "_open_chests:$*"
 
 _draw 5 "Opening chests ..."
 
@@ -97,7 +100,7 @@ _sleep
 
 _draw 5 "${NUMBER_CHEST:-?} chest(s) to open ..."
 
-_watch
+_watch $DRAWINFO
 _is 1 1 apply
 #_sleep
  unset OPEN_COUNT
@@ -116,7 +119,7 @@ _is 1 1 apply
  esac
  sleep 0.01
  done
-_unwatch
+_unwatch $DRAWINFO
 test "$OPEN_COUNT" && CHEST_COUNT=$((CHEST_COUNT+1))
 # TODO : You find*Rune of*
 #You find Blades trap in the chest.
@@ -149,6 +152,7 @@ done
 
 __check_if_on_chest_request_items_on(){
 _debug "__check_if_on_chest_request_items_on:$*"
+_log   "__check_if_on_chest_request_items_on:$*"
 
 ## This function currently just tests for $1 as -l
 ##  ( loop ), and automatically if -t ( topmost )
@@ -231,6 +235,7 @@ return 0
 
 _check_if_on_chest_request_items_on(){
 _debug "_check_if_on_chest_request_items_on:$*"
+_log   "_check_if_on_chest_request_items_on:$*"
 
 ## This function currently just returns and
 ##  and does not exit if not called from loop
@@ -295,6 +300,7 @@ return ${lRV:-0}
 
 _eval_check_if_on_chest_request_items_on(){
 _debug "_eval_check_if_on_chest_request_items_on:$*"
+_log   "_eval_check_if_on_chest_request_items_on:$*"
 
   _check_if_on_chest_request_items_on
   local lRV=$?
@@ -306,13 +312,14 @@ case $lRV in
 0) return 0;;
 *) _warn "_eval_check_if_on_chest_request_items_on:Unhandled return value '$lRV'";;
 esac
-#beep -l 1000 -f 700
+
 _beep_std
 test "$1" && return 1 || exit 1
 }
 
 _check_if_on_chest(){
 _debug "_check_if_on_chest:$*"
+_log   "_check_if_on_chest:$*"
 
 _draw 5 "Checking if standing on chests ..."
 
@@ -323,6 +330,8 @@ _draw 5 "Checking if standing on chests ..."
 
 _lockpick_door(){
 _debug "_lockpick_door:$*"
+_log   "_lockpick_door:$*"
+
 _draw 5 "Attempting to lockpick the door ..."
 
 one=${LOCKPICK_ATTEMPTS:-$LOCKPICK_ATTEMPTS_DEFAULT}

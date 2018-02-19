@@ -107,6 +107,7 @@ _draw_stdalone 12 "-c   :cast spell disarm"
 _draw_stdalone 12 "-i   :invoke spell disarm"
 _draw_stdalone 12 "-u   :use_skill disarm"
 _draw_stdalone 10 "-d   :Print debugging to msgpane."
+_draw_stdalone 10 "-L   :Turn on logging."
 exit ${1:-2}
 }
 
@@ -129,6 +130,7 @@ _draw 12 "-c   :cast spell disarm"
 _draw 12 "-i   :invoke spell disarm"
 _draw 12 "-u   :use_skill disarm"
 _draw 10 "-d   :Print debugging to msgpane."
+_draw 10 "-L   :Turn on logging."
 exit ${1:-2}
 }
 
@@ -206,6 +208,7 @@ mkdir -p "$TMP_DIR"
   REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
 REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
      ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
+    INV_LOG="$TMP_DIR"/"$MY_BASE".$$.inv
   ERROR_LOG="$TMP_DIR"/"$MY_BASE".$$.err
 exec 2>>"$ERROR_LOG"
 }
@@ -1805,11 +1808,12 @@ esac
 # c   :cast disarm
 # i   :invoke disarm
 # d   :debugging output
-while getopts C:S:ciudMVhabdefgjklmnopqrstvwxyzABDEFGHIJKLNOPQRTUWXYZ oneOPT
+while getopts C:S:ciudLMVhabdefgjklmnopqrstvwxyzABDEFGHIJKNOPQRTUWXYZ oneOPT
 do
 case $oneOPT in
 C) NUMBER=$OPTARG;;
 S) SEARCH_ATTEMPTS=${OPTARG:-$SEARCH_ATTEMPTS_DEFAULT};;
+L) LOGGING=$((LOGGING+1));;
 M) MULTIPLE_TRAPS=$((MULTIPLE_TRAPS+1));;
 c) DISARM=cast;;
 i) DISARM=invokation;;
@@ -1850,11 +1854,12 @@ esac
 # c   :cast disarm
 # i   :invoke disarm
 # d   :debugging output
-while getopts C:S:ciudMVhabdefgjklmnopqrstvwxyzABDEFGHIJKLNOPQRTUWXYZ oneOPT
+while getopts C:S:ciudLMVhabdefgjklmnopqrstvwxyzABDEFGHIJKNOPQRTUWXYZ oneOPT
 do
 case $oneOPT in
 C) NUMBER=$OPTARG;;
 S) SEARCH_ATTEMPTS=${OPTARG:-$SEARCH_ATTEMPTS_DEFAULT};;
+L) LOGGING=$((LOGGING+1));;
 M) MULTIPLE_TRAPS=$((MULTIPLE_TRAPS+1));;
 c) DISARM=cast;;
 i) DISARM=invokation;;

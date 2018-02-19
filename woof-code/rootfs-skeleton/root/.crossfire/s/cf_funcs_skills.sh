@@ -4,6 +4,7 @@
 
 _check_skill_available(){
 _debug "_check_skill_available:$*"
+_log   "_check_skill_available:$*"
 
 local lSKILL=${*:-"$SKILL"}
 test "$lSKILL" || return 254

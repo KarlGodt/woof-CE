@@ -1293,7 +1293,8 @@ _is(){
 #  <repeat> is the number of times to execute command
 #  <must_send> tells whether or not the command must sent at all cost (1 or 0).
 #  <repeat> and <must_send> are optional parameters.
-    _debug "issue $*"
+    _debug "_is:$*"
+    _log   "_is:$*"
     echo issue "$@"
     sleep 0.2
 }
