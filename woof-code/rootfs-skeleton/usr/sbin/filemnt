@@ -5,10 +5,20 @@
 #v424 advise of sfs-version-converter.
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+## 2018-02-23: Larger Cleanup
 
-Version='2.3.1-getopts Macpup_Foxy_3-Puppy-Linux-430/2 KRG'
+Version='2.3.2-getopts Macpup_Foxy_3-Puppy-Linux-430/2 KRG'
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 test "$PUPMODE" || . /etc/rc.d/PUPSTATE # PUPMODE needed by _ask_to_run_sfs_load
+
+# REM: Variables
+MOUNT_DIR=/mnt  # parent dir there where files should be mounted
+# old Initrd filesystem was apparently mounted as loop,
+# today it is a simple cpio archive. filemnt will unpack such a cpio archive now.
+INTRD_DIR_TREE="initrd-tree" # name of the initrd_dir_tree to extract files from initrd
+
+DEBUG=1
+DEBUGX=1
 
 xmTITLE="PuppyFileMount"
 
@@ -44,28 +54,26 @@ l) shift;exec 1>>/tmp/filemnt.log 2>&1;;
 *) :;;
 esac;done
 
-
-_kernel_version5 ## f4puppy5
-
-# REM: Variables
-MOUNT_DIR=/mnt  # parent dir there where files should be mounted
-
-DEBUG=1
-DEBUGX=1
-
+# DEBUG ...
 _notice "PWD='$PWD'"
 _notice "pwd='`pwd`'"
 
+# NEED Squashfs version
+_kernel_version5 ## f4puppy5
+
+
+# ++++++++++++++++++++++++++++++++++++
+# we need a file name, with :space:s ?
 if test -f "$*"; then
    imgFILE="$@"
-   _debug "$*:Is file"  ##DEBUG
+   _debug "$*:Is file."  ##DEBUG
    set --
 else
-   _debug "$*:Is NOT file"  ##DEBUG
+   _debug "$*:Is NOT file .."  ##DEBUG
+
 # REM: Filter filename parameter from other possible
 #       parameters (--help,.. etc)
-
-while [ $# != 0 ]; do
+ while [ $# != 0 ]; do
  _debugx "\$1='$1'"
 
  [ -f "$1" ] && imgFILE="$1"
@@ -82,22 +90,24 @@ while [ $# != 0 ]; do
   maybe_file3=`echo -e "${maybe_file}${1}"\\n`;
  [ -f "$maybe_file3" ] && imgFILE="$maybe_file3"
 
- #missing combinations of space,tab and newline .. GRR...
+ #TODO: Combinations of space, tab and newline ..
  shift
- [ "$imgFILE" ] && break
+ [ "$imgFILE" ] && break # either $1, maybe_file, maybe_file2, maybe_file3
 
  sleep 0.1
-done
+ done
 
-posPARAMS="$*"
-set - $posPARAMS
+ posPARAMS="$*"
+ set - $posPARAMS
 
 fi
 
 _info "$*:imgFILE='$imgFILE'"  ##DEBUG
 
 test "$imgFILE" || _exit 3 "Need existing filename ..."
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+# +++++++++++++++++++++++++++++++++
 # REM: Need to handle relative path
 #      regular readlink -e should print absolute path if file exists
 #      regular readlink -f should print absolute path if parent directory of directory or file exists
@@ -110,6 +120,7 @@ test "$imgFILE" || _exit 3 "Need existing filename ..."
 #imgFILE=`readlink -f "$imgFILE"`
 imgFILE=`realpath "$imgFILE"`
 _debug "imgFILE='$imgFILE'"
+
 # REM: Sanity checks
  case "$imgFILE" in
  ./*|../*)
@@ -128,15 +139,19 @@ _debug "imgFILE='$imgFILE'"
      ;;
  esac
 _debug "imgFILE='$imgFILE'"
+
 # REM: Sanity checks
 #test -e "$imgFILE" || imgFILE=`pwd`/"$bn_imgFILE"
 test -f  "$imgFILE" || imgFILE=`pwd`/"$bn_imgFILE"
 #test -e "$imgFILE" || _exit 4 "Error while testing for existence of '$imgFILE'"
 test -f "$imgFILE" || _exit 4 "Error while testing as regular file of '$imgFILE'"
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 _debugx "dn_imgFILE='$dn_imgFILE'"  ##DEBUG
 _debugx "bn_imgFILE='$bn_imgFILE'"  ##DEBUG
 
+# +++++++++++++++++
+# FUNCTION list ...
 # REM: 2015-11-27 add sfs_load switch
 _ask_to_run_sfs_load(){
 
@@ -171,6 +186,7 @@ case $? in
 esac
 }
 
+# ++++++++++++++++++++++++++++++++
 # REM: Try to handle initrd files.
 #      These may be compressed.
 #      As of 2010 and later, Puppy Linux initrd are cpio archives.
@@ -242,10 +258,8 @@ _is_initrd_fs(){
  return 1
 }
 
-# REM: Variables
-INTRD_DIR_TREE="initrd-tree" # name of the initrd_dir_tree to extract files from initrd
 
-_prepare(){
+_prepare_initrd(){
 # REM: Prepare the working directory
 _change_into_dir_where_initrd_is
 _make_backup_of_initrd "$imgFILE"
@@ -254,10 +268,7 @@ _create_and_change_into_initrd_dir_tree "$INTRD_DIR_TREE"
 _where_am_i || _exit 9 "Something feels wrong in this directory '`pwd`'"
 }
 
-
-case "${imgFILE##*/}" in
-*initrd*)
-
+_handle_initrd_file(){
 
 # REM: Define compression from extension
 case "$imgFILE" in
@@ -270,11 +281,10 @@ case "$imgFILE" in
 *) _err "Unhandled extension of '$bn_imgFILE'";;
 esac
 
-
 # REM: Is initrd a file-system
 #      or cpio archive
 if  _is_initrd_cpio; then
- _prepare
+ _prepare_initrd
  _unpack_initrd_cpio "$COMPRESS" "$imgFILE"
  [ $? = 0 ] || { echo "something went wrong ..."; false; }
    exit $?
@@ -283,62 +293,15 @@ elif _is_initrd_fs; then
     _info "$imgFILE seems to contain a file system"  ##DEBUG
     # REM: further down it will be mounted
 
-
 else
-_err "Unhandled file type for '$imgFILE' - neither cpio or file-system"
+_err "Unhandled file type for '$imgFILE' - neither cpio or file-system."
 exit 2
 fi
 
+}
+# ++++++++++++++++++++++++
 
-;;
-*.sfs)
- case $PUPMODE in 2|3) :;;
- *)
-   if [ "`which load_sfs`" ]; then
-
-       LOAD_MSG=`gettext "Do you want insert / load / integrate the
-$bn_imgFILE into the current running
-$DISTRO_NAME $DISTRO_VERSION ?
-Or do you just want to mount it to look inside ?
-"`
-    INSERT_B=`gettext 'Insert'`
-    MOUNT_B=`gettext 'Mount'`
-    xmessage -buttons "$INSERT_B:100,$MOUNT_B:101" "$LOAD_MSG"
-    case $? in
-    100) exec sfs_load "$@";;
-    101) :;;
-    *) exit 0;;
-    esac
-
-
-   fi
- ;;
- esac
-;;
-esac
-
-_debug "5 mntPT='$mntPT'"  ##DEBUG
-#+++2016-02-16 Add mountpoint parameter support
-_debug "positional parameters:$*"
-case "$*" in ${imgFILE#*/mnt/home}|${bn_imgFILE#./}|$imgFILE|$bn_imgFILE) :;;
-*)
-_debug "6 mntPT='$mntPT'"  ##DEBUG
-#test "$2" && mntPT="$2" #always quote it
-##test "$1" && mntPT="$1" #always quote it
-#shift
-test "$*" && mntPT="$*" #always quote it
-;;
-esac
-
-_debug "7 mntPT='$mntPT'"  ##DEBUG
-test "$mntPT" || mntPT="${MOUNT_DIR}/$bn_imgFILE"
-_debug "7 mntPT='$mntPT'"  ##DEBUG
-test -e "$mntPT" && mntPT="${MOUNT_DIR}/$bn_imgFILE"
-_debug "8 mntPT='$mntPT'"  ##DEBUG
-
-grepPatternMntPt=`echo "$mntPT" | sed 's#\([[:punct:]]\)#\\\1#g'`
-grepPatternImgFile=`echo "$imgFILE" | sed 's#\([[:punct:]]\)#\\\1#g'`
-
+# FUNCTIONS
 _create_new_folder_name(){
     _debug "_create_new_folder_name:$*"
     test "$*" || return 2
@@ -527,13 +490,7 @@ _get_real_backing_file(){
 test "$IMGBASE_"
 }
 
-_check_already_mounted(){
-
-  #BK check if already mounted elsewhere...
-  for oneLOOP in `grep '^/dev/loop' /proc/mounts | cut -f 1 -d ' '`
-  do
-
-  __get_real_backing_file(){
+__get_real_backing_file(){
    # REM: Now try to get the basename of the file associated with oneLOOP
    if test -f /sys/block/${oneLOOP##*/}/loop/backing_file; then
     read oneIMG_FILE </sys/block/${oneLOOP##*/}/loop/backing_file
@@ -564,7 +521,14 @@ _check_already_mounted(){
    esac
 
     IMGBASE=`basename "$oneIMG_FILE"`
-  }
+}
+
+_check_already_mounted(){
+
+  #BK check if already mounted elsewhere...
+  for oneLOOP in `grep '^/dev/loop' /proc/mounts | cut -f 1 -d ' '`
+  do
+
    _get_real_backing_file "$oneLOOP" || : #TODO Error handling
    IMGBASE=$IMGBASE_
 
@@ -581,7 +545,7 @@ _check_already_mounted(){
 
      # REM : Try to tell the current mountpoint
      test "$curr_mntPT" && cmMSG="on $curr_mntPT"
-     test "$mntPT"      && mpMSG="on $mntPT" || mpMSG="another mount point"
+     test "$mntPT"      && mpMSG="$mntPT" || mpMSG="another mount point"
 
      if [ -n "$DISPLAY" ] ; then #66
 
@@ -634,9 +598,9 @@ _check_already_mounted(){
        }
        _debug "193:$mntPT"
        test -d "$mntPT" || {
-	   _LOSETUP_=`losetup || losetup -a` 2>>$ERR
-	   dev_node_=`echo "$_LOSETUP_" | grep "$IMGBASE" | tail -n1 | awk -F'[ :]' '{print $1}'`
-	   devNR=${dev_node_##*/} #/dev/loop/0
+       _LOSETUP_=`losetup || losetup -a` 2>>$ERR
+       dev_node_=`echo "$_LOSETUP_" | grep "$IMGBASE" | tail -n1 | awk -F'[ :]' '{print $1}'`
+       devNR=${dev_node_##*/} #/dev/loop/0
        devNR=${devNR##*loop}  #/dev/loop0
        real_loop=`echo "$_LOSETUP_" | grep -E "[ (]/dev/loop$devNR[)]$|[ (]/dev/loop/$devNR[)]$" | cut -f1 -d':'`
        _debug "193:real_loop=$real_loop"
@@ -645,7 +609,7 @@ _check_already_mounted(){
        _debug "193:devNR=$devNR"
        mntpt=`grep -Ew "^/dev/loop$devNR|^/dev/loop/$devNR" /proc/mounts | cut -f2 -d' '`
        _debug "193:mntpt=$mntpt"
-	   }
+       }
        mntPT=`echo -e "$mntPT"`
        test -d "$mntPT"
        return $?
@@ -686,9 +650,9 @@ $mntPTS"
        i=`echo -e "$i"`
        test "$i"    || continue
        test -d "$i" || continue
-       GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
-       _debug "194:GREP='$GREP'"
-       LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
+       gPATTERN=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
+       _debug "194:gPATTERN='$gPATTERN'"
+       LOOPD=$(busybox mount | grep "$gPATTERN" | cut -f 1 -d ' ')
        _debug "194:LOOPD='$LOOPD'"
        #USEapps=`fuser -c $LOOPD`     ##---2011-10-27
        USEapps=`fuser -m "$i"`        ##+++2011-10-27
@@ -766,13 +730,45 @@ fi #6
 done
 
 }
+# END FUNCTIONS
 
-_check_already_mounted || _exit 4 "TODO:_check_already_mounted returned '$?'"
 
-# REM: UNMOUNT is not set until it gets set by GUI or automatically if no DISPLAY
-if [ -z "$UNMOUNT" ] ; then
- # REM: mount imgFILE
+# Switches for initrd and .sfs files ...
+case "${imgFILE##*/}" in
+*initrd*) _handle_initrd_file;;
+esac
+# +++++++++++++++++++++++++++++
 
+case "${imgFILE##*/}" in
+*.sfs)
+ case $PUPMODE in 2|3) :;;
+ *)
+   if [ "`which load_sfs`" ]; then
+
+       LOAD_MSG=`gettext "Do you want insert / load / integrate the
+$bn_imgFILE into the current running
+$DISTRO_NAME $DISTRO_VERSION ?
+Or do you just want to mount it to look inside ?
+"`
+    INSERT_B=`gettext 'Insert'`
+    MOUNT_B=`gettext 'Mount'`
+    xmessage -buttons "$INSERT_B:100,$MOUNT_B:101" "$LOAD_MSG"
+    case $? in
+    100) exec sfs_load "$@";;
+    101) :;;
+    *) exit 0;;
+    esac
+
+   fi
+ ;;
+ esac
+;;
+esac
+
+# +++++++++++++++++++++++++++++++++++++++++++++
+
+# MOUNT FUNCTIONS ...
+_set_file_type(){
   # REM: Do not use a Ext variable, case is better
   # get file type from extension
   #Ext=`echo "$imgFILE" |sed 's/^.*\.//'`
@@ -808,9 +804,10 @@ if [ -z "$UNMOUNT" ] ; then
    # imgFILE="echo "$imgFILE" |sed 's/.gz$//'"
   ;;
   esac
+}
 
+_probe_sfs_version(){
   #v423 detect wrong squashfs version...
-  if [ "$Type" = "squashfs" ];then
    DISK_TYPE=`disktype "${imgFILE}"`
    _debug $DISK_TYPE
 
@@ -837,15 +834,19 @@ if [ -z "$UNMOUNT" ] ; then
    esac
 
    _debugx IS_SQUASH=$IS_SQUASH IS_SQUASH3=$IS_SQUASH3 IS_SQUASH4=$IS_SQUASH4
+}
 
+_exit_if_not_sfs(){
    # maybe it is not a squashfs file
    test "$IS_SQUASH" = YES -o "`echo "$DISK_TYPE" | grep -i squash`" || {
     MSG_ERR_NO_SQUASH=`gettext "Could not confirm being a squashfs file"`
     _warning "$MSG_ERR_NO_SQUASH"
     xmessage -bg red "$MSG_ERR_NO_SQUASH"
     exit 4
-   }
+    }
+}
 
+_exit_if_wrong_sfs_version(){
    if [ "`echo "${DISK_TYPE}" | grep "$SFSSTR"`" = "" ];then
     xmessage -bg orange1 "$DISK_TYPE"
     if [ $K_VERSION = 2 -a $KERNELSUBVER -gt 28 ] || [ $K_VERSION -gt 2 ];then
@@ -857,28 +858,28 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
 All Linux kernels around 2.6.28 or earlier require version 3.x squashfs files.
 Note, there is an SFS-version-converter in the Utility menu, run that first."
     fi
-    _err "Wrong squashfs version"
+    _err "Wrong squashfs version!"
     exit 0
    fi
+}
 
-  _ask_to_run_sfs_load
-  case $? in 0) exec sfs_load "$imgFILE";;
-  1) :;; 2) exit 0;; *) _warn "Unhandled return value from _ask_to_run_sfs_load";;
-  esac
+# ENCRYPTION related FUNCTIONS ...
+_init_crypt_save_file(){
+      local lfCRYPT=$1 lErr=0
+      test "$lfCRYPT" || return 1
 
-  fi
+      MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${bn_imgFILE}:" 0 0`"
+      test $? = 0 || lErr=33
 
-  # REM: Older pups need to mknod a /dev/loop
-  #      Since kernel 3.1 they are automatically created by the kernel
-  _ensure_loop_cont
-  _mk_free_loop  # see f4puppy5
+      if [ $lErr -eq 0 ];then
+       echo "$MYPASS" | losetup-FULL -p 0 -e $lfCRYPT $freeLOOP "$imgFILE"
+       test $? = 0 || lErr=44
+      fi
 
-  # REM: if choosen mount again
-  [ "$MOUNT" = 'again' ] && _create_new_folder_name "$mntPT"
-  _debug "mntPT='$mntPT'"  ##DEBUG
-  mkdir -p "$mntPT"    ## mount.sh should do this
+return $lErr
+}
 
-_encrypted()
+_losetup_imgfile()
 {
   #111110 handle encrypted save-files...
   CRYPTO=""; Err=0
@@ -954,20 +955,6 @@ _encrypted()
 #kernel/arch/x86/crypto/aesni-intel.ko
 #kernel/arch/x86/crypto/salsa20-i586.ko
 
-     _init_crypt_save_file(){
-      local fCRYPT=$1 Err=1
-      test "$fCRYPT" || return 1
-
-      MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${bn_imgFILE}:" 0 0`"
-      Err=$?
-
-      if [ $Err -eq 0 ];then
-       echo "$MYPASS" | losetup-FULL -p 0 -e $fCRYPT $freeLOOP "$imgFILE"
-       Err=$?
-      fi
-      return $Err
-     }
-
   case $Type in
    ext2|ext3|ext4|btrfs|jfs|ocfs2|reiserfs|xfs)
     case "$bn_imgFILE" in
@@ -977,7 +964,7 @@ _encrypted()
       modprobe $Q $VERB cryptoloop
       rxvt -geometry 25x3 -title "$(gettext 'Enter password')" -bg orange -e losetup-FULL -E 1 $freeLOOP "$imgFILE"
       #losetup-FULL -E 1 $freeLOOP $imgFile
-      Err=$?
+      test $? = 0 || Err=22
      ;;
 
      *_crypta*) #heavy encryption.
@@ -1040,21 +1027,47 @@ _encrypted()
      *_cryptcamellia*|*_cryptc*) CRYPTO=camellia
       _init_crypt_save_file $CRYPTO; Err=$?
      ;;
-
-     *) [ -b "$freeLOOP" ] && losetup $freeLOOP "$imgFILE"; Err=$?
+     # Other file name
+     *) [ -b "$freeLOOP" ] && losetup $freeLOOP "$imgFILE"; test $? = 0 || Err=$55
      ;;
     esac
     ;;
-   *) [ -b "$freeLOOP" ] && losetup $freeLOOP "$imgFILE"; Err=$?
+   # Other file Type ...
+   *) [ -b "$freeLOOP" ] && losetup $freeLOOP "$imgFILE"; test $? = 0 || Err=$66
    ;;
   esac
 
 return $Err
 }
 
-mkdir $VERB -p "$mntPT" # mount.sh should do this
-_encrypted && {
-  # REM: New problem in case of additional mount 2014-11-27,
+# MAIN MOUNT code FUNCTIONS ....
+_prepare_mount(){
+
+ _set_file_type
+  if [ "$Type" = "squashfs" ];then
+   _probe_sfs_version
+   _exit_if_not_sfs
+   _exit_if_wrong_sfs_version
+   _ask_to_run_sfs_load
+    case $? in 0) exec sfs_load "$imgFILE";;
+    1) :;; 2) exit 0;; *) _warn "Unhandled return value from _ask_to_run_sfs_load";;
+    esac
+  fi
+
+  # REM: Older pups need to mknod a /dev/loop
+  #      Since kernel 3.1 they are automatically created by the kernel
+  _ensure_loop_cont
+  _mk_free_loop  # see f4puppy5
+
+  # REM: if choosen mount again
+  [ "$MOUNT" = 'again' ] && _create_new_folder_name "$mntPT"
+  _debug "mntPT='$mntPT'"  ##DEBUG
+  mkdir $VERB -p "$mntPT"    ## /bin/mount.sh should do this now ...
+
+}
+
+_mount_loop_device(){
+ # REM: New problem in case of additional mount 2014-11-27,
   #      mount complains that /dev/loop is in use - don't know why ...
   #freeLOOP=`losetup -f`
   #[ -b "$freeLOOP" ] && losetup $freeLOOP "$imgFILE" && {
@@ -1063,38 +1076,22 @@ _encrypted && {
    /bin/mount $VERB -t $Type -o loop "$freeLOOP" "$mntPT"
   # /bin/mount $VERB -t $Type "$freeLOOP" "$mntPT"
    Err=$?
-  } || {
+}
 
+_mount_imgfile(){
   #__old_mount_code_that_worked_flawless_until_today__(){  #mount.sh uses busybox mount
   _debug "\nmount: '$Type' '$imgFILE' '$mntPT'\n"
   /bin/mount $VERB -t $Type -o loop "$imgFILE" "$mntPT";
    Err=$?
   # }                                                      #busybox mount does not automatically assign
   #__old_mount_code_that_worked_flawless_until_today__     #a loop device, whereas mount-FULL does.
-  }
+}
 
-  if [ "$Err" -eq 0 ]; then
-   if [ -n "$DISPLAY" ] ; then #99
-    yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imgFileBASE icon again to unmount it" & #BK
-   fi
-  elif [ -n "`mount | grep "$mntPT"`" ];then
-   :
-  else
-   : sleep 2s
-   losetup -d $freeLOOP
-   #: [ -d "$mntPT" ] && { [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"; }
-  fi
-
-
- else
- # REM: unmount imgFILE using mntPT
-   [ -n "$DISPLAY" ] && {
-    #:rox -D "$mntPT"
-    yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $bn_imgFILE" &
-   }
-       GREP=`echo "$mntPT" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
-       _debug "unmount:$GREP"
-       LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
+# UNMOUNT FUNCTIONS ...
+_say_maybe_kill_fs_users(){
+      gPATTERN=`echo "$mntPT" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
+       _debug "unmount:$gPATTERN"
+       LOOPD=$(busybox mount | grep "$gPATTERN" | cut -f 1 -d ' ')
        _debug "unmount:$LOOPD"
        #USEapps=`fuser -c $LOOPD`   ##---2011-10-27
        USEapps=`fuser -m "$mntPT"`  ##---2011-10-27
@@ -1109,12 +1106,10 @@ _encrypted && {
        _debugx "fuser claims PID '$j' is using '$mntPT'"
        #kill -$SIG $j
        done
+}
 
-  #_debug "\nUnMount: '$imgFILE'\n"
-  _debug "\nUnMount: '$mntPT'\n"
-  /bin/umount "$mntPT"
-  Err=$?
-  # REM: If mount-FULL uses increasing loopdevices on mntPT,
+_free_loop_devices(){
+ # REM: If mount-FULL uses increasing loopdevices on mntPT,
   #      check if mntPT still mounted, if not,
   #      free loopdevices assigned to mntPT
   #if ! cut -f2 -d' ' /proc/mounts | grep $Q "^${mntPT}$"; then
@@ -1144,12 +1139,90 @@ _encrypted && {
   #fuser -c $ul || continue
   losetup -d $ul; done
   fi
+}
+# END FUNCTIONS ...
 
+# TODO : Just needed for mounting ?
+#+++2016-02-16 Add mountpoint parameter support
+_debug "5 mntPT='$mntPT'"  ##DEBUG
+_debug "positional parameters:$*"
+case "$*" in ${imgFILE#*/mnt/home}|${bn_imgFILE#./}|$imgFILE|$bn_imgFILE) :;;
+*)
+_debug "6 mntPT='$mntPT'"  ##DEBUG
+#test "$2" && mntPT="$2" #always quote it
+##test "$1" && mntPT="$1" #always quote it
+#shift
+test "$*" && mntPT="$*" #always quote it
+;;
+esac
+
+_debug "7 mntPT='$mntPT'"  ##DEBUG
+test "$mntPT" || mntPT="${MOUNT_DIR}/$bn_imgFILE"
+_debug "8 mntPT='$mntPT'"  ##DEBUG
+test -e "$mntPT" && mntPT="${MOUNT_DIR}/$bn_imgFILE"
+_debug "9 mntPT='$mntPT'"  ##DEBUG
+
+# two unused grep patterns
+#grepPatternMntPt=`echo "$mntPT" | sed 's#\([[:punct:]]\)#\\\1#g'`
+#grepPatternImgFile=`echo "$imgFILE" | sed 's#\([[:punct:]]\)#\\\1#g'`
+
+# THIS provides a menu with options, if the file is mounted already,
+# where one can choose to open ROX-Filer window or unmount it.
+_check_already_mounted || _exit 4 "TODO:_check_already_mounted returned '$?'"
+
+
+# REM: UNMOUNT is not set until it gets set by GUI or automatically if no DISPLAY
+if [ -z "$UNMOUNT" ] ; then
+
+ # REM: mount imgFILE
+ _prepare_mount
+
+_losetup_imgfile
+case $? in
+0)  _mount_loop_device || _mount_imgfile;;
+1)  Err=11;; # no free loop device, and probably other error
+22) Err=22;; # cryptx failed to setup
+33) Err=33;; # Password failed to enter
+44) Err=44;; # Password failed to setup the loop device
+55) Err=55;; # other file name failed to setup
+66) Err=66;; # losetup failed for other file Type
+*)  _mount_imgfile;;
+esac
+
+# say something if mount has succeeded, otherwise free loop device
+  if [ "$Err" -eq 0 ]; then
+   if [ -n "$DISPLAY" ] ; then #99
+    yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imgFileBASE icon again to unmount it" & #BK
+   fi
+  elif [ -n "`mount | grep "$mntPT"`" ];then
+   :
+  else
+   : sleep 2s
+   losetup -d $freeLOOP
+   #: [ -d "$mntPT" ] && { [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"; }
+  fi
+
+# MAIN UNMOUNT code ....
+ else
+ # REM: unmount imgFILE using mntPT
+   [ -n "$DISPLAY" ] && {
+    #:rox -D "$mntPT" # /bin/mount.sh should do this now ...
+    yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $bn_imgFILE" &
+   }
+  _say_maybe_kill_fs_users
+
+  #_debug "\nUnMount: '$imgFILE'\n"
+  _debug "\nUnMount: '$mntPT'\n"
+  /bin/umount "$mntPT"
+  Err=$?
+
+  _free_loop_devices
   #: [ -d "$mntPT" ] && [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"
  fi
+# END MAIN code!
 
  if [ "$Err" -gt 0 ] ;then
-  [ -n "$DISPLAY" ] && xmessage -bg red -title "$xmTITLE" "Error... Returned <$Err> ... mounting or unmounting '$mntPT'" &
+  [ -n "$DISPLAY" ] && xmessage -bg red -title "$xmTITLE" "Error... Returned <$Err> number for mounting or unmounting '$mntPT'" &
   _LOSETUP_=`losetup || losetup -a` 2>>$ERR
   LAST_LOOP=`echo "$_LOSETUP_" | tail -n1 | cut -f1 -d':'`
   _debug "LAST_LOOP='$LAST_LOOP'"
