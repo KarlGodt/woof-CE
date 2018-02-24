@@ -1,5 +1,17 @@
 #!/bin/bash
-# ash has no select buildin
+# ash has no select buildin for _do_menu()
+#(c) Copyright Barry Kauler 2007
+#Now LGPL 2007
+# Run like this: # new2dir make install
+# Creates a directory one or two levels higher with the name of the package
+# but slightly modified. For example source package has dir 'abiword-0.5.6'
+# inside this you do the usual 'configure', 'make', then 'new2dir make install'
+# and 'abiword-0.5.6-i486' directory gets created, with all installed files
+# in it.
+
+INFO=1
+DEBUG=1
+DEBUGX=1
 
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Puppy_new2dir"
@@ -13,9 +25,17 @@ _VERSION_=1.99.5 #2016-09-16 wrap more code into functions
 _VERSION_=1.99.6 #2016-09-16 bugfix: was deleting pkgLIST_FILE copy since now is preparing after make install.
                  #           implement pkdDIR variable from Opera2 branch. removed unused functions and commented code
 
+_VERSION_=1.99.7 # cleanups, debugging
+Version='1.8.4-getopts Macpup Foxy 3 Puppy-Linux-430/2 KRG'
+
+echo "$0 : $Version"
+echo 'This is an alpha snapshot
+and most likely not bugfree
+'
 _COMMENT_="$_TITLE_:Puppy Linux shell script to run make install to create automatically .pet of compiled source."
 
-MY_SELF="/usr/bin/new2dir2"
+MY_SELF=`realpath "$0"`
+MY_SELF=${MY_SELF:-"/usr/bin/new2dir2"}
 MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
@@ -36,16 +56,8 @@ _trap
 }
 # End new header
 #
-#(c) Copyright Barry Kauler 2007
-#Now LGPL 2007
-# Run like this: # new2dir make install
-# Creates a directory one or two levels higher with the name of the package
-# but slightly modified. For example source package has dir 'abiword-0.5.6'
-# inside this you do the usual 'configure', 'make', then 'new2dir make install'
-# and 'abiword-0.5.6-i486' directory gets created, with all installed files
-# in it.
 
-_info "\$0='$0' \$@='$@'"
+
 TTY=`tty` # in case of interactive needs to read input from controlling terminal.
 
 findTIME=-mmin  #default find option -mmin -amin -cmin to new2dir -r option
@@ -62,12 +74,7 @@ pkgLIST_FILE=pkginstall.list
 [ "$ERR" ] || ERR=/dev/null
 #BB='busybox ' # enable to use busybox applets
 
-Version='1.8.3-getopts Macpup Foxy 3 Puppy-Linux-430/2 KRG'
 
-echo "$0 : $Version"
-echo 'This is an alpha snapshot
-and most likely not bugfree
-'
 
 _usage(){
     msgHELP="
@@ -112,6 +119,8 @@ gettext "$msgHELP"
     exit $1
 }
 
+_info "\$0='$0' \$@='$@'"
+
 if [ ! "$*" ];then
  echo "This script is used in the last step when installing a source"
  echo "or binary package. For example:"
@@ -120,14 +129,12 @@ if [ ! "$*" ];then
  exit 140
 fi
 
-INFO=1
-DEBUG=1
-DEBUGX=1
-MAKE=`echo "$@" | ${BB}grep -owe 'make.*instal[-_a-z0-9A-Z\.]\+'`
-_info "MAKE='$MAKE'"
-[ "$MAKE" ] || MAKE='make install'
-_info "MAKE='$MAKE'"
-NEW2DIRPARAMS=`echo "$@" |${BB}sed "s#$MAKE##"`
+
+MAKE_CMD_LINE==`echo "$@" | ${BB}grep -owe 'make.*instal[-_a-z0-9A-Z\.]\+'`
+_info "MAKE_CMD_LINE='$MAKE_CMD_LINE'"
+[ "$MAKE_CMD_LINE" ] || MAKE_CMD_LINE='make install'
+_info "MAKE_CMD_LINE='$MAKE_CMD_LINE'"
+NEW2DIRPARAMS=`echo "$@" |${BB}sed "s#$MAKE_CMD_LINE##"`
 _info "NEW2DIRPARAMS='$NEW2DIRPARAMS'"
 [ "`echo "$NEW2DIRPARAMS" |${BB}grep help`" ] && _usage 1  ##+++2012-07-07
 
@@ -145,7 +152,7 @@ k) whatSTRIP='NONE';;
 K) whatSTRIP='INSTALLED';;
 l)
 NEW2DIRPARAMS=`echo "$NEW2DIRPARAMS" | sed 's/l//g'`  ##+++2012 added g global in case accid. more than one 'l'
-exec logsave $VERB -a "$tmpDIR"/new2dir.log "$0" "$NEW2DIRPARAMS" "$MAKE"
+exec logsave $VERB -a "$tmpDIR"/new2dir.log "$0" "$NEW2DIRPARAMS" "$MAKE_CMD_LINE"
 ;;
 m) showMENUS=1;;
 n) dryRUN=1;;
@@ -164,18 +171,23 @@ V) echo -e "\n$0 : Version '$Version'\n";exit 0;;
 esac;done
 
 _debug "\$@='$@'"
-MAKE=`echo "$@" | ${BB}grep -owe 'make.*instal[-_a-z0-9A-Z\.]\+'`
-[ "$me_VERBOSE" ] && echo "MAKE='$MAKE'"
-[ "$MAKE" ] || MAKE='NONE' ##+++2012-04-03
-[ "$me_VERBOSE" ] && echo "MAKE='$MAKE'"
-NEW2DIRPARAMS=`echo "$@" |${BB}sed "s#$MAKE##"`
+MAKE_CMD_LINE=`echo "$@" | ${BB}grep -owe 'make.*instal[-_a-z0-9A-Z\.]\+'`
+[ "$me_VERBOSE" ] && echo "MAKE_CMD_LINE='$MAKE_CMD_LINE'"
+[ "$MAKE_CMD_LINE" ] || MAKE_CMD_LINE='NONE' ##+++2012-04-03
+[ "$me_VERBOSE" ] && echo "MAKE_CMD_LINE='$MAKE_CMD_LINE'"
+NEW2DIRPARAMS=`echo "$@" |${BB}sed "s#$MAKE_CMD_LINE##"`
 [ "$me_VERBOSE" ] && echo "NEW2DIRPARAMS='$NEW2DIRPARAMS'"
 
 _do_menu(){
-if [ "$showMENUS" ];then   #busybox ash has no select function
+[ "$showMENUS" ] || return 0
+
+#busybox ash has no select function ..!
+
+# Selecting the installwatch exe ...
 for dir in `echo $PATH |tr ":" " "`;do
 INS_WS="$INS_WS `${BB}find $dir -maxdepth 1 -type f \( -name "installwatch[-_]*" -o -name "checkinstall[-_]*" \)`"
 done
+
 echo
 echo "Select the installwatch executable :"  #busybox ash has no select function
 select INSTALL_WATCH_EXE in $INS_WS;do echo $INSTALL_WATCH_EXE;break;done
@@ -184,9 +196,11 @@ select INSTALL_WATCH_EXE in $INS_WS;do echo $INSTALL_WATCH_EXE;break;done
 ${BB}rm $VERB -f /bin/installwatch;${BB}ln $VERB -s $INSTALL_WATCH_EXE /bin/installwatch
 [ "$me_VERBOSE" ] && ${BB}ls -l /bin/installwatch
 
+# Selecting the libtool version ...
 for dir in `echo $PATH |tr ":" " "`;do
 LIB_TOOLS="$LIB_TOOLS `${BB}find $dir -maxdepth 1 -type f -name "libtool[-_]*"`"
 done
+
 echo "Select the libtool executable :"
 select LIBTOOL_EXE in $LIB_TOOLS;do echo $LIBTOOL_EXE;break;done
 [ "$LIBTOOL_EXE" ] || { echo "Nothing available selected ";exit 0; }
@@ -194,21 +208,25 @@ select LIBTOOL_EXE in $LIB_TOOLS;do echo $LIBTOOL_EXE;break;done
 ${BB}rm $VERB -f /bin/libtool;${BB}ln $VERB -s $LIBTOOL_EXE /bin/libtool
 [ "$me_VERBOSE" ] && ${BB}ls -l /bin/libtool
 
+# Select the make version ...
 for dir in `echo $PATH |tr ":" " "`;do
 MAKE_S="$MAKE_S `${BB}find $dir -maxdepth 1 -type f -name "make[-_][0-9]*"`"
 done
+
 echo "Select the make executable :"
 select MAKE_EXE in $MAKE_S;do echo $MAKE_EXE;break;done
 [ "$MAKE_EXE" ] || { echo "Nothing available selected ";exit 0; }
 [ -e /usr/bin/make -a ! -L /usr/bin/make ] && { echo "'/usr/bin/make' is not a link ";exit 1; }
 ${BB}rm $VERB -f /usr/bin/make;${BB}ln $VERB -s $MAKE_EXE /usr/bin/make
 [ "$me_VERBOSE" ] && ${BB}ls -l /usr/bin/make
-#MAKE=`echo "$MAKE" |sed "s|^make |$MAKE_EXE |"`
-#[ "$me_VERBOSE" ] && echo "MAKE='$MAKE'"
+#MAKE_CMD_LINE=`echo "$MAKE_CMD_LINE" |sed "s|^make |$MAKE_EXE |"`
+#[ "$me_VERBOSE" ] && echo "MAKE_CMD_LINE='$MAKE_CMD_LINE'"
 
+# Select the install exe ....
 for dir in `echo $PATH |tr ":" " "`;do
 INSTALL_S="$INSTALL_S `${BB}find $dir -maxdepth 1 \( -type f -o -type l \) -name "install[-_][bB0-9]*"`"
 done
+
 echo "Select the install executable :"
 select INSTALL_EXE in $INSTALL_S;do echo $INSTALL_EXE;break;done
 [ "$INSTALL_EXE" ] || { echo "Nothing available selected ";exit 0; }
@@ -218,11 +236,11 @@ ${BB}mv $VERB    /bin/install /bin/install-busybox;fi
 ${BB}rm $VERB -f /bin/install;${BB}ln $VERB -s $INSTALL_EXE /bin/install
 [ "$me_VERBOSE" ] && ${BB}ls -l /bin/install
 
-fi #showMENUS
 }
 _do_menu
 
 _get_pkg_dir(){
+_debug "_get_pkg_dir:$*"
 curDIR=`pwd`
 [ "$me_VERBOSE" ] && echo "curDIR='$curDIR'"
 
@@ -237,12 +255,14 @@ if [ ! "`echo "$bpkgDIR" | ${BB}grep '[0-9]'`" ];then
  bpkgDIR=`${BB}basename "$upONE"`
   pkgDIR="../../$bpkgDIR"
 fi
+_debug "pkgDIR=$pkgDIR"
+test "$pkgDIR"
 }
 
 _where_am_i(){
-
+_debug "_where_am_i:$*" >&2
 curDIR=`pwd`
-#echo $curDIR >&2
+[ "$DEBUG" ] && echo $curDIR >&2
 (
 rel='../'
  while :;
@@ -253,9 +273,10 @@ rel='../'
   pkgDIR=$curDIR
   pkgNAME=`basename $pkgDIR`
 
-  #echo $PWD >&2
-  #echo $pkgNAME >&2
-  case $pkgNAME in *-[0-9]*) break;; esac
+  [ "$DEBUG" ] && echo "PWD=$PWD" >&2
+  [ "$DEBUG" ] && echo "pkgNAME=$pkgNAME" >&2
+
+  case $pkgNAME in *-[0-9]*|*_[0-9]*|*.[0-9]*) break;; esac
    cd ..
    c=$((c+1))
    rel="../${rel}"
@@ -263,22 +284,25 @@ rel='../'
   done
 
  rpkgDIR="${rel}${pkgNAME}"
- #echo "rel='$rel'" >&2
+ [ "$DEBUG" ] && echo "rel='$rel'" >&2
+
  #test -d "$rpkgDIR" && echo "$rpkgNAME"
- #ls >&2
+ [ "$DEBUG" && ls >&2
  test -d "$pkgDIR" && echo "$rpkgDIR"
  )
 
 }
 
  pkgDIR=`_where_am_i`
+_debug "pkgDIR='$pkgDIR'"
 bpkgDIR=`basename "$pkgDIR"`
+_debug "bpkgDIR='$bpkgDIR'"
 #xPKGDIR="$pkgNAME"
 
 _pkg_version_check(){
 case $pkgDIR in *[0-9]*) return 0;; esac
 cat >&1 <<EoI
-$pkgDIR does not seem to be the package directory with version
+${pkgDIR:-pkgDIR} does not seem to be the package directory with version
 number. Unfortunately, some source package tarballs expand to a
 directory that does not have version number in it's name. SeaMonkey
 is an example of this, it expands to a directory named just 'mozilla'.
@@ -347,21 +371,23 @@ fi
 echo "If not found and if run with '-f' option , guessed by 'uname -m' ."
 echo -n "Type response here: "
 read $timeOUT -e cpuTYPE
+
 if [ ! "$cpuTYPE" ];then
-if [ -f config.log ];then
-BuildCPU=`${BB}grep '^build_cpu='.*'' config.log | tail -n1 | cut -f 2 -d "'"`
+ if [ -f config.log ];then
+ BuildCPU=`${BB}grep '^build_cpu='.*'' config.log | tail -n1 | cut -f 2 -d "'"`
  HostCPU=`${BB}grep '^host_cpu='.*''  config.log | tail -n1 | cut -f 2 -d "'"`
-if [ "$HostCPU" != "$BuildCPU" ];then
-echo "NOTICE build_cpu='$BuildCPU' NOT host_cpu='$HostCPU'"
-fi
-cpuTYPE="$BuildCPU"
-fi
-if [ ! "$cpuTYPE" ];then
-if [ ! "$timeOUT" ];then
-cpuTYPE="i486"
-else
-cpuTYPE=`${BB}uname -m`
-fi
+  if [ "$HostCPU" != "$BuildCPU" ];then
+  echo "NOTICE build_cpu='$BuildCPU' NOT host_cpu='$HostCPU'"
+  fi
+ cpuTYPE="$BuildCPU"
+ fi
+
+ if [ ! "$cpuTYPE" ];then
+  if [ ! "$timeOUT" ];then
+  cpuTYPE="i486"
+  else
+  cpuTYPE=`${BB}uname -m`
+ fi
 else
 echo "Found '$cpuTYPE'";fi;fi
 #config.log >
@@ -385,7 +411,7 @@ echo "Found '$cpuTYPE'";fi;fi
 #host = i686-pc-linux-gnu
 #host_cpu = i386
 
-#if [ ! "`echo -n "$cpuTYPE" | ${BB}grep '^[a-zA-Z]'`" ];then
+
 case $cpuTYPE in
 
 x86_64-*kfreebsd*-gnu | x86_64-*linux* ) ;;
@@ -590,6 +616,7 @@ _rm_empty_pkg_dirs(){
 [ "$dryRUN" ] && return 0
 ${BB}rmdir $VERB -f "$exeTARGETDIR"* "$docTARGETDIR"* "$devTARGETDIR"* "$nlsTARGETDIR"*
 }
+
 _rm_recursive_pkg_dirs(){
 [ "$dryRUN" ] && return 0
 #${BB}rm $VERB -rf "$exeTARGETDIR"* "$docTARGETDIR"* "$devTARGETDIR"* "$nlsTARGETDIR"*
@@ -651,10 +678,10 @@ __strip_func(){ #normal mode
 return $RV
 }
 
-strip_func(){
+_strip_func(){
 #strip the file...
  [ -L "$*" ] && return 0
- _debug "strip_func:$*"
+ _debug "_strip_func:$*"
   elf_FILE=`file "$*" | ${BB}grep -Ew 'ELF|LSB'`
 
   case $elf_FILE in
@@ -690,29 +717,29 @@ case $* in */data/*|*.3gp|*.a|*.abw|*.au|*.deb|*.bmp|*.bz2|*.cfg|*.conf|*.config
  return 0;;
 *) :;;
 esac
-strip_func "$@"
+_strip_func "$@"
 }
 
-strip_it(){
+_strip_it(){
 [ "$*" ] || return 2
 bn=${*##*/}
 case $bn in
 *.o|*.so|*.so.[0-9]*|*.bin|*.exe)
-strip_func "$@"; return $?
+_strip_func "$@"; return $?
 ;;
 [[:alnum:][:punct:]]*.*) return 0;;
 esac
-strip_func "$@"
+_strip_func "$@"
 }
 
-copy_files(){
+_copy_files(){
 STATUS=0
 echo "Processing ${1}"
 #[ "$dryRUN" ] && return 0
 if [ -f "$1" ];then
     if [ "$noSTRIP" ]; then :
     else
-    [ "$whatSTRIP" = 'ALL' ] && { strip_it "$1"; STATUS=$((STATUS+$?)); }
+    [ "$whatSTRIP" = 'ALL' ] && { _strip_it "$1"; STATUS=$((STATUS+$?)); }
     fi
 if [ "$dryRUN" ]; then
 echo "Would have created directory '${2}${1%/*}'"
@@ -725,7 +752,7 @@ STATUS=$((STATUS+$?))
 fi
    if [ "$noSTRIP" ]; then :
    else
-[ "$whatSTRIP" = 'INSTALLED' ] && { strip_it "$1"; STATUS=$((STATUS+$?)); }
+[ "$whatSTRIP" = 'INSTALLED' ] && { _strip_it "$1"; STATUS=$((STATUS+$?)); }
    fi
 
    if [ ! -L "$1" ]; then
@@ -833,19 +860,19 @@ _make_pkg_dirs     || _exit 2 "Could not create TARGETDIR ."
 while read -r oneFILE
 do
 [ "$oneFILE" ] || continue
-oneFILE=`realpath "$oneFILE"`
-[ "$oneFILE" ] || continue
+#oneFILE=`realpath "$oneFILE"`  # would convert libxyz.so and libxyz.so.0
+#[ "$oneFILE" ] || continue     # and we want the links too.
 _info "$oneFILE"
 
 ###+++2013-03-15 added noSTRIP FLAG
 case $oneFILE in
 *.a|*.la|*.h|*.hpp|*.h++|*.m4|*.pc|*-config|*config.sh|*Conf*.sh|*/aclocal/*|*/automake/*|*/cvs/*|*/svn/*|*/git/*|*/intltool/*|*/libtool/*)
-noSTRIP=Y copy_files "$oneFILE" "${devTARGETDIR}";;
+noSTRIP=Y _copy_files "$oneFILE" "${devTARGETDIR}";;
 */doc/*|*/man/*|*/docs/*|*/info/*|*/gtk-doc/*|*/faq/*|*/manual/*|*/examples/*|*/help/*|*/htdocs/*)
-noSTRIP=Y copy_files "$oneFILE" "${docTARGETDIR}";;
+noSTRIP=Y _copy_files "$oneFILE" "${docTARGETDIR}";;
 */locale/*|*/i18n/*|*/nls/*)
-noSTRIP=Y copy_files "$oneFILE" "${nlsTARGETDIR}";;
-*)        copy_files "$oneFILE" "${exeTARGETDIR}";;
+noSTRIP=Y _copy_files "$oneFILE" "${nlsTARGETDIR}";;
+*)        _copy_files "$oneFILE" "${exeTARGETDIR}";;
 esac
 
 done <<EoI
@@ -892,8 +919,9 @@ exit $?
 
 else
 # Puppy default to use installwatch
+echo NO RESCUE MODE
 
-fixfilelistfunc() {
+_fixfilelist() {
  #$1 is file to remove, as doesn't exist.
  echo " NOTICE: ${*} seems to have been deleted."
  ${BB}grep -v "$*" "$tmpDIR"/"${exePKGNAME}".files  >> "$tmpDIR"/"${exePKGNAME}".files.tmp
@@ -941,7 +969,7 @@ echo -e "\\033[1;31mStep 4""\\033[0;39m"
 read $timeOUT -n1 -p "Press any key for step 4" STEP_4_KEY
 echo
 echo "The following line is about to be executed:"
-echo "# $INSTALL_WATCH_EXE -o $tmpDIR/$pkgLIST_FILE $MAKE"
+echo "# $INSTALL_WATCH_EXE -o $tmpDIR/$pkgLIST_FILE $MAKE_CMD_LINE"
 
 if [ ! "$forceIT" ];then
 echo "...this logs all file activity to $tmpDIR/$pkgLIST_FILE"
@@ -962,18 +990,18 @@ _run_installwatch_make_install(){
 ${BB}rm $VERB -f "$tmpDIR"/"$pkgLIST_FILE"
 #${BB}sleep 2s;pidof sync >>$OUT || { ${BB}sync; sleep 2; }
 
-[ "$DEBUG" ] || DEBUG=1 # to observe MAKE variable
-_debug "MAKE='$MAKE'"
-set - $MAKE
+[ "$DEBUG" ] || DEBUG=1 # to observe MAKE_CMD_LINE variable
+_debug "MAKE_CMD_LINE='$MAKE_CMD_LINE'"
+set - $MAKE_CMD_LINE
 [ "$me_DEBUG" ] && [ "$me_DEBUG" -ge 2 ] && set -x
 [ "$VERBOSE" ]  && [ "$VERBOSE" -ge 2 ]  && set -v
-unset MAKE    # MAKE seems to be a global variable recognized by make ..
+unset MAKE_CMD_LINE    # MAKE_CMD_LINE seems to be a global variable recognized by make ..
 _debug "\$*='$*'"
 
 #unset aNEWDIR B backUP C cleanUP cpuTYPE curDIR curDATE devSPLIT devTARGETDIR docSPLIT docTARGETDIR DO_SHIFT
 #unset E ERR exeSPLIT exePKGNAME exeTARGETDIR F FILE_FILE FILE_TYPE forceIT findTIME H HAVE_F HOME
 #unset INSTALL_EXE INSTALL_S INSTALL_WATCH_EXE INS_WS iNTERACTIVE L LIBTOOL_EXE LIB_TOOLS
-#unset MAKE MAKE_EXE MAKE_S showMENUS me_VERBOSE mMIN nameONLY NEW nlsSPLIT nlsTARGETDIR noSTRIP
+#unset MAKE_CMD_LINE MAKE_EXE MAKE_S showMENUS me_VERBOSE mMIN nameONLY NEW nlsSPLIT nlsTARGETDIR noSTRIP
 #unset oneBASE oneFILE oneMOVED oneNEW oneORIG OPTARG OUT OUTPUT
 #unset PATH pkgDIR REPLY RESC RL RLM RLS RPE RPF S splitPETS timeOUT
 #unset upDATE upONE V VERB VERBOSE verONLY whatSTRIP _COMMENT_ _TITLE_
@@ -1067,9 +1095,9 @@ mv $VERB -f "$tmpDIR"/"${exePKGNAME}".files  "${relPATH}"/"${exePKGNAME}".files
 #echo -n " 9"
 pidof sync >>$OUT || sync
 
-#fixfilelistfunc() uses this...
+#_fixfilelist() uses this...
 #cp $VERB -af "${relPATH}"/"${exePKGNAME}".files "$tmpDIR"/"${exePKGNAME}".files
-#...a post-install script could delete files, which fixfilelistfunc fixes.
+#...a post-install script could delete files, which _fixfilelist fixes.
 ##+++2012-04-30
 sort -u  "${relPATH}"/"${exePKGNAME}".files >  "$tmpDIR"/"${exePKGNAME}".files
 pidof sync >>$OUT || sync
@@ -1085,6 +1113,7 @@ _fix_pkglist_files
 
 _md5sum(){
 [ -e "$*" ]  || return 1
+[ -L "$*" ]  && return 0
 ${BB}md5sum "$*"
 }
 
@@ -1101,23 +1130,23 @@ while read -r oneFILE
 do
 
  [ "$oneFILE" ] || continue
- oneFILE=`realpath "$oneFILE"`
- [ "$oneFILE" ] || continue
+ #oneFILE=`realpath "$oneFILE"` # would convert libxyz.so and libxyz.so.0
+ #[ "$oneFILE" ] || continue    # and we want the links too.
 
  oneBASE="${oneFILE##*/}"
  onePATH="${oneFILE%/*}"
  echo "Processing ${oneFILE}"
 
-  [ "$whatSTRIP" = 'ALL' ] && strip_it "$oneFILE"
+  [ "$whatSTRIP" = 'ALL' ] && _strip_it "$oneFILE"
 
  if [ "$nlsSPLIT" = "yes" ];then
   #find out if this is an international language file...
   case "$oneFILE" in */locale/*|*/nls/*|*/i18n/*)
-   mkdir -p "${nlsTARGETDIR}"/"${onePATH}"
+   mkdir $VERB -p "${nlsTARGETDIR}"/"${onePATH}"
    cp $VERB -af "$oneFILE" "${nlsTARGETDIR}"/"${onePATH}"/ 2>>$OUT
-   [ $? -ne 0 ] && { fixfilelistfunc "$oneFILE"; continue; }
+   [ $? -ne 0 ] && { _fixfilelist "$oneFILE"; continue; }
    _md5sum "${nlsTARGETDIR}""${onePATH}"/"${oneBASE}" >>"${nlsTARGETDIR}"/files.md5
-   #[ "$whatSTRIP" = 'INSTALLED' ] && strip_it "$oneFILE"
+   #[ "$whatSTRIP" = 'INSTALLED' ] && _strip_it "$oneFILE"
    _md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
    continue
   ;; esac
@@ -1126,9 +1155,9 @@ do
  if [ "$docSPLIT" = "yes" ];then
   #find out if this is a documentation file...
   case "$oneFILE" in */man/*|*/doc/*|*/docs/*|*/info/*|*/gtk-doc/*|*/faq/*|*/manual/*|*/examples/*|*/help/*|*/htdocs/*)
-   mkdir -p "${docTARGETDIR}"/"${onePATH}"
+   mkdir $VERB -p "${docTARGETDIR}"/"${onePATH}"
    cp $VERB -af "$oneFILE" "${docTARGETDIR}"/"${onePATH}"/ 2>>$OUT
-   [ $? -ne 0 ] && { fixfilelistfunc "$oneFILE"; continue; }
+   [ $? -ne 0 ] && { _fixfilelist "$oneFILE"; continue; }
    _md5sum "${docTARGETDIR}""${onePATH}"/"${oneBASE}" >>"${docTARGETDIR}"/files.md5
    _md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
    continue
@@ -1137,10 +1166,10 @@ do
 
  if [ "$devSPLIT" = "yes" ];then
   #find out if this is development file...
-  case "$oneFILE" in */include/*|*/pkgconfig/*|*/aclocal/*|*/automake/*|*/cvs/*|*/svn/*|*/git/*|*/intltool/*|*/libtool/*)
-   mkdir -p "${devTARGETDIR}"/"${onePATH}"
+  case "$oneFILE" in */include*/*|*/pkgconfig/*|*/aclocal/*|*/automake/*|*/cvs/*|*/svn/*|*/git/*|*/intltool/*|*/libtool/*)
+   mkdir $VERB -p "${devTARGETDIR}"/"${onePATH}"
    cp $VERB -af "$oneFILE" "${devTARGETDIR}"/"${onePATH}"/ 2>>$OUT
-   [ $? -ne 0 ] && { fixfilelistfunc "$oneFILE"; continue; }
+   [ $? -ne 0 ] && { _fixfilelist "$oneFILE"; continue; }
    _md5sum "${devTARGETDIR}""${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
    _md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
    continue
@@ -1149,18 +1178,18 @@ do
   #find *.so symlink files...
   if [ -h "$oneFILE" ];then #-h tests for symlink
    case "$oneFILE" in *.so)
-    mkdir -p "${devTARGETDIR}"/"${onePATH}"
+    mkdir $VERB -p "${devTARGETDIR}"/"${onePATH}"
     cp $VERB -af "$oneFILE" "${devTARGETDIR}"/"${onePATH}"/ 2>>$OUT
-    [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
+    [ $? -ne 0 ] && _fixfilelist "$oneFILE"
     continue
    ;; esac
   fi
 
   #find various config files...
   case "$oneBASE" in *-config|*config.sh|*Conf.sh)
-    mkdir -p "${devTARGETDIR}"/"${onePATH}"
+    mkdir $VERB -p "${devTARGETDIR}"/"${onePATH}"
     cp $VERB -af "$oneFILE" "${devTARGETDIR}"/"${onePATH}"/ 2>>$OUT
-    [ $? -ne 0 ] && { fixfilelistfunc "$oneFILE"; continue; }
+    [ $? -ne 0 ] && { _fixfilelist "$oneFILE"; continue; }
     _md5sum "${devTARGETDIR}""${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
     _md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
     continue
@@ -1168,9 +1197,9 @@ do
 
   #all .a and .la files... and any stray .m4 files...
   case "$oneBASE" in *.a|*.la|*.m4)
-    mkdir -p "${devTARGETDIR}"/"${onePATH}"
+    mkdir $VERB -p "${devTARGETDIR}"/"${onePATH}"
     cp $VERB -af "$oneFILE" "${devTARGETDIR}"/"${onePATH}"/ 2>>$OUT
-    [ $? -ne 0 ] && { fixfilelistfunc "$oneFILE"; continue; }
+    [ $? -ne 0 ] && { _fixfilelist "$oneFILE"; continue; }
     _md5sum "${devTARGETDIR}""${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
     _md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
     continue
@@ -1179,11 +1208,11 @@ do
 
  #anything left over goes into the main 'executable' package...
  if [ "$exeSPLIT" = "yes" ];then
-  mkdir -p "${exeTARGETDIR}"/"${onePATH}"
+  mkdir $VERB -p "${exeTARGETDIR}"/"${onePATH}"
   cp $VERB -af "$oneFILE" "${exeTARGETDIR}"/"${onePATH}"/ 2>>$OUT
-  [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
+  [ $? -ne 0 ] && _fixfilelist "$oneFILE"
   _md5sum "${exeTARGETDIR}""${onePATH}"/"${oneBASE}" >>"${exeTARGETDIR}"/files.md5
-  [ "$whatSTRIP" = 'INSTALLED' ] && strip_it "$oneFILE"
+  [ "$whatSTRIP" = 'INSTALLED' ] && _strip_it "$oneFILE"
   _md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
 
   #fix for empty directories - for example /var/lib/pkgname ...
@@ -1192,7 +1221,7 @@ do
   while read -r aNEWDIR
   do
    [ "$aNEWDIR" ] || continue
-   [ -d "${exeTARGETDIR}${aNEWDIR}" ] || mkdir -p "${exeTARGETDIR}${aNEWDIR}"
+   [ -d "${exeTARGETDIR}${aNEWDIR}" ] || mkdir $VERB -p "${exeTARGETDIR}${aNEWDIR}"
   done <"$tmpDIR"/"${exePKGNAME}".dirs
  fi
 
