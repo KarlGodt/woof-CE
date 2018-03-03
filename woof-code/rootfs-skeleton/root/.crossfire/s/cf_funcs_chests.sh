@@ -368,7 +368,7 @@ _sleep
  *'You fail to pick the lock.'*) break 1;;
 
  *scripttell*break*)   break ${REPLY##*?break};;
- *scripttell*exit*)    _exit 1 $REPLY;;
+ *scripttell*exit*)  _just_exit 1 $REPLY;;
  *'YOU HAVE DIED.'*) _just_exit;;
  '') break 1;; # :;;
  *)  :;;

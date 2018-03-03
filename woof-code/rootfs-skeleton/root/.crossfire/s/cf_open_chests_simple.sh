@@ -66,6 +66,7 @@ VERSION=3.0 # made the whole script standalone possible
 VERSION=3.1 # code cleanup
 VERSION=3.1.1 # false variable names fixed
 VERSION=3.2 # fix missings and end msg when using funcs libraries files
+VERSION=3.3 # exit early if already running or no DRAWINFO
 
 SEARCH_ATTEMPTS_DEFAULT=9
 #DISARM variable set to skill, invokation OR cast
@@ -75,18 +76,11 @@ PICKUP_ALL_MODE=5  # set pickup 4 or 5
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
 MY_BASE=${MY_SELF##*/}  ## needs to be in main script
+MY_DIR=${MY_SELF%/*}
 
 #DEBUG=1
 #LOGGING=1
 MSGLEVEL=6 # Message Levels 1-7 to print to the msg pane
-
-
-. $HOME/cf/s/cf_funcs_common.sh || exit 4
-. $HOME/cf/s/cf_funcs_food.sh   || exit 5
-. $HOME/cf/s/cf_funcs_traps.sh  || exit 6
-. $HOME/cf/s/cf_funcs_move.sh   || exit 7
-. $HOME/cf/s/cf_funcs_chests.sh || exit 8
-. $HOME/cf/s/cf_funcs_requests.sh || exit 12
 
 _say_help_stdalone(){
 _draw_stdalone 6  "$MY_BASE"
@@ -1713,12 +1707,22 @@ _debug_stdalone 4 "Fetching Inventory List: Elapsed $TIME sec."
 echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
 }
 
+_check_if_already_running_ps_stdalone(){
+
+local lPROGS=`ps -o pid,ppid,args | grep -w $PPID | grep -v -w $$`
+__debug "$lPROGS"
+lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep|cfsndserv'`
+__debug "$lPROGS"
+test ! "$lPROGS"
+}
+
 _say_start_msg_stdalone(){
 # *** Here begins program *** #
 _draw_stdalone 2 "$0 has started.."
 _draw_stdalone 2 "PID is $$ - parentPID is $PPID"
 
-_check_drawinfo_stdalone
+_check_if_already_running_ps_stdalone || _exit 1 "Another instance of $MY_BASE already running."
+_check_drawinfo_stdalone || _exit 1 "Unable to fetch the DRAWINFO variable. Please try again."
 
 # *** Check for parameters *** #
 _draw_stdalone 5 "Checking the parameters ($*)..."
@@ -2212,7 +2216,20 @@ _drop(){
 #MAIN
 
 _main_open_chests_func(){
+
+_source_library_files(){
+. $MY_DIR/cf_funcs_common.sh   || { echo draw 3 "$MY_DIR/cf_funcs_common.sh   failed to load."; exit 4; }
+. $MY_DIR/cf_funcs_food.sh     ||       _exit 5 "$MY_DIR/cf_funcs_food.sh     failed to load."
+. $MY_DIR/cf_funcs_traps.sh    ||       _exit 6 "$MY_DIR/cf_funcs_traps.sh    failed to load."
+. $MY_DIR/cf_funcs_move.sh     ||       _exit 7 "$MY_DIR/cf_funcs_move.sh     failed to load."
+. $MY_DIR/cf_funcs_chests.sh   ||       _exit 8 "$MY_DIR/cf_funcs_chests.sh   failed to load."
+. $MY_DIR/cf_funcs_requests.sh ||      _exit 12 "$MY_DIR/cf_funcs_requests.sh failed to load."
+}
+_source_library_files
+
 _debug "_main_open_chests_func:$*"
+_log   "_main_open_chests_func:$*"
+
 _set_global_variables $*
 _say_start_msg $*
 _do_parameters $*
@@ -2250,8 +2267,9 @@ _main_open_chests_stdalone(){
 _debug_stdalone "_main_open_chests_stdalone:$*"
 
 _set_global_variables_stdalone $*
-_say_start_msg_stdalone $*
 _do_parameters_stdalone $*
+_say_start_msg_stdalone $*
+#_do_parameters_stdalone $*
 
 test "$FUNCTION_CHECK_FOR_SPACE" && $FUNCTION_CHECK_FOR_SPACE 2
 _sleep_stdalone
@@ -2282,9 +2300,9 @@ _disarm_traps_stdalone
 _open_chests_stdalone
 }
 
- _main_open_chests_func "$@" && _draw 8 "You opened ${CHEST_COUNT:-0} chest(s)."
- _say_end_msg
-#_main_open_chests_stdalone "$@" && _draw_stdalone 8 "You opened ${CHEST_COUNT:-0} chest(s)."
-#_say_end_msg_stdalone
+# _main_open_chests_func "$@" && _draw 8 "You opened ${CHEST_COUNT:-0} chest(s)."
+# _say_end_msg
+_main_open_chests_stdalone "$@" && _draw_stdalone 8 "You opened ${CHEST_COUNT:-0} chest(s)."
+_say_end_msg_stdalone
 
 ###END###

@@ -20,18 +20,21 @@ VERSION=3.2 # use cf_funcs_requests.sh
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
+MY_DIR=${MY_SELF%/*}
 
-#test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+#test -f "$MY_DIR"/cf_functions.sh   && . "$MY_DIR"/cf_functions.sh
 #_set_global_variables $*
 
-test -f "${MY_SELF%/*}"/cf_funcs_common.sh   && . "${MY_SELF%/*}"/cf_funcs_common.sh
+test -f "$MY_DIR"/cf_funcs_common.sh   && . "$MY_DIR"/cf_funcs_common.sh
 _set_global_variables $*
 
-test -f "${MY_SELF%/*}"/cf_funcs_food.sh     && . "${MY_SELF%/*}"/cf_funcs_food.sh
-test -f "${MY_SELF%/*}"/cf_funcs_requests.sh && . "${MY_SELF%/*}"/cf_funcs_requests.sh
+test -f "$MY_DIR"/cf_funcs_food.sh     && . "$MY_DIR"/cf_funcs_food.sh
+test -f "$MY_DIR"/cf_funcs_requests.sh && . "$MY_DIR"/cf_funcs_requests.sh
 
 # *** Override any VARIABLES in cf_functions.sh *** #
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+test -f "$MY_DIR"/"${MY_BASE}".conf && . "$MY_DIR"/"${MY_BASE}".conf
+
+unset DIRB DIRF
 
 # *** Here begins program *** #
 _say_start_msg "$@"

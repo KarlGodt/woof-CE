@@ -13,12 +13,15 @@ MSGLEVEL=7
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
+MY_DIR=${MY_SELF%/*}
 
-test -f "${MY_SELF%/*}"/cf_funcs_common.sh && . "${MY_SELF%/*}"/cf_funcs_common.sh
+test -f "$MY_DIR"/cf_funcs_common.sh && . "$MY_DIR"/cf_funcs_common.sh
 _set_global_variables "$@"
 
 # *** Override any VARIABLES in cf_functions.sh *** #
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+test -f "$MY_DIR"/"${MY_BASE}".conf && . "$MY_DIR"/"${MY_BASE}".conf
+
+unset DIRB DIRF
 
 _say_help(){
 _draw 5 "$MY_BASE"

@@ -8,20 +8,14 @@ VERSION=0.0 # Initial version,
 VERSION=1.0 # release ready 2018-02-11
 VERSION=2.0 # made library cf_funcs_*.sh ready
 VERSION=3.0 # add healing codes, more logging
+VERSION=3.1 # exit early if already running or no DRAWINFO
 
 HEAL_ITEM='rod of heal'
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
 MY_BASE=${MY_SELF##*/}  ## needs to be in main script
-
-. $HOME/cf/s/cf_funcs_common.sh || exit 4
-. $HOME/cf/s/cf_funcs_food.sh   || exit 5
-. $HOME/cf/s/cf_funcs_move.sh   || exit 7
-. $HOME/cf/s/cf_funcs_skills.sh || exit 9
-. $HOME/cf/s/cf_funcs_fight.sh  || exit 10
-. $HOME/cf/s/cf_funcs_requests.sh || exit 12
-. $HOME/cf/s/cf_funcs_heal.sh   || exit 13
+MY_DIR=${MY_SELF%/*}
 
 _say_help_stdalone(){
 _draw_stdalone 6  "$MY_BASE"
@@ -150,12 +144,22 @@ REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
 exec 2>>"$ERROR_LOG"
 }
 
+_check_if_already_running_ps_stdalone(){
+
+local lPROGS=`ps -o pid,ppid,args | grep -w $PPID | grep -v -w $$`
+__debug_stdalone "$lPROGS"
+lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep'`
+__debug_stdalone "$lPROGS"
+test ! "$lPROGS"
+}
+
 _say_start_msg_stdalone(){
 # *** Here begins program *** #
 _draw_stdalone 2 "$0 has started.."
 _draw_stdalone 2 "PID is $$ - parentPID is $PPID"
 
-_check_drawinfo_stdalone
+_check_if_already_running_ps_stdalone || _exit 1 "Another $MY_BASE is already running."
+_check_drawinfo_stdalone || _exit 1 "Unable to fetch the DRAWINFO variable. Please try again."
 
 # *** Check for parameters *** #
 _draw_stdalone 5 "Checking the parameters ($*)..."
@@ -1495,6 +1499,18 @@ _say_end_msg_stdalone
 }
 
 _main_karate_func(){
+
+_source_library_files(){
+. $MY_DIR/cf_funcs_common.sh   ||  { echo draw 3 "$MY_DIR/cf_funcs_common.sh failed to load."; exit 4; }
+. $MY_DIR/cf_funcs_food.sh     ||      _exit 5 "$MY_DIR/cf_funcs_food.sh     failed to load."
+. $MY_DIR/cf_funcs_move.sh     ||      _exit 7 "$MY_DIR/cf_funcs_move.sh     failed to load."
+. $MY_DIR/cf_funcs_skills.sh   ||      _exit 9 "$MY_DIR/cf_funcs_skills.sh   failed to load."
+. $MY_DIR/cf_funcs_fight.sh    ||     _exit 10 "$MY_DIR/cf_funcs_fight.sh    failed to load."
+. $MY_DIR/cf_funcs_requests.sh ||     _exit 12 "$MY_DIR/cf_funcs_requests.sh failed to load."
+. $MY_DIR/cf_funcs_heal.sh     ||     _exit 13 "$MY_DIR/cf_funcs_heal.sh     failed to load."
+}
+_source_library_files
+
 _debug "_main_karate_func:$*"
 _log   "_main_karate_func:$*"
 

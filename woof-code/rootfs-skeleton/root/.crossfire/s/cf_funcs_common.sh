@@ -104,6 +104,39 @@ _draw 6 "$MY_BASE Version:${VERSION:-0.0}"
 exit ${1:-2}
 }
 
+_check_if_already_running_scripts(){
+_log   "_check_if_already_running_scripts:$*"
+_debug "_check_if_already_running_scripts:$*"
+
+local lRV=0
+
+_is 1 1 scripts
+while :; do unset REPLY
+read -t $TMOUT
+_log "$REPLY"
+_debug "$REPLY"
+
+case $REPLY in
+ *scripts*currently*running:*) :;;
+ *${MY_BASE}*) lRV=1;;
+ '') break 1;;
+ *)  :;;
+esac
+sleep 0.01
+done
+
+return ${lRV:-2}
+}
+
+_check_if_already_running_ps(){
+
+local lPROGS=`ps -o pid,ppid,args | grep -w $PPID | grep -v -w $$`
+__debug "$lPROGS"
+lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep|cfsndserv'`
+__debug "$lPROGS"
+test ! "$lPROGS"
+}
+
 __watch(){
 echo unwatch ${*:-$DRAWINFO}
 sleep 0.4
@@ -303,7 +336,8 @@ _say_start_msg(){
 _draw 2 "$0 has started.."
 _draw 2 "PID is $$ - parentPID is $PPID"
 
-_check_drawinfo
+_check_if_already_running_ps || _exit 1 "Another $MY_BASE is already running."
+_check_drawinfo || _exit 1 "Unable to fetch the DRAWINFO variable. Please try again."
 
 # *** Check for parameters *** #
 _draw 5 "Checking the parameters ($*)..."
@@ -367,8 +401,8 @@ _log "$REPLY_LOG" "_empty_message_stream:$lREPLY"
 test "$lREPLY" || break
 case $lREPLY in
 *scripttell*break*)     break ${lREPLY##*?break};;
-*scripttell*exit*)      _exit_stdalone 1 $lREPLY;;
-*'YOU HAVE DIED.'*) _just_exit_stdalone;;
+*scripttell*exit*)      _exit 1 $lREPLY;;
+*'YOU HAVE DIED.'*) _just_exit;;
 esac
 _msg 7 "_empty_message_stream:$lREPLY"
 unset lREPLY
@@ -484,7 +518,7 @@ unset cnt0
 
 DRAWINFO="$HAVE_DRAWINFO $HAVE_DRAWEXTINFO"
 DRAWINFO=`echo $DRAWINFO`
-_msg_stdalone 5 "Client recognizes $DRAWINFO"
+_msg 5 "Client recognizes $DRAWINFO"
 
 DEBUG=$oDEBUG
 LOGGING=$oLOGGING
@@ -498,7 +532,10 @@ case $1 in
 [0-9]|[0-9][0-9]|[0-9][0-9][0-9]) RV=$1; shift;;
 esac
 
+if test "$DIRB" -a "$DIRF"; then
 _move_back_and_forth 2
+fi
+
 _sleep
 test "$*" && _draw 3 $@
 _draw 3 "Exiting $0. PID was $$"
@@ -656,19 +693,19 @@ return ${DIRN:-255}
 }
 
 _round_up_and_down(){  ##+++2018-01-08
-echo "_round_up_and_down:$1" >&2
+[ "$DEBUG" ] && echo "_round_up_and_down:$1" >&2
                #123
 STELLEN=${#1}  #3
-echo "STELLEN=$STELLEN" >&2
+[ "$DEBUG" ] && echo "STELLEN=$STELLEN" >&2
 
 LETZTSTELLE=${1:$((STELLEN-1))} #123:2
-echo "LETZTSTELLE=$LETZTSTELLE" >&2
+[ "$DEBUG" ] && echo "LETZTSTELLE=$LETZTSTELLE" >&2
 
 VORLETZTSTELLE=${1:$((STELLEN-2)):1} #123:1:1
-echo "VORLETZTSTELLE=$VORLETZTSTELLE" >&2
+[ "$DEBUG" ] && echo "VORLETZTSTELLE=$VORLETZTSTELLE" >&2
 
 GERUNDET_BASIS=${1:0:$((STELLEN-1))} #123:0:2
-echo "GERUNDET_BASIS=$GERUNDET_BASIS" >&2
+[ "$DEBUG" ] && echo "GERUNDET_BASIS=$GERUNDET_BASIS" >&2
 
 case $LETZTSTELLE in
 0)     GERUNDET="${GERUNDET_BASIS}0";;
@@ -686,7 +723,9 @@ _debug "_set_sync_sleep:$*"
 local lPL_SPEED=${1:-$PL_SPEED}
 lPL_SPEED=${lPL_SPEED:-50000}
 
-  if test "$lPL_SPEED" -gt 60000; then
+  if test "$lPL_SPEED"  =  "";    then
+_draw 3 "WARNING: Could not set player speed. Using defaults."
+elif test "$lPL_SPEED" -gt 60000; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$lPL_SPEED" -gt 55000; then
 SLEEP=0.5; DELAY_DRAWINFO=1.1; TMOUT=1
@@ -710,8 +749,6 @@ elif test "$lPL_SPEED" -gt 10000; then
 SLEEP=4.0; DELAY_DRAWINFO=8.0; TMOUT=2
 elif test "$lPL_SPEED" -ge 0;  then
 SLEEP=5.0; DELAY_DRAWINFO=10.0; TMOUT=2
-elif test "$lPL_SPEED" = "";   then
-_draw 3 "WARNING: Could not set player speed. Using defaults."
 else
 _exit 1 "ERROR while processing player speed."
 fi
@@ -725,7 +762,9 @@ _debug "__set_sync_sleep:$*"
 local lPL_SPEED=${1:-$PL_SPEED1}
 lPL_SPEED=${lPL_SPEED:-50}
 
-  if test "$lPL_SPEED" -gt 60; then
+  if test "$lPL_SPEED"  =  ""; then
+_draw 3 "WARNING: Could not set player speed. Using defaults."
+elif test "$lPL_SPEED" -gt 60; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$lPL_SPEED" -gt 55; then
 SLEEP=0.5; DELAY_DRAWINFO=1.1; TMOUT=1
@@ -749,8 +788,6 @@ elif test "$lPL_SPEED" -gt 10; then
 SLEEP=4.0; DELAY_DRAWINFO=8.0; TMOUT=2
 elif test "$lPL_SPEED" -ge 0;  then
 SLEEP=5.0; DELAY_DRAWINFO=10.0; TMOUT=2
-elif test "$lPL_SPEED" = "";   then
-_draw 3 "WARNING: Could not set player speed. Using defaults."
 else
 _exit 1 "ERROR while processing player speed."
 fi
@@ -858,9 +895,9 @@ test "$ANSWER"
 
 _check_counter(){
 ckc=$((ckc+1))
-test "$ckc" -lt $COUNT_CHECK_FOOD && return 1
+test "$ckc" -lt $COUNT_CHECK_FOOD && return $ckc
 ckc=0
-return 0
+return $ckc
 }
 
 _get_player_speed(){

@@ -2,6 +2,40 @@
 
 return 0  # unused
 
+_check_if_already_running_scripts(){
+_log   "_check_if_already_running_scripts:$*"
+_debug "_check_if_already_running_scripts:$*"
+
+local lRV=0
+
+_is 1 1 scripts
+while :; do unset REPLY
+read -t $TMOUT
+_log "$REPLY"
+_debug "$REPLY"
+
+case $REPLY in
+ *scripts*currently*running:*) :;;
+ *${MY_BASE}*) lRV=1;;
+ '') break 1;;
+ *)  :;;
+esac
+sleep 0.01
+done
+
+return ${lRV:-2}
+}
+
+_check_if_already_running_ps(){
+
+local lPROGS=`ps -o pid,ppid,args | grep -w $PPID | grep -v -w $$`
+__debug_stdalone "$lPROGS"
+lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep'`
+__debug_stdalone "$lPROGS"
+
+test ! "$lPROGS"
+}
+
 __check_hp(){
 _debug "__check_hp:$*"
 _log   "__check_hp:$*"

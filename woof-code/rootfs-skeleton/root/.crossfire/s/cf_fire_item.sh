@@ -6,7 +6,6 @@
 # speed up the read loop for the inventory
 # from sleep 0.1 to sleep 0.01 (now 4 sec inst 29 sec)
 
-export PATH=/bin:/usr/bin
 
 VERSION=0.0 # initial version
 VERSION=1.0 # do more checks
@@ -33,18 +32,20 @@ FOOD=waybread
 
 MY_SELF=`realpath "$0"` ## needs to be in main script
 MY_BASE=${MY_SELF##*/}  ## needs to be in main script
+MY_DIR=${MY_SELF%/*}
 
-#test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+#test -f "$MY_DIR"/cf_functions.sh   && . "$MY_DIR"/cf_functions.sh
 #_set_global_variables $*
 
-test -f "${MY_SELF%/*}"/cf_funcs_common.sh && . "${MY_SELF%/*}"/cf_funcs_common.sh
+test -f "$MY_DIR"/cf_funcs_common.sh && . "$MY_DIR"/cf_funcs_common.sh
 _set_global_variables $*
 
-test -f "${MY_SELF%/*}"/cf_funcs_food.sh   && . "${MY_SELF%/*}"/cf_funcs_food.sh
+test -f "$MY_DIR"/cf_funcs_food.sh   && . "$MY_DIR"/cf_funcs_food.sh
 
 # *** Override any VARIABLES in cf_functions.sh *** #
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf  && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+test -f "$MY_DIR"/"${MY_BASE}".conf  && . "$MY_DIR"/"${MY_BASE}".conf
 
+unset DIRB DIRF
 
 # early functions
 _draw_stdalone(){
@@ -117,6 +118,30 @@ __draw 3 "$eMSG"
 exit ${RV:-1}
 }
 
+# *** EXIT FUNCTIONS *** #
+_exit_stdalone(){
+case $1 in
+[0-9]|[0-9][0-9]|[0-9][0-9][0-9]) RV=$1; shift;;
+esac
+
+#_move_back_and_forth_stdalone 2 ##unused to move in this script
+_sleep_stdalone
+test "$*" && _draw_stdalone 3 $@
+_draw_stdalone 3 "Exiting $0. PID was $$"
+#echo unwatch
+_unwatch_stdalone ""
+_beep_std_stdalone
+test ${RV//[0-9]/} && RV=3
+exit ${RV:-0}
+}
+
+_just_exit_stdalone(){
+_draw_stdalone 3 "Exiting $0."
+_unwatch_stdalone
+_beep_std_stdalone
+exit ${1:-0}
+}
+
 #***
 _is_stdalone(){
 # issue <repeat> <must_send> <command> - send
@@ -143,7 +168,7 @@ case $* in
 6|southwest|sw) DIRECTION_NUMBER=6;;
 7|west|w)       DIRECTION_NUMBER=7;;
 8|northwest|nw) DIRECTION_NUMBER=8;;
-*) _exit 2 "Invalid direction '$*'";;
+*) _exit_stdalone 2 "Invalid direction '$*'";;
 esac
 DIRN=$DIRECTION_NUMBER
 return ${DIRN:-255}
@@ -168,7 +193,7 @@ esac
 shift
 done
 _debug "_parse_parameters_stdalone:ITEM=$ITEM DIR=$DIRECTION NUMBER=$NUMBER"
-test "$NUMBER" -a "$DIRECTION" -a "$ITEM" || _exit 1 "Missing ITEM -o DIRECTION -o NUMBER"
+test "$NUMBER" -a "$DIRECTION" -a "$ITEM" || _exit_stdalone 1 "Missing ITEM -o DIRECTION -o NUMBER"
 }
 
 _check_have_needed_item_in_inventory_stdalone(){
@@ -193,8 +218,8 @@ read -t ${TMOUT:-1} oneITEM
  $oldITEM|'') break;;
  *"$lITEM"*) _draw 7 "Got that item $lITEM in inventory.";;
  *scripttell*break*)  break ${oneITEM##*?break};;
- *scripttell*exit*)   _exit 1 $oneITEM;;
- *'YOU HAVE DIED.'*) _just_exit;;
+ *scripttell*exit*)   _exit_stdalone 1 $oneITEM;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  esac
  ITEMS="${ITEMS}${oneITEM}\n"
 #$oneITEM"
@@ -237,8 +262,8 @@ read -t ${TMOUT:-1} oneITEM
  $oldITEM|'') break;;
  #*"$lITEM"*) _draw 7 "Got that item $lITEM in inventory.";;
  *scripttell*break*)  break ${oneITEM##*?break};;
- *scripttell*exit*)   _exit 1 $oneITEM;;
- *'YOU HAVE DIED.'*) _just_exit;;
+ *scripttell*exit*)   _exit_stdalone 1 $oneITEM;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  esac
 
  ITEMSA="$ITEMSA
@@ -278,8 +303,8 @@ read -t ${TMOUT:-1} REPLY_RANGE
  $oldREPLY_RANGE|'') break 1;;
  *"$lITEM"*)         break 1;;
  *scripttell*break*) break ${REPLY_RANGE##*?break};;
- *scripttell*exit*)  _exit 1 $REPLY_RANGE;;
- *'YOU HAVE DIED.'*) _just_exit;;
+ *scripttell*exit*)  _exit_stdalone 1 $REPLY_RANGE;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
  esac
     _is 1 1 rotateshoottype
  oldREPLY_RANGE="$REPLY_RANGE"
@@ -421,14 +446,15 @@ case $? in
 *) _check_have_needed_item_in_inventory
    case $? in
    0) _apply_item;;
-   *) _exit 1 "Item $ITEM not in inventory";;
+   *) _exit_stdalone 1 "Item $ITEM not in inventory";;
    esac
 ;;
 esac
 sleep 1
 _rotate_range_attack
 sleep 1
-_direction_word_to_number $DIRECTION
+_direction_word_to_number_stdalone $DIRECTION
+unset DIRB DIRF
 _do_loop_stdalone $NUMBER
 }
 

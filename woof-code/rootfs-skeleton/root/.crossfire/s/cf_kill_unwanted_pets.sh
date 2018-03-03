@@ -7,19 +7,18 @@
 # Added case switch for drawextinfo/drawinfo sending
 # different amounts of pre-pet number values
 
-export PATH=/bin:/usr/bin
+LOGGING=1
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
-
-#test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-#_set_global_variables "$@"
 
 test -f "${MY_SELF%/*}"/cf_funcs_common.sh   && . "${MY_SELF%/*}"/cf_funcs_common.sh
 _set_global_variables "$@"
 
 # *** Override any VARIABLES in cf_functions.sh *** #
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+
+unset DIRB DIRF
 
 # *** Here begins program *** #
 _say_start_msg "$@"
@@ -77,7 +76,7 @@ _log "PETS_KEEP='$PETS_KEEP'"
 OLD_REPLY="";
 REPLY="";
 
-_watch
+_watch $DRAWINFO
 sleep 1
 _is 1 1 "showpets"
 

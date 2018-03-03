@@ -1,25 +1,24 @@
 #!/bin/bash
 
-export PATH=/bin:/usr/bin
-
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
+MY_DIR=${MY_SELF%/*}
 
-#test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+#test -f "$MY_DIR"/cf_functions.sh   && . "$MY_DIR"/cf_functions.sh
 #_set_global_variables "$@"
 
-test -f "${MY_SELF%/*}"/cf_funcs_common.sh   && . "${MY_SELF%/*}"/cf_funcs_common.sh
+test -f "$MY_DIR"/cf_funcs_common.sh   && . "$MY_DIR"/cf_funcs_common.sh
 _set_global_variables "$@"
 
-test -f "${MY_SELF%/*}"/cf_funcs_move.sh    && . "${MY_SELF%/*}"/cf_funcs_move.sh
-test -f "${MY_SELF%/*}"/cf_funcs_food.sh    && . "${MY_SELF%/*}"/cf_funcs_food.sh
-test -f "${MY_SELF%/*}"/cf_funcs_alchemy.sh && . "${MY_SELF%/*}"/cf_funcs_alchemy.sh
+test -f "$MY_DIR"/cf_funcs_move.sh    && . "$MY_DIR"/cf_funcs_move.sh
+test -f "$MY_DIR"/cf_funcs_food.sh    && . "$MY_DIR"/cf_funcs_food.sh
+test -f "$MY_DIR"/cf_funcs_alchemy.sh && . "$MY_DIR"/cf_funcs_alchemy.sh
 
 # *** Setting defaults *** #
 GEM='';  #set empty default
 NUMBER=0 #set zero as default
 # *** Override any VARIABLES in cf_functions.sh *** #
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+test -f "$MY_DIR"/"${MY_BASE}".conf && . "$MY_DIR"/"${MY_BASE}".conf
 
 # *** PARAMETERS *** #
 while :;

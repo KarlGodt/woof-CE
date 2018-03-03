@@ -45,23 +45,24 @@ VERSION=3.1 # smaller code overhauling
 VERSION=4.0 # renamed own functions to *_stdalone
 # to distinguish from functions from sourced files
 
-export PATH=/bin:/usr/bin
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
 MY_BASE=${MY_SELF##*/}  ## needs to be in main script
+MY_DIR=${MY_SELF%/*}
 
-#test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+#test -f "$MY_DIR"/cf_functions.sh   && . "$MY_DIR"/cf_functions.sh
 #_set_global_variables $*
 
-test -f "${MY_SELF%/*}"/cf_funcs_common.sh && . "${MY_SELF%/*}"/cf_funcs_common.sh
+test -f "$MY_DIR"/cf_funcs_common.sh && . "$MY_DIR"/cf_funcs_common.sh
 _set_global_variables $*
 
-test -f "${MY_SELF%/*}"/cf_funcs_food.sh   && . "${MY_SELF%/*}"/cf_funcs_food.sh
+test -f "$MY_DIR"/cf_funcs_food.sh   && . "$MY_DIR"/cf_funcs_food.sh
 
 # *** Override any VARIABLES in cf_functions.sh *** #
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf  && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+test -f "$MY_DIR"/"${MY_BASE}".conf  && . "$MY_DIR"/"${MY_BASE}".conf
 
+unset DIRB DIRF
 
 # *** Variables : Most are set or unset ( set meaning have content ( even " " ) , unset no content
 # *** common editable variables
@@ -1355,6 +1356,7 @@ sleep 1
 _rotate_range_attack
 sleep 1
 _direction_word_to_number $DIRECTION
+unset DIRB DIRF
 _do_loop_stdalone $COMMAND_PAUSE
 }
 
