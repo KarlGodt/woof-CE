@@ -11,6 +11,7 @@ VERSION=3.0 # add healing codes, more logging
 VERSION=3.1 # call _do_parameters before _say_start_msg,
 # check if another instance of the programm is already running
 VERSION=3.2 # exit early if already running or no DRAWINFO
+VERSION=3.3 # bugfixing
 
 SKILL_NOT_PUNCHING=karate  # _check_skill_available needs a skill that is not the skill wanted
 
@@ -154,7 +155,7 @@ _check_if_already_running_ps_stdalone(){
 
 local lPROGS=`ps -o pid,ppid,args | grep -w $PPID | grep -v -w $$`
 __debug_stdalone "$lPROGS"
-lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep'`
+lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep|cfsndserv'`
 __debug_stdalone "$lPROGS"
 test ! "$lPROGS"
 }
@@ -354,6 +355,8 @@ _emergency_exit_stdalone(){
 RV=${1:-4}; shift
 local lRETURN_ITEM=${*:-"$RETURN_ITEM"}
 
+_is_stdalone 1 1 fire_stop
+
 case $lRETURN_ITEM in
 ''|*rod*|*staff*|*wand*|*horn*)
 _is_stdalone 1 1 apply -u ${lRETURN_ITEM:-'rod of word of recall'}
@@ -362,7 +365,7 @@ _is_stdalone 1 1 fire center
 _is_stdalone 1 1 fire_stop
 ;;
 *scroll*) _is_stdalone 1 1 apply ${lRETURN_ITEM};;
-*) invoke "$lRETURN_ITEM";; # assuming spell
+*) _is_stdalone 1 1 invoke "$lRETURN_ITEM";; # assuming spell
 esac
 
 _draw_stdalone 3 "Emergency Exit $0 !"
@@ -1107,7 +1110,7 @@ unset oldITEM oneITEM
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-_msg_stdalone 7 4 "Fetching Inventory List: Elapsed $TIME sec."
+_msg_stdalone 7 "Fetching Inventory List: Elapsed $TIME sec."
 
 echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
 }
@@ -1219,9 +1222,9 @@ _empty_message_stream_stdalone
 _sleep_stdalone
 
 _check_if_on_item_stdalone -l ${lEAT_FOOD:-haggis}
-case $? in 0) _is 1 1 apply;;
-*) _is 1 1 get all
-   _is 1 1 apply ${lEAT_FOOD:-haggis};;
+case $? in 0) _is_stdalone 1 1 apply;;
+*) _is_stdalone 1 1 get all
+   _is_stdalone 1 1 apply ${lEAT_FOOD:-haggis};;
 esac
 _empty_message_stream_stdalone
 }
@@ -1567,8 +1570,12 @@ _msg_stdalone 7 "_main_punch_stdalone:$*"
 _log_stdalone   "_main_punch_stdalone:$*"
 
 _set_global_variables_stdalone $*
-#_say_start_msg_stdalone $*
 _do_parameters_stdalone $*
+
+if test "$ATTACKS_SPOT" -a "$COUNT_CHECK_FOOD"; then
+ COUNT_CHECK_FOOD=$((COUNT_CHECK_FOOD/ATTACKS_SPOT))
+ test "$COUNT_CHECK_FOOD" -le 0 && COUNT_CHECK_FOOD=1
+fi
 
 if _say_start_msg_stdalone $*
 then

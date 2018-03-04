@@ -9,6 +9,7 @@ VERSION=1.0 # release ready 2018-02-11
 VERSION=2.0 # made library cf_funcs_*.sh ready
 VERSION=3.0 # add healing codes, more logging
 VERSION=3.1 # exit early if already running or no DRAWINFO
+VERSION=3.2 # bugfixing
 
 HEAL_ITEM='rod of heal'
 
@@ -148,7 +149,7 @@ _check_if_already_running_ps_stdalone(){
 
 local lPROGS=`ps -o pid,ppid,args | grep -w $PPID | grep -v -w $$`
 __debug_stdalone "$lPROGS"
-lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep'`
+lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep|cfsndserv'`
 __debug_stdalone "$lPROGS"
 test ! "$lPROGS"
 }
@@ -166,7 +167,7 @@ _draw_stdalone 5 "Checking the parameters ($*)..."
 }
 
 __check_drawinfo_stdalone(){  ##+++2018-01-08
-_debug_stdalone "__check_drawinfo_stdalone:$*"
+_msg_stdalone 7 "__check_drawinfo_stdalone:$*"
 
 oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
 oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
@@ -228,7 +229,7 @@ test "$DRAWINFO"
 }
 
 _check_drawinfo_stdalone(){  ##+++2018-02-18
-_debug_stdalone "_check_drawinfo_stdalone:$*"
+_msg_stdalone 7 "_check_drawinfo_stdalone:$*"
 
 oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
 oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
@@ -345,6 +346,8 @@ _emergency_exit_stdalone(){
 RV=${1:-4}; shift
 local lRETURN_ITEM=${*:-"$RETURN_ITEM"}
 
+_is_stdalone 1 1 fire_stop
+
 case $lRETURN_ITEM in
 ''|*rod*|*staff*|*wand*|*horn*)
 _is_stdalone 1 1 apply -u ${lRETURN_ITEM:-'rod of word of recall'}
@@ -353,7 +356,7 @@ _is_stdalone 1 1 fire center
 _is_stdalone 1 1 fire_stop
 ;;
 *scroll*) _is_stdalone 1 1 apply ${lRETURN_ITEM};;
-*) invoke "$lRETURN_ITEM";; # assuming spell
+*) _is_stdalone 1 1 invoke "$lRETURN_ITEM";; # assuming spell
 esac
 
 _draw_stdalone 3 "Emergency Exit $0 !"
@@ -554,7 +557,7 @@ _is_stdalone(){
 #  <repeat> is the number of times to execute command
 #  <must_send> tells whether or not the command must sent at all cost (1 or 0).
 #  <repeat> and <must_send> are optional parameters.
-    _debug_stdalone "_is_stdalone:$*"
+    _msg_stdalone 7 "_is_stdalone:$*"
     _log_stdalone   "_is_stdalone:$*"
     echo issue "$@"
     sleep 0.2
@@ -580,7 +583,7 @@ return 0
 }
 
 _check_skill_available_stdalone(){
-_debug_stdalone "_check_skill_available_stdalone:$*"
+_msg_stdalone 7 "_check_skill_available_stdalone:$*"
 _log_stdalone   "_check_skill_available_stdalone:$*"
 
 local lSKILL=${*:-"$SKILL"}
@@ -596,7 +599,7 @@ _is_stdalone 1 1 ready_skill "$lSKILL" # range attack, no message is printed
 while :; do unset REPLY
 read -t $TMOUT
   _log_stdalone "$REPLY_LOG" "_check_skill_available_stdalone:$REPLY"
-_debug_stdalone "$REPLY"
+_msg_stdalone 7 "$REPLY"
 
  case $REPLY in
  '') break 1;;
@@ -623,7 +626,7 @@ return ${lRV:-3}
 
 _request_stat_cmbt_stdalone(){
 #Return wc,ac,dam,speed,weapon_sp
-_debug_stdalone "_request_stat_cmbt_stdalone:$*"
+_msg_stdalone 7 "_request_stat_cmbt_stdalone:$*"
 _log_stdalone   "_request_stat_cmbt_stdalone:$*"
 
 _empty_message_stream_stdalone
@@ -642,7 +645,7 @@ test "$WC" -a "$AC" -a "$DAM" -a "$SPEED" -a "$WP_SPEED"
 
 
 __get_player_speed_stdalone(){
-_debug_stdalone "__get_player_speed_stdalone:$*"
+_msg_stdalone 7 "__get_player_speed_stdalone:$*"
 _log_stdalone   "__get_player_speed_stdalone:$*"
 
 if test "$1" = '-l'; then # loop counter
@@ -665,7 +668,7 @@ return 0
 }
 
 _get_player_speed_stdalone(){
-_debug_stdalone "_get_player_speed_stdalone:$*"
+_msg_stdalone 7 "_get_player_speed_stdalone:$*"
 _log_stdalone   "_get_player_speed_stdalone:$*"
 
 if test "$1" = '-l'; then # loop counter
@@ -686,7 +689,7 @@ return 0
 }
 
 _player_speed_to_human_readable_stdalone(){
-_debug_stdalone "_player_speed_to_human_readable_stdalone:$*"
+_msg_stdalone 7 "_player_speed_to_human_readable_stdalone:$*"
 _log_stdalone   "_player_speed_to_human_readable_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED}
@@ -761,7 +764,7 @@ echo $GERUNDET
 }
 
 _set_sync_sleep_stdalone(){
-_debug_stdalone "_set_sync_sleep_stdalone:$*"
+_msg_stdalone 7 "_set_sync_sleep_stdalone:$*"
 _log_stdalone   "_set_sync_sleep_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED}
@@ -801,7 +804,7 @@ _info_stdalone "Setting SLEEP=$SLEEP ,TMOUT=$TMOUT ,DELAY_DRAWINFO=$DELAY_DRAWIN
 }
 
 __set_sync_sleep_stdalone(){
-_debug_stdalone "__set_sync_sleep_stdalone:$*"
+_msg_stdalone 7 "__set_sync_sleep_stdalone:$*"
 _log_stdalone   "__set_sync_sleep_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED1}
@@ -887,7 +890,7 @@ DIRECTION_NUMBER=$DIRN
 }
 
 __kill_monster_stdalone(){
-_debug_stdalone "__kill_monster_stdalone:$*"
+_msg_stdalone 7 "__kill_monster_stdalone:$*"
 _log_stdalone   "__kill_monster_stdalone:$*"
 
 local lATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
@@ -903,7 +906,7 @@ _empty_message_stream_stdalone
 }
 
 _kill_monster_stdalone(){
-_debug_stdalone "_kill_monster_stdalone:$*"
+_msg_stdalone 7 "_kill_monster_stdalone:$*"
 _log_stdalone   "_kill_monster_stdalone:$*"
 
 local lATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
@@ -920,7 +923,7 @@ _empty_message_stream_stdalone
 }
 
 _brace_stdalone(){
-_debug_stdalone "_brace_stdalone:$*"
+_msg_stdalone 7 "_brace_stdalone:$*"
 _log_stdalone   "_brace_stdalone:$*"
 
 _watch_stdalone $DRAWINFO
@@ -930,7 +933,7 @@ _is_stdalone 1 1 brace
  while :; do unset REPLY
  read -t $TMOUT
  _log_stdalone "$REPLY_LOG" "_brace_stdalone:$REPLY"
- _debug_stdalone "$REPLY"
+ _msg_stdalone 7 "$REPLY"
  case $REPLY in
  *'You are braced.'*) break 2;;
  *'Not braced.'*)     break 1;;
@@ -951,7 +954,7 @@ _empty_message_stream_stdalone
 }
 
 _unbrace_stdalone(){
-_debug_stdalone "_unbrace_stdalone:$*"
+_msg_stdalone 7 "_unbrace_stdalone:$*"
 _log_stdalone   "_unbrace_stdalone:$*"
 
 _watch_stdalone $DRAWINFO
@@ -961,7 +964,7 @@ _is_stdalone 1 1 brace
  while :; do unset REPLY
  read -t $TMOUT
  _log_stdalone "$REPLY_LOG" "_unbrace_stdalone:$REPLY"
- _debug_stdalone "$REPLY"
+ _msg_stdalone 7 "$REPLY"
  case $REPLY in
  *'You are braced.'*) break 1;;
  *'Not braced.'*)     break 2;;
@@ -982,7 +985,7 @@ _empty_message_stream_stdalone
 }
 
 _set_next_direction_stdalone(){
-_debug_stdalone "_set_next_direction_stdalone:$*:$DIRN"
+_msg_stdalone 7 "_set_next_direction_stdalone:$*:$DIRN"
 _log_stdalone   "_set_next_direction_stdalone:$*:$DIRN"
 
 if test "$DO_CLOCKWISE"; then
@@ -997,7 +1000,7 @@ _draw_stdalone 2 "Will turn to direction $DIRECTION .."
 }
 
 _check_food_level_stdalone(){
-_debug_stdalone "_check_food_level_stdalone:$*"
+_msg_stdalone 7 "_check_food_level_stdalone:$*"
 _log_stdalone   "_check_food_level_stdalone:$*"
 
 test "$*" && MIN_FOOD_LEVEL="$@"
@@ -1026,7 +1029,7 @@ done
 }
 
 _eat_food_from_inventory_stdalone(){
-_debug_stdalone "_eat_food_from_inventory_stdalone:$*"
+_msg_stdalone 7 "_eat_food_from_inventory_stdalone:$*"
 _log_stdalone   "_eat_food_from_inventory_stdalone:$*"
 
 local lEAT_FOOD="${@:-$EAT_FOOD}"
@@ -1037,7 +1040,7 @@ _check_have_item_in_inventory_stdalone $lEAT_FOOD && _is_stdalone 1 1 apply $lEA
 }
 
 _check_have_item_in_inventory_stdalone(){
-_debug_stdalone "_check_have_item_in_inventory_stdalone:$*"
+_msg_stdalone 7 "_check_have_item_in_inventory_stdalone:$*"
 _log_stdalone   "_check_have_item_in_inventory_stdalone:$*"
 
 local oneITEM oldITEM ITEMS ITEMSA lITEM
@@ -1054,7 +1057,7 @@ while :;
 do
 read -t ${TMOUT:-1} oneITEM
  _log_stdalone "$INV_LOG" "_check_have_item_in_inventory_stdalone:$oneITEM"
- _debug_stdalone "$oneITEM"
+ _msg_stdalone 7 "$oneITEM"
 
  case $oneITEM in
  $oldITEM|'') break 1;;
@@ -1073,14 +1076,14 @@ unset oldITEM oneITEM
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-_debug_stdalone 4 "Fetching Inventory List: Elapsed $TIME sec."
+_msg_stdalone 7 "Fetching Inventory List: Elapsed $TIME sec."
 
 echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
 }
 
 _request_stat_hp_stdalone(){
 #Return hp,maxhp,sp,maxsp,grace,maxgrace,food
-_debug_stdalone "_request_stat_hp_stdalone:$*"
+_msg_stdalone 7 "_request_stat_hp_stdalone:$*"
 _log_stdalone   "_request_stat_hp_stdalone:$*"
 
 _empty_message_stream_stdalone
@@ -1100,7 +1103,7 @@ test "$HP" -a "$MHP" -a "$SP" -a "$MSP" -a "$GR" -a "$MGR" -a "$FOOD_LVL"
 }
 
 _cast_create_food_and_eat_stdalone(){
-_debug_stdalone "_cast_create_food_and_eat_stdalone:$*"
+_msg_stdalone 7 "_cast_create_food_and_eat_stdalone:$*"
 _log_stdalone   "_cast_create_food_and_eat_stdalone:$*"
 
 local lEAT_FOOD BUNGLE
@@ -1194,7 +1197,7 @@ _set_pickup_stdalone(){
 }
 
 _check_if_on_item_stdalone(){
-_debug_stdalone "_check_if_on_item_stdalone:$*"
+_msg_stdalone 7 "_check_if_on_item_stdalone:$*"
 _log_stdalone   "_check_if_on_item_stdalone:$*"
 
 local DO_LOOP TOPMOST lMSG lRV
@@ -1280,7 +1283,7 @@ test "$DO_LOOP" && return 1 || _exit_stdalone 1 $lMSG
 }
 
 _check_mana_for_create_food_stdalone(){
-_debug_stdalone "_check_mana_for_create_food_stdalone:$*"
+_msg_stdalone 7 "_check_mana_for_create_food_stdalone:$*"
 _log_stdalone   "_check_mana_for_create_food_stdalone:$*"
 
 local lSP=${*:-$SP}
@@ -1308,7 +1311,7 @@ read -t ${TMOUT:-1}
  *ready*the*spell*create*food*) return 0;;
  *create*food*)
  MANA_NEEDED=`echo "$REPLY" | awk '{print $NF}'`
- _debug_stdalone "MANA_NEEDED=$MANA_NEEDED"
+ _msg_stdalone 7 "MANA_NEEDED=$MANA_NEEDED"
  test "$lSP" -ge "$MANA_NEEDED" && return 0 || break 1
  ;;
  *'Something blocks your spellcasting.'*) _exit_stdalone 1 "Not possible on this spot.";;
@@ -1330,7 +1333,7 @@ return 1
 
 #** we may get attacked and die **#
 _check_hp_and_return_home_stdalone(){
-_debug_stdalone "_check_hp_and_return_home_stdalone:$*"
+_msg_stdalone 7 "_check_hp_and_return_home_stdalone:$*"
 _log_stdalone   "_check_hp_and_return_home_stdalone:$*"
 
 local currHP currHPMin
@@ -1346,7 +1349,7 @@ fi
 }
 
 _do_parameters_stdalone(){
-_debug_stdalone "_do_parameters_stdalone:$*"
+_msg_stdalone 7 "_do_parameters_stdalone:$*"
 _log_stdalone   "_do_parameters_stdalone:$*"
 
 # dont forget to pass parameters when invoking this function
@@ -1434,7 +1437,7 @@ done
 }
 
 __check_hp_stdalone(){
-_debug_stdalone "__check_hp_stdalone:$*"
+_msg_stdalone 7 "__check_hp_stdalone:$*"
 _log_stdalone   "__check_hp_stdalone:$*"
 
 while :; do
@@ -1451,7 +1454,7 @@ fi
 }
 
 _heal_stdalone(){
-_debug_stdalone "_heal_stdalone:$*"
+_msg_stdalone 7 "_heal_stdalone:$*"
 _log_stdalone   "_heal_stdalone:$*"
 
 local lITEM=${*:-"$HEAL_ITEM"}
@@ -1476,7 +1479,7 @@ esac
 }
 
 _check_hp_stdalone(){
-_debug_stdalone "_check_hp_stdalone:$*"
+_msg_stdalone 7 "_check_hp_stdalone:$*"
 _log_stdalone   "_check_hp_stdalone:$*"
 
 while :;
@@ -1494,7 +1497,7 @@ done
 # with skill flame touch
 
 _flame_touch_around_stdalone(){
-_debug_stdalone "_flame_touch_around_stdalone:$*"
+_msg_stdalone 7 "_flame_touch_around_stdalone:$*"
 _log_stdalone   "_flame_touch_around_stdalone:$*"
 
 while :;
@@ -1524,12 +1527,19 @@ done
 # MAIN
 
 _main_flame_touch_stdalone(){
-_debug_stdalone "_main_flame_touch_stdalone:$*"
+_msg_stdalone 7 "_main_flame_touch_stdalone:$*"
 _log_stdalone   "_main_flame_touch_stdalone:$*"
 
 _set_global_variables_stdalone $*
-_say_start_msg_stdalone $*
 _do_parameters_stdalone $*
+
+if test "$ATTACKS_SPOT" -a "$COUNT_CHECK_FOOD"; then
+ COUNT_CHECK_FOOD=$((COUNT_CHECK_FOOD/ATTACKS_SPOT))
+ test "$COUNT_CHECK_FOOD" -le 0 && COUNT_CHECK_FOOD=1
+fi
+
+_say_start_msg_stdalone $*
+
 
 _get_player_speed_stdalone
 test "$PL_SPEED1" && __set_sync_sleep_stdalone ${PL_SPEED1} || _set_sync_sleep_stdalone "$PL_SPEED"

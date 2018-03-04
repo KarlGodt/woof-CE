@@ -67,6 +67,7 @@ VERSION=3.1 # code cleanup
 VERSION=3.1.1 # false variable names fixed
 VERSION=3.2 # fix missings and end msg when using funcs libraries files
 VERSION=3.3 # exit early if already running or no DRAWINFO
+VERSION=3.4 # bugfixing
 
 SEARCH_ATTEMPTS_DEFAULT=9
 #DISARM variable set to skill, invokation OR cast
@@ -234,6 +235,8 @@ _emergency_exit_stdalone(){
 RV=${1:-4}; shift
 local lRETURN_ITEM=${*:-"$RETURN_ITEM"}
 
+_is_stdalone 1 1 fire_stop
+
 case $lRETURN_ITEM in
 ''|*rod*|*staff*|*wand*|*horn*)
 _is_stdalone 1 1 apply -u ${lRETURN_ITEM:-'rod of word of recall'}
@@ -241,8 +244,8 @@ _is_stdalone 1 1 apply -a ${lRETURN_ITEM:-'rod of word of recall'}
 _is_stdalone 1 1 fire center
 _is_stdalone 1 1 fire_stop
 ;;
-*scroll*) _is 1 1 apply ${lRETURN_ITEM};;
-*) invoke "$lRETURN_ITEM";; # assuming spell
+*scroll*) _is_stdalone 1 1 apply ${lRETURN_ITEM};;
+*) _is_stdalone 1 1 invoke "$lRETURN_ITEM";; # assuming spell
 esac
 
 _draw_stdalone 3 "Emergency Exit $0 !"
@@ -432,7 +435,7 @@ _is_stdalone(){
 #  <repeat> is the number of times to execute command
 #  <must_send> tells whether or not the command must sent at all cost (1 or 0).
 #  <repeat> and <must_send> are optional parameters.
-    _debug_stdalone "issue $*"
+    _msg_stdalone 7 "issue $*"
     echo issue "$@"
     sleep 0.2
 }
@@ -538,7 +541,7 @@ done
 
 _check_for_space_stdalone(){
 # *** Check for [4] empty space to DIRB *** #
-_debug_stdalone "_check_for_space_stdalone:$*"
+_msg_stdalone 7 "_check_for_space_stdalone:$*"
 
 local REPLY_MAP OLD_REPLY NUMBERT
 test "$1" && NUMBERT="$1"
@@ -557,7 +560,7 @@ while :; do
 read -t $TMOUT REPLY_MAP
 #echo "request map pos:$REPLY_MAP" >>"$REPLY_LOG"
 _log_stdalone "$REPLY_LOG" "_check_for_space_stdalone:request map pos:$REPLY_MAP"
-_debug_stdalone "$REPLY_MAP"
+_msg_stdalone 7 "$REPLY_MAP"
 test "$REPLY_MAP" || break
 test "$REPLY_MAP" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY_MAP"
@@ -614,11 +617,11 @@ echo request map $R_X $R_Y
 while :; do
 read -t $TMOUT
 _log_stdalone "$REPLY_LOG" "_check_for_space_stdalone:request map '$R_X' '$R_Y':$REPLY"
-_debug_stdalone "$REPLY"
+_msg_stdalone 7 "$REPLY"
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 
 _log_stdalone "$REPLY_LOG" "IS_WALL=$IS_WALL"
-_debug_stdalone "IS_WALL=$IS_WALL"
+_msg_stdalone 7 "IS_WALL=$IS_WALL"
 test "$IS_WALL" = 0 || _exit_no_space_stdalone 1
 
 test "$REPLY" || break
@@ -641,7 +644,7 @@ _draw_stdalone 7 "OK."
 
 _check_for_space_old_client_stdalone(){
 # *** Check for 4 empty space to DIRB *** #
-_debug_stdalone "_check_for_space_old_client_stdalone:$*"
+_msg_stdalone 7 "_check_for_space_old_client_stdalone:$*"
 
 local REPLY_MAP OLD_REPLY NUMBERT cm
 test "$1" && NUMBERT="$1"
@@ -661,7 +664,7 @@ while :; do
 cm=$((cm+1))
 read -t $TMOUT REPLY_MAP
 _log_stdalone "$REPLY_LOG" "_check_for_space_old_client_stdalone:request map near:$REPLY_MAP"
-_debug_stdalone "$REPLY_MAP"
+_msg_stdalone 7 "$REPLY_MAP"
 test "$cm" = 5 && break
 test "$REPLY_MAP" || break
 test "$REPLY_MAP" = "$OLD_REPLY" && break
@@ -721,11 +724,11 @@ echo request map $R_X $R_Y
 while :; do
 read -t $TMOUT
 _log_stdalone "$REPLY_LOG" "_check_for_space_old_client_stdalone:request map '$R_X' '$R_Y':$REPLY"
-_debug_stdalone "$REPLY"
+_msg_stdalone 7 "$REPLY"
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 
 _log_stdalone "$REPLY_LOG" "IS_WALL=$IS_WALL"
-_debug_stdalone "IS_WALL=$IS_WALL"
+_msg_stdalone 7 "IS_WALL=$IS_WALL"
 test "$IS_WALL" = 0 || _exit_no_space_stdalone 1
 
 test "$REPLY" || break
@@ -747,7 +750,7 @@ _draw_stdalone 7 "OK."
 }
 
 _check_if_on_item_stdalone(){
-_debug_stdalone "_check_if_on_item_stdalone:$*"
+_msg_stdalone 7 "_check_if_on_item_stdalone:$*"
 
 local DO_LOOP TOPMOST lMSG lRV
 unset DO_LOOP TOPMOST lMSG lRV
@@ -835,7 +838,7 @@ _check_if_on_item_examine_stdalone(){
 # Using 'examine' directly after dropping
 # the item examines the bottommost tile
 # as 'That is marble'
-_debug_stdalone "_check_if_on_item_examine_stdalone:$*"
+_msg_stdalone 7 "_check_if_on_item_examine_stdalone:$*"
 
 local DO_LOOP TOPMOST LIST
 unset DO_LOOP TOPMOST LIST
@@ -894,12 +897,12 @@ test "$lRV" = 0 && return $lRV
 if test "$DO_LOOP"; then
  return ${lRV:-3}
 else
-  _exit ${lRV:-3} "$lITEM not here or not on top of stack."
+  _exit_stdalone ${lRV:-3} "$lITEM not here or not on top of stack."
 fi
 }
 
 __check_if_on_chest_request_items_on_stdalone(){
-_debug_stdalone "__check_if_on_chest_request_items_on_stdalone:$*"
+_msg_stdalone 7 "__check_if_on_chest_request_items_on_stdalone:$*"
 
 #local DO_LOOP TOPMOST
 #unset DO_LOOP TOPMOST
@@ -976,7 +979,7 @@ return 0
 }
 
 _check_if_on_chest_request_items_on_stdalone(){
-_debug_stdalone "_check_if_on_chest_request_items_on_stdalone:$*"
+_msg_stdalone 7 "_check_if_on_chest_request_items_on_stdalone:$*"
 
 local DO_LOOP TOPMOST lRV
 unset DO_LOOP TOPMOST lRV
@@ -1036,7 +1039,7 @@ return ${lRV:-0}
 }
 
 _eval_check_if_on_chest_request_items_on_stdalone(){
-_debug_stdalone "_eval_check_if_on_chest_request_items_on_stdalone:$*"
+_msg_stdalone 7 "_eval_check_if_on_chest_request_items_on_stdalone:$*"
 
  #__check_if_on_chest_request_items_on_stdalone $1
    _check_if_on_chest_request_items_on_stdalone $1
@@ -1054,7 +1057,7 @@ case $1 in -l|-lt|-tl) return 1;; *) _just_exit_stdalone 1;; esac
 }
 
 _check_if_on_chest_stdalone(){  ###+++2018-01-19
-_debug_stdalone "_check_if_on_chest_stdalone:$*"
+_msg_stdalone 7 "_check_if_on_chest_stdalone:$*"
 
 #local DO_LOOP TOPMOST
 #unset DO_LOOP TOPMOST
@@ -1089,7 +1092,7 @@ case $1 in -l|-lt|-tl) return 1;; *) _just_exit_stdalone 1;; esac
 }
 
 _check_if_on_chest_stdalone(){
-_debug_stdalone "_check_if_on_chest_stdalone:$*"
+_msg_stdalone 7 "_check_if_on_chest_stdalone:$*"
 
 #local DO_LOOP TOPMOST
 #unset DO_LOOP TOPMOST
@@ -1112,7 +1115,7 @@ _eval_check_if_on_chest_request_items_on_stdalone $1
 }
 
 _search_traps_stdalone(){
-_debug_stdalone "_search_traps_stdalone:$*"
+_msg_stdalone 7 "_search_traps_stdalone:$*"
 
 cnt=${*:-$SEARCH_ATTEMPTS}
 cnt=${cnt:-$SEARCH_ATTEMPTS_DEFAULT}
@@ -1165,11 +1168,11 @@ _sleep_stdalone
 
 test "$FOUND_TRAP" && _draw_stdalone 2 "Found $FOUND_TRAP trap(s)."
 TRAPS_ALL=${FOUND_TRAP:-$TRAPS_ALL}
-_debug_stdalone "TRAPS_ALL=$TRAPS_ALL"
+_msg_stdalone 7 "TRAPS_ALL=$TRAPS_ALL"
 test "$TRAPS_ALL_OLD" -gt $TRAPS_ALL && TRAPS_ALL=$TRAPS_ALL_OLD
-_debug_stdalone "TRAPS_ALL=$TRAPS_ALL"
+_msg_stdalone 7 "TRAPS_ALL=$TRAPS_ALL"
 TRAPS_ALL_OLD=${TRAPS_ALL:-0}
-_debug_stdalone "FOUND_TRAP=$FOUND_TRAP TRAPS_ALL_OLD=$TRAPS_ALL_OLD"
+_msg_stdalone 7 "FOUND_TRAP=$FOUND_TRAP TRAPS_ALL_OLD=$TRAPS_ALL_OLD"
 
 _unwatch_stdalone $DRAWINFO
 _sleep_stdalone
@@ -1186,7 +1189,7 @@ unset cnt
 }
 
 _cast_disarm_stdalone(){
-_debug_stdalone "_cast_disarm_stdalone:$*"
+_msg_stdalone 7 "_cast_disarm_stdalone:$*"
 
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -1238,7 +1241,8 @@ _unwatch_stdalone $DRAWINFO
 }
 
 _invoke_disarm_stdalone(){ ## invoking does to a direction
-_debug_stdalone "_invoke_disarm_stdalone:$*"
+_msg_stdalone 7 "_invoke_disarm_stdalone:$*"
+_log_stdalone   "_invoke_disarm_stdalone:$*"
 
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -1295,7 +1299,7 @@ _move_forth_stdalone 1
 }
 
 _use_skill_disarm_stdalone(){
-_debug_stdalone "_use_skill_disarm_stdalone:$*"
+_msg_stdalone 7 "_use_skill_disarm_stdalone:$*"
 
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -1359,7 +1363,7 @@ unset OLD_REPLY
 }
 
 _disarm_traps_stdalone(){
-_debug_stdalone "_disarm_traps_stdalone:$*"
+_msg_stdalone 7 "_disarm_traps_stdalone:$*"
 _draw_stdalone 5 "Disarming ${TRAPS_ALL:-0} traps ..."
 case "$DISARM" in
 invokation) _invoke_disarm_stdalone;;
@@ -1371,7 +1375,7 @@ esac
 }
 
 _open_chests_stdalone(){
-_debug_stdalone "_open_chests_stdalone:$*"
+_msg_stdalone 7 "_open_chests_stdalone:$*"
 
 _draw_stdalone 5 "Opening chests ..."
 
@@ -1440,7 +1444,7 @@ done
 
 #** we may get attacked and die **#
 _check_hp_and_return_home_stdalone(){
-_debug_stdalone "_check_hp_and_return_home_stdalone:$*"
+_msg_stdalone 7 "_check_hp_and_return_home_stdalone:$*"
 
 local currHP currHPMin
 currHP=${1:-$HP}
@@ -1471,7 +1475,7 @@ unset HP
 }
 
 _check_food_level_stdalone(){
-_debug_stdalone "_check_food_level_stdalone:$*"
+_msg_stdalone 7 "_check_food_level_stdalone:$*"
 
 test "$*" && MIN_FOOD_LEVEL="$@"
 MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
@@ -1520,7 +1524,7 @@ done
 }
 
 _check_mana_for_create_food_stdalone(){
-_debug_stdalone "_check_mana_for_create_food_stdalone:$*"
+_msg_stdalone 7 "_check_mana_for_create_food_stdalone:$*"
 
 local lSP=${*:-$SP}
 test "$lSP" || return 254
@@ -1547,7 +1551,7 @@ read -t ${TMOUT:-1}
  *ready*the*spell*create*food*) return 0;;
  *create*food*)
  MANA_NEEDED=`echo "$REPLY" | awk '{print $NF}'`
- _debug_stdalone "MANA_NEEDED=$MANA_NEEDED"
+ _msg_stdalone 7 "MANA_NEEDED=$MANA_NEEDED"
  test "$lSP" -ge "$MANA_NEEDED" && return 0 || break 1
  ;;
  *'Something blocks your spellcasting.'*) _exit_stdalone 1;;
@@ -1567,7 +1571,7 @@ return 1
 }
 
 _cast_create_food_and_eat_stdalone(){
-_debug_stdalone "_cast_create_food_and_eat_stdalone:$*"
+_msg_stdalone 7 "_cast_create_food_and_eat_stdalone:$*"
 
 local lEAT_FOOD BUNGLE
 
@@ -1655,7 +1659,7 @@ _empty_message_stream_stdalone
 }
 
 _eat_food_from_inventory_stdalone(){
-_debug_stdalone "_eat_food_from_inventory_stdalone:$*"
+_msg_stdalone 7 "_eat_food_from_inventory_stdalone:$*"
 
 local lEAT_FOOD="${@:-$EAT_FOOD}"
 lEAT_FOOD=${lEAT_FOOD:-"$FOOD_DEF"}
@@ -1667,7 +1671,7 @@ _check_have_item_in_inventory_stdalone $lEAT_FOOD && _is_stdalone 1 1 apply $lEA
 }
 
 _check_have_item_in_inventory_stdalone(){
-_debug_stdalone "_check_have_item_in_inventory_stdalone:$*"
+_msg_stdalone 7 "_check_have_item_in_inventory_stdalone:$*"
 
 local oneITEM oldITEM ITEMS ITEMSA lITEM
 lITEM=${*:-"$ITEM"}
@@ -1683,7 +1687,7 @@ while :;
 do
 read -t ${TMOUT:-1} oneITEM
  _log_stdalone "_check_have_item_in_inventory_stdalone:$oneITEM"
- _debug_stdalone "$oneITEM"
+ _msg_stdalone 7 "$oneITEM"
 
  case $oneITEM in
  $oldITEM|'') break 1;;
@@ -1702,7 +1706,7 @@ unset oldITEM oneITEM
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-_debug_stdalone 4 "Fetching Inventory List: Elapsed $TIME sec."
+_msg_stdalone 7 "Fetching Inventory List: Elapsed $TIME sec."
 
 echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
 }
@@ -1710,9 +1714,9 @@ echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s 
 _check_if_already_running_ps_stdalone(){
 
 local lPROGS=`ps -o pid,ppid,args | grep -w $PPID | grep -v -w $$`
-__debug "$lPROGS"
+__debug_stdalone "$lPROGS"
 lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep|cfsndserv'`
-__debug "$lPROGS"
+__debug_stdalone "$lPROGS"
 test ! "$lPROGS"
 }
 
@@ -1721,15 +1725,15 @@ _say_start_msg_stdalone(){
 _draw_stdalone 2 "$0 has started.."
 _draw_stdalone 2 "PID is $$ - parentPID is $PPID"
 
-_check_if_already_running_ps_stdalone || _exit 1 "Another instance of $MY_BASE already running."
-_check_drawinfo_stdalone || _exit 1 "Unable to fetch the DRAWINFO variable. Please try again."
+_check_if_already_running_ps_stdalone || _exit_stdalone 1 "Another instance of $MY_BASE already running."
+_check_drawinfo_stdalone || _exit_stdalone 1 "Unable to fetch the DRAWINFO variable. Please try again."
 
 # *** Check for parameters *** #
 _draw_stdalone 5 "Checking the parameters ($*)..."
 }
 
 _check_drawinfo_stdalone(){  ##+++2018-01-08
-_debug_stdalone "_check_drawinfo_stdalone:$*"
+_msg_stdalone 7 "_check_drawinfo_stdalone:$*"
 
 oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
 oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
@@ -1790,7 +1794,8 @@ _draw_stdalone 6 "Done."
 }
 
 _do_parameters_stdalone(){
-_debug_stdalone "_do_parameters_stdalone:$*"
+_msg_stdalone 7 "_do_parameters_stdalone:$*"
+_log_stdalone   "_do_parameters_stdalone:$*"
 
 # dont forget to pass parameters when invoking this function
 test "$*" || return 0
@@ -1837,6 +1842,7 @@ done
 
 _do_parameters(){
 _debug "_do_parameters:$*"
+_log   "_do_parameters:$*"
 
 # dont forget to pass parameters when invoking this function
 test "$*" || return 0
@@ -1918,7 +1924,8 @@ _draw_stdalone 2  "$0 $$ has finished."
 }
 
 _get_player_speed_stdalone(){
-_debug_stdalone "_get_player_speed_stdalone:$*"
+_msg_stdalone 7 "_get_player_speed_stdalone:$*"
+_log_stdalone   "_get_player_speed_stdalone:$*"
 
 if test "$1" = '-l'; then # loop counter
  _check_counter_stdalone || return 1
@@ -1988,6 +1995,9 @@ return 0
 }
 
 __request_stdalone(){ # for multi-line replies
+_msg_stdalone 7 "__request_stdalone:$*"
+_log_stdalone   "__request_stdalone:$*"
+
 test "$*" || return 254
 
 local lANSWER lOLD_ANSWER
@@ -2011,6 +2021,9 @@ test "$ANSWER"
 }
 
 _request_stdalone(){  # for one line replies
+_msg_stdalone 7 "_request_stdalone:$*"
+_log_stdalone   "_request_stdalone:$*"
+
 test "$*" || return 254
 
 local lANSWER=''
@@ -2026,7 +2039,8 @@ test "$ANSWER"
 }
 
 _player_speed_to_human_readable_stdalone(){
-_debug_stdalone "_player_speed_to_human_readable_stdalone:$*"
+_msg_stdalone 7 "_player_speed_to_human_readable_stdalone:$*"
+_log_stdalone   "_player_speed_to_human_readable_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED}
 test "$lPL_SPEED" || return 254
@@ -2074,19 +2088,19 @@ LC_NUMERIC=$oLC_NUMERIC
 }
 
 _round_up_and_down_stdalone(){  ##+++2018-01-08
-echo "_round_up_and_down_stdalone:$1" >&2
+[ "$DEBUG" ] && echo "_round_up_and_down_stdalone:$1" >&2
                #123
 STELLEN=${#1}  #3
-echo "STELLEN=$STELLEN" >&2
+[ "$DEBUG" ] && echo "STELLEN=$STELLEN" >&2
 
 LETZTSTELLE=${1:$((STELLEN-1))} #123:2
-echo "LETZTSTELLE=$LETZTSTELLE" >&2
+[ "$DEBUG" ] && echo "LETZTSTELLE=$LETZTSTELLE" >&2
 
 VORLETZTSTELLE=${1:$((STELLEN-2)):1} #123:1:1
-echo "VORLETZTSTELLE=$VORLETZTSTELLE" >&2
+[ "$DEBUG" ] && echo "VORLETZTSTELLE=$VORLETZTSTELLE" >&2
 
 GERUNDET_BASIS=${1:0:$((STELLEN-1))} #123:0:2
-echo "GERUNDET_BASIS=$GERUNDET_BASIS" >&2
+[ "$DEBUG" ] && echo "GERUNDET_BASIS=$GERUNDET_BASIS" >&2
 
 case $LETZTSTELLE in
 0)     GERUNDET="${GERUNDET_BASIS}0";;
@@ -2099,12 +2113,15 @@ echo $GERUNDET
 }
 
 _set_sync_sleep_stdalone(){
-_debug_stdalone "_set_sync_sleep_stdalone:$*"
+_msg_stdalone 7 "_set_sync_sleep_stdalone:$*"
+_log_stdalone   "_set_sync_sleep_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED}
 lPL_SPEED=${lPL_SPEED:-50000}
 
-  if test "$lPL_SPEED" -gt 60000; then
+  if test "$lPL_SPEED"  =  "";    then
+_draw_stdalone 3 "WARNING: Could not set player speed. Using defaults."
+elif test "$lPL_SPEED" -gt 60000; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$lPL_SPEED" -gt 55000; then
 SLEEP=0.5; DELAY_DRAWINFO=1.1; TMOUT=1
@@ -2128,8 +2145,6 @@ elif test "$lPL_SPEED" -gt 10000; then
 SLEEP=4.0; DELAY_DRAWINFO=8.0; TMOUT=2
 elif test "$lPL_SPEED" -ge 0;  then
 SLEEP=5.0; DELAY_DRAWINFO=10.0; TMOUT=2
-elif test "$lPL_SPEED" = "";   then
-_draw_stdalone 3 "WARNING: Could not set player speed. Using defaults."
 else
 _exit_stdalone 1 "ERROR while processing player speed."
 fi
@@ -2138,12 +2153,15 @@ _info_stdalone "Setting SLEEP=$SLEEP ,TMOUT=$TMOUT ,DELAY_DRAWINFO=$DELAY_DRAWIN
 }
 
 __set_sync_sleep_stdalone(){
-_debug_stdalone "__set_sync_sleep_stdalone:$*"
+_msg_stdalone 7 "__set_sync_sleep_stdalone:$*"
+_log_stdalone   "__set_sync_sleep_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED1}
 lPL_SPEED=${lPL_SPEED:-50}
 
-  if test "$lPL_SPEED" -gt 60; then
+  if test "$lPL_SPEED" = "";   then
+_draw_stdalone 3 "WARNING: Could not set player speed. Using defaults."
+elif test "$lPL_SPEED" -gt 60; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$lPL_SPEED" -gt 55; then
 SLEEP=0.5; DELAY_DRAWINFO=1.1; TMOUT=1
@@ -2167,8 +2185,6 @@ elif test "$lPL_SPEED" -gt 10; then
 SLEEP=4.0; DELAY_DRAWINFO=8.0; TMOUT=2
 elif test "$lPL_SPEED" -ge 0;  then
 SLEEP=5.0; DELAY_DRAWINFO=10.0; TMOUT=2
-elif test "$lPL_SPEED" = "";   then
-_draw_stdalone 3 "WARNING: Could not set player speed. Using defaults."
 else
 _exit_stdalone 1 "ERROR while processing player speed."
 fi
@@ -2264,10 +2280,17 @@ _open_chests
 }
 
 _main_open_chests_stdalone(){
-_debug_stdalone "_main_open_chests_stdalone:$*"
+_msg_stdalone 7 "_main_open_chests_stdalone:$*"
+_log_stdalone   "_main_open_chests_stdalone:$*"
 
 _set_global_variables_stdalone $*
 _do_parameters_stdalone $*
+
+if test "$ATTACKS_SPOT" -a "$COUNT_CHECK_FOOD"; then
+ COUNT_CHECK_FOOD=$((COUNT_CHECK_FOOD/ATTACKS_SPOT))
+ test "$COUNT_CHECK_FOOD" -le 0 && COUNT_CHECK_FOOD=1
+fi
+
 _say_start_msg_stdalone $*
 #_do_parameters_stdalone $*
 

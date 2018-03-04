@@ -45,6 +45,7 @@ VERSION=2.0 # use sourced functions files
 VERSION=2.1 # bugfixes for calls to _move_* functions
 VERSION=2.1.1 # bugfixes
 VERSION=3.0 # make it standalone possible again
+VERSION=3.1 # bugfixing
 
 LOCKPICK_ATTEMPTS_DEFAULT=9
 SEARCH_ATTEMPTS_DEFAULT=9
@@ -328,6 +329,7 @@ test ! "$lPROGS"
 
 _check_drawinfo_stdalone(){  ##+++2018-02-18
 _msg_stdalone 7 "_check_drawinfo_stdalone:$*"
+_log_stdalone   "_check_drawinfo_stdalone:$*"
 
 oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
 oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
@@ -465,6 +467,9 @@ done
 }
 
 _request_stdalone(){  # for one line replies
+_msg_stdalone 7 "_request_stdalone:$*"
+_log_stdalone   "_request_stdalone:$*"
+
 test "$*" || return 254
 
 local lANSWER=''
@@ -480,7 +485,7 @@ test "$ANSWER"
 }
 
 _round_up_and_down_stdalone(){  ##+++2018-01-08
-[ "$DEBUG" ] && echo "_round_up_and_down:$1" >&2
+[ "$DEBUG" ] && echo "_round_up_and_down_stdalone:$1" >&2
                #123
 STELLEN=${#1}  #3
 [ "$DEBUG" ] && echo "STELLEN=$STELLEN" >&2
@@ -505,7 +510,8 @@ echo $GERUNDET
 }
 
 _set_sync_sleep_stdalone(){
-_debug_stdalone "_set_sync_sleep:$*"
+_msg_stdalone 7 "_set_sync_sleep_stdalone:$*"
+_log_stdalone   "_set_sync_sleep_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED}
 lPL_SPEED=${lPL_SPEED:-50000}
@@ -544,7 +550,8 @@ _msg_stdalone 5 "Setting SLEEP=$SLEEP ,TMOUT=$TMOUT ,DELAY_DRAWINFO=$DELAY_DRAWI
 }
 
 __set_sync_sleep_stdalone(){
-_debug_stdalone "__set_sync_sleep:$*"
+_msg_stdalone 7 "__set_sync_sleep_stdalone:$*"
+_log_stdalone   "__set_sync_sleep_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED1}
 lPL_SPEED=${lPL_SPEED:-50}
@@ -582,8 +589,9 @@ fi
 _msg_stdalone 5 "Setting SLEEP=$SLEEP ,TMOUT=$TMOUT ,DELAY_DRAWINFO=$DELAY_DRAWINFO"
 }
 
-_player_speed_to_human_readable(){
-_debug_stdalone "_player_speed_to_human_readable:$*"
+_player_speed_to_human_readable_stdalone(){
+_msg_stdalone 7 "_player_speed_to_human_readable_stdalone:$*"
+_log_stdalone   "_player_speed_to_human_readable_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED}
 test "$lPL_SPEED" || return 254
@@ -631,7 +639,8 @@ LC_NUMERIC=$oLC_NUMERIC
 }
 
 _get_player_speed_stdalone(){
-_debug_stdalone "_get_player_speed:$*"
+_msg_stdalone 7 "_get_player_speed_stdalone:$*"
+_log_stdalone   "_get_player_speed_stdalone:$*"
 
 if test "$1" = '-l'; then # loop counter
  _check_counter_stdalone || return 1
@@ -653,7 +662,8 @@ return 0
 }
 
 __search_traps_stdalone(){
-_debug_stdalone "__search_traps:$*"
+_msg_stdalone 7 "__search_traps_stdalone:$*"
+_log_stdalone   "__search_traps_stdalone:$*"
 
 cnt=${SEARCH_ATTEMPTS:-$SEARCH_ATTEMPTS_DEFAULT}
 _draw_stdalone 5 "Searching traps ..."
@@ -720,7 +730,8 @@ unset cnt
 }
 
 __cast_disarm_stdalone(){
-_debug_stdalone "__cast_disarm:$*"
+_msg_stdalone 7 "__cast_disarm_stdalone:$*"
+_log_stdalone   "__cast_disarm_stdalone:$*"
 
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -748,7 +759,7 @@ _turn_direction $DIRECTION cast disarm
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
-   _log_stdalone "__cast_disarm:$cnt0:$REPLY"
+   _log_stdalone "__cast_disarm_stdalone:$cnt0:$REPLY"
  _msg_stdalone 7 "$cnt0:$REPLY"
 
  case $REPLY in
@@ -772,7 +783,8 @@ done
 }
 
 __invoke_disarm_stdalone(){ ## invoking does to a direction
-_debug_stdalone "__invoke_disarm:$*"
+_msg_stdalone 7 "__invoke_disarm_stdalone:$*"
+_log_stdalone   "__invoke_disarm_stdalone:$*"
 
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -798,7 +810,7 @@ _sleep_stdalone
  do
  cnt0=$((cnt0+1))
  read -t $TMOUT
-   _log_stdalone "__invoke_disarm:$cnt0:$REPLY"
+   _log_stdalone "__invoke_disarm_stdalone:$cnt0:$REPLY"
  _msg_stdalone 7 "$cnt0:$REPLY"
 
  case $REPLY in
@@ -821,7 +833,8 @@ done
 }
 
 __use_skill_disarm_stdalone(){
-_debug_stdalone "__use_skill_disarm:$*"
+_msg_stdalone 7 "__use_skill_disarm_stdalone:$*"
+_log_stdalone   "__use_skill_disarm_stdalone:$*"
 
 test "$TRAPS_ALL" || return 0
 test "${TRAPS_ALL//[0-9]/}" && return 2
@@ -841,7 +854,7 @@ _sleep_stdalone
  while :
  do
  read -t $TMOUT
-   _log_stdalone "__use_skill_disarm:$REPLY"
+   _log_stdalone "__use_skill_disarm_stdalone:$REPLY"
  _msg_stdalone 7 "$REPLY"
 
 #You fail to disarm the Rune of Burning Hands.
@@ -877,7 +890,9 @@ unset OLD_REPLY
 }
 
 __disarm_traps_stdalone(){
-_debug_stdalone "__disarm_traps_stdalone:$*"
+_msg_stdalone 7 "__disarm_traps_stdalone:$*"
+_log_stdalone   "__disarm_traps_stdalone:$*"
+
 _msg_stdalone 6 "Disarming ${TRAPS_ALL:-0} trap(s) ..."
 case "$DISARM" in
 invokation) _invoke_disarm;;
@@ -889,7 +904,8 @@ esac
 }
 
 __lockpick_door_stdalone(){
-_debug_stdalone "__lockpick_door_stdalone:$*"
+_msg_stdalone 7 "__lockpick_door_stdalone:$*"
+_log_stdalone   "__lockpick_door_stdalone:$*"
 
 one=${LOCKPICK_ATTEMPTS:-$LOCKPICK_ATTEMPTS_DEFAULT}
 test "$one" -gt 0 || return 1  # to trigger _open_door_with_standard_key
@@ -912,8 +928,8 @@ __is_stdalone 1 1 use_skill lockpicking
  cnt0=$((cnt0+1))
  unset REPLY
  read -t ${TMOUT:-1}
-   _log_stdalone "__lockpick_door:$REPLY"
- _msg_stdalone 7 "__lockpick_door:$REPLY"
+   _log_stdalone "__lockpick_door_stdalone:$REPLY"
+ _msg_stdalone 7 "__lockpick_door_stdalone:$REPLY"
 
  case $REPLY in
  *there*is*no*door*) RV=4; break 2;; #return 4;;
@@ -945,22 +961,26 @@ test "$INFINITE" || {
 _sleep_stdalone
 done
 
-#DEBUG=1 _debug_stdalone "RV=$RV"
+#DEBUG=1 _msg_stdalone 7 "RV=$RV"
 return ${RV:-1}
 }
 
 __open_door_with_standard_key_stdalone(){
- _debug_stdalone "_open_door_with_standard_key:$*"
+ _msg_stdalone 7 "__open_door_with_standard_key_stdalone:$*"
+ _log_stdalone   "__open_door_with_standard_key_stdalone:$*"
+
 DIRECTION=${1:-$DIRECTION}
- _debug_stdalone "DIRECTION=$DIRECTION"
+ _msg_stdalone 7 "DIRECTION=$DIRECTION"
 test "$DIRECTION" || return 254
 __number_to_direction_stdalone "$DIRECTION"
-#DEBUG=1 _debug_stdalone "DIRECTION=$DIRECTION"
+#DEBUG=1 _msg_stdalone 7 "DIRECTION=$DIRECTION"
 __is_stdalone 0 0 $DIRECTION
 }
 
 __direction_to_number_stdalone(){
-    _debug_stdalone "__direction_to_number_stdalone:$*"
+    _msg_stdalone 7 "__direction_to_number_stdalone:$*"
+    _log_stdalone   "__direction_to_number_stdalone:$*"
+
 DIRECTION=${1:-$DIRECTION}
 test "$DIRECTION" || return 254
 
@@ -1003,6 +1023,9 @@ return ${DIRN:-255}
 }
 
 __turn_direction_stdalone(){
+    _msg_stdalone 7 "__turn_direction_stdalone:$*"
+    _log_stdalone   "__turn_direction_stdalone:$*"
+
 test "$3" && { DIRECTION=${1:-DIRECTION}; shift; }
 test "$DIRECTION" || return 254
 
@@ -1014,6 +1037,9 @@ __is_stdalone 0 0 fire_stop
 
 _do_parameters_stdalone(){
 # don't forget to pass parameters when invoking this function
+_msg_stdalone 7 "_do_parameters_stdalone:$*"
+_log_stdalone   "_do_parameters_stdalone:$*"
+
 test "$*" || return 0
 
 case $1 in
@@ -1054,11 +1080,17 @@ done
 
 _do_parameters(){
 # don't forget to pass parameters when invoking this function
+_debug "_do_parameters:$*"
+_log   "_do_parameters:$*"
+
 test "$*" || return 0
 
 case $1 in
 *help)    _say_help 0;;
 *version) __say_version 0;;
+--?*)  _exit 3 "No other long options than help and version recognized.";;
+--*)   _exit 3 "Unhandled first parameter '$1' .";;
+-?*) :;;
 esac
 
 # S # :Search attempts
@@ -1094,10 +1126,17 @@ done
 
 #MAIN
 _main_search_disarm_lockpick_stdalone(){
-
+_msg_stdalone 7 "_main_search_disarm_lockpick_stdalone:$*"
+_log_stdalone   "_main_search_disarm_lockpick_stdalone:$*"
 
 _set_global_variables_stdalone $*
 _do_parameters_stdalone $*
+
+if test "$ATTACKS_SPOT" -a "$COUNT_CHECK_FOOD"; then
+ COUNT_CHECK_FOOD=$((COUNT_CHECK_FOOD/ATTACKS_SPOT))
+ test "$COUNT_CHECK_FOOD" -le 0 && COUNT_CHECK_FOOD=1
+fi
+
 _say_start_msg_stdalone $*
 
 

@@ -179,7 +179,7 @@ read -t ${TMOUT:-1} r s c WC AC DAM SPEED WP_SPEED REST
  _msg 7 "$WC $AC $DAM $SPEED $WP_SPEED $REST"
 
 PL_SPEED=$SPEED
-test "$WC" -a "$AC" -a "$DAM" -a "$SPEED" -a "$WP_SPEED"
+test "$WC" -a "$AC" && test "$DAM" -a "$SPEED" -a "$WP_SPEED"
 }
 
 _request_stat_hp_(){

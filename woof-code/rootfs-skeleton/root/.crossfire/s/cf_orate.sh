@@ -10,6 +10,7 @@ VERSION=2.1.1 # bugfix if -D option used, exit if "YOU HAVE DIED." msg
 VERSION=2.2 # add -A -B -Z parameters, variable name typo fixes
 VERSION=2.2.1 # false variable names fixed
 VERSION=2.3 # exit early if already running or no DRAWINFO
+VERSION=2.4 # bugfixing
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -152,7 +153,7 @@ _check_if_already_running_ps_stdalone(){
 
 local lPROGS=`ps -o pid,ppid,args | grep -w $PPID | grep -v -w $$`
 __debug_stdalone "$lPROGS"
-lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep'`
+lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep|cfsndserv'`
 __debug_stdalone "$lPROGS"
 test ! "$lPROGS"
 }
@@ -170,7 +171,7 @@ _draw_stdalone 5 "Checking the parameters ($*)..."
 }
 
 _check_drawinfo_stdalone(){  ##+++2018-01-08
-_debug_stdalone "_check_drawinfo_stdalone:$*"
+_msg_stdalone 7 "_check_drawinfo_stdalone:$*"
 
 oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
 oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
@@ -294,6 +295,8 @@ _emergency_exit_stdalone(){
 RV=${1:-4}; shift
 local lRETURN_ITEM=${*:-"$RETURN_ITEM"}
 
+_is_stdalone 1 1 fire_stop
+
 case $lRETURN_ITEM in
 ''|*rod*|*staff*|*wand*|*horn*)
 _is_stdalone 1 1 apply -u ${lRETURN_ITEM:-'rod of word of recall'}
@@ -302,7 +305,7 @@ _is_stdalone 1 1 fire center
 _is_stdalone 1 1 fire_stop
 ;;
 *scroll*) _is_stdalone 1 1 apply ${lRETURN_ITEM};;
-*) invoke "$lRETURN_ITEM";; # assuming spell
+*) _is_stdalone 1 1 invoke "$lRETURN_ITEM";; # assuming spell
 esac
 
 _draw_stdalone 3 "Emergency Exit $0 !"
@@ -478,7 +481,7 @@ _is_stdalone(){
 #  <repeat> is the number of times to execute command
 #  <must_send> tells whether or not the command must sent at all cost (1 or 0).
 #  <repeat> and <must_send> are optional parameters.
-    _debug_stdalone "issue $*"
+    _msg_stdalone 7 "issue $*"
     echo issue "$@"
     sleep 0.2
 }
@@ -526,7 +529,7 @@ return 0
 }
 
 _check_if_on_item_stdalone(){
-_debug_stdalone "_check_if_on_item_stdalone:$*"
+_msg_stdalone 7 "_check_if_on_item_stdalone:$*"
 
 local DO_LOOP TOPMOST lMSG lRV
 unset DO_LOOP TOPMOST lMSG lRV
@@ -612,7 +615,7 @@ test "$DO_LOOP" && return 1 || _exit_stdalone 1 $lMSG
 
 #** we may get attacked and die **#
 _check_hp_and_return_home_stdalone(){
-_debug_stdalone "_check_hp_and_return_home_stdalone:$*"
+_msg_stdalone 7 "_check_hp_and_return_home_stdalone:$*"
 
 local currHP currHPMin
 currHP=${1:-$HP}
@@ -627,7 +630,7 @@ fi
 }
 
 _check_mana_for_create_food_stdalone(){
-_debug_stdalone "_check_mana_for_create_food_stdalone:$*"
+_msg_stdalone 7 "_check_mana_for_create_food_stdalone:$*"
 
 local lSP=${*:-$SP}
 test "$lSP" || return 254
@@ -654,7 +657,7 @@ read -t ${TMOUT:-1}
  *ready*the*spell*create*food*) return 0;;
  *create*food*)
  MANA_NEEDED=`echo "$REPLY" | awk '{print $NF}'`
- _debug_stdalone "MANA_NEEDED=$MANA_NEEDED"
+ _msg_stdalone 7 "MANA_NEEDED=$MANA_NEEDED"
  test "$lSP" -ge "$MANA_NEEDED" && return 0 || break 1
  ;;
  *'Something blocks your spellcasting.'*) _exit_stdalone 1 "Not possible on this spot.";;
@@ -674,7 +677,7 @@ return 1
 }
 
 __check_food_level_stdalone(){
-_debug_stdalone "__check_food_level_stdalone:$*"
+_msg_stdalone 7 "__check_food_level_stdalone:$*"
 
 test "$*" && MIN_FOOD_LEVEL="$@"
 MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
@@ -723,7 +726,7 @@ done
 }
 
 _check_food_level_stdalone(){
-_debug_stdalone "_check_food_level_stdalone:$*"
+_msg_stdalone 7 "_check_food_level_stdalone:$*"
 
 test "$*" && MIN_FOOD_LEVEL="$@"
 MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
@@ -752,7 +755,7 @@ done
 }
 
 _eat_food_from_inventory_stdalone(){
-_debug_stdalone "_eat_food_from_inventory_stdalone:$*"
+_msg_stdalone 7 "_eat_food_from_inventory_stdalone:$*"
 
 local lEAT_FOOD="${@:-$EAT_FOOD}"
 lEAT_FOOD=${lEAT_FOOD:-"$FOOD_DEF"}
@@ -764,7 +767,7 @@ _check_have_item_in_inventory_stdalone $lEAT_FOOD && _is_stdalone 1 1 apply $lEA
 }
 
 _check_have_item_in_inventory_stdalone(){
-_debug_stdalone "_check_have_item_in_inventory_stdalone:$*"
+_msg_stdalone 7 "_check_have_item_in_inventory_stdalone:$*"
 
 local oneITEM oldITEM ITEMS ITEMSA lITEM
 lITEM=${*:-"$ITEM"}
@@ -780,7 +783,7 @@ while :;
 do
 read -t ${TMOUT:-1} oneITEM
  _log_stdalone "_check_have_item_in_inventory_stdalone:$oneITEM"
- _debug_stdalone "$oneITEM"
+ _msg_stdalone 7 "$oneITEM"
 
  case $oneITEM in
  $oldITEM|'') break 1;;
@@ -799,13 +802,15 @@ unset oldITEM oneITEM
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-_debug_stdalone 4 "Fetching Inventory List: Elapsed $TIME sec."
+_msg_stdalone 7 "Fetching Inventory List: Elapsed $TIME sec."
 
 echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
 }
 
 _request_stat_hp_stdalone(){
 #Return hp,maxhp,sp,maxsp,grace,maxgrace,food
+_msg_stdalone 7 "_request_stat_hp_stdalone:$*"
+_log_stdalone   "_request_stat_hp_stdalone:$*"
 
 #test "$*" || return 254
 
@@ -826,7 +831,8 @@ test "$HP" -a "$MHP" -a "$SP" -a "$MSP" -a "$GR" -a "$MGR" -a "$FOOD_LVL"
 }
 
 _cast_create_food_and_eat_stdalone(){
-_debug_stdalone "_cast_create_food_and_eat_stdalone:$*"
+_msg_stdalone 7 "_cast_create_food_and_eat_stdalone:$*"
+_log_stdalone   "_cast_create_food_and_eat_stdalone:$*"
 
 local lEAT_FOOD BUNGLE
 
@@ -914,6 +920,9 @@ _empty_message_stream_stdalone
 }
 
 _request_stdalone(){  # for one line replies
+_msg_stdalone 7 "_request_stdalone:$*"
+_log_stdalone   "_request_stdalone:$*"
+
 test "$*" || return 254
 
 local lANSWER=''
@@ -930,6 +939,8 @@ test "$ANSWER"
 
 _request_stat_cmbt_stdalone(){
 #Return wc,ac,dam,speed,weapon_sp
+_msg_stdalone 7 "_request_stat_cmbt_stdalone:$*"
+_log_stdalone   "_request_stat_cmbt_stdalone:$*"
 
 #test "$*" || return 254
 
@@ -949,7 +960,8 @@ test "$WC" -a "$AC" -a "$DAM" -a "$SPEED" -a "$WP_SPEED"
 
 
 __get_player_speed_stdalone(){
-_debug_stdalone "__get_player_speed_stdalone:$*"
+_msg_stdalone 7 "__get_player_speed_stdalone:$*"
+_log_stdalone   "__get_player_speed_stdalone:$*"
 
 if test "$1" = '-l'; then # loop counter
  _check_counter_stdalone || return 1
@@ -971,7 +983,8 @@ return 0
 }
 
 _get_player_speed_stdalone(){
-_debug_stdalone "_get_player_speed_stdalone:$*"
+_msg_stdalone 7 "_get_player_speed_stdalone:$*"
+_log_stdalone   "_get_player_speed_stdalone:$*"
 
 if test "$1" = '-l'; then # loop counter
  _check_counter_stdalone || return 1
@@ -991,7 +1004,8 @@ return 0
 }
 
 _player_speed_to_human_readable_stdalone(){
-_debug_stdalone "_player_speed_to_human_readable_stdalone:$*"
+_msg_stdalone 7 "_player_speed_to_human_readable_stdalone:$*"
+_log_stdalone   "_player_speed_to_human_readable_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED}
 test "$lPL_SPEED" || return 254
@@ -1039,19 +1053,19 @@ LC_NUMERIC=$oLC_NUMERIC
 }
 
 _round_up_and_down_stdalone(){  ##+++2018-01-08
-echo "_round_up_and_down_stdalone:$1" >&2
+[ "$DEBUG" ] && echo "_round_up_and_down_stdalone:$1" >&2
                #123
 STELLEN=${#1}  #3
-echo "STELLEN=$STELLEN" >&2
+[ "$DEBUG" ] && echo "STELLEN=$STELLEN" >&2
 
 LETZTSTELLE=${1:$((STELLEN-1))} #123:2
-echo "LETZTSTELLE=$LETZTSTELLE" >&2
+[ "$DEBUG" ] && echo "LETZTSTELLE=$LETZTSTELLE" >&2
 
 VORLETZTSTELLE=${1:$((STELLEN-2)):1} #123:1:1
-echo "VORLETZTSTELLE=$VORLETZTSTELLE" >&2
+[ "$DEBUG" ] && echo "VORLETZTSTELLE=$VORLETZTSTELLE" >&2
 
 GERUNDET_BASIS=${1:0:$((STELLEN-1))} #123:0:2
-echo "GERUNDET_BASIS=$GERUNDET_BASIS" >&2
+[ "$DEBUG" ] && echo "GERUNDET_BASIS=$GERUNDET_BASIS" >&2
 
 case $LETZTSTELLE in
 0)     GERUNDET="${GERUNDET_BASIS}0";;
@@ -1064,12 +1078,15 @@ echo $GERUNDET
 }
 
 _set_sync_sleep_stdalone(){
-_debug_stdalone "_set_sync_sleep_stdalone:$*"
+_msg_stdalone 7 "_set_sync_sleep_stdalone:$*"
+_log_stdalone   "_set_sync_sleep_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED}
 lPL_SPEED=${lPL_SPEED:-50000}
 
-  if test "$lPL_SPEED" -gt 60000; then
+  if test "$lPL_SPEED" = "";   then
+_draw_stdalone 3 "WARNING: Could not set player speed. Using defaults."
+elif test "$lPL_SPEED" -gt 60000; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$lPL_SPEED" -gt 55000; then
 SLEEP=0.5; DELAY_DRAWINFO=1.1; TMOUT=1
@@ -1093,8 +1110,6 @@ elif test "$lPL_SPEED" -gt 10000; then
 SLEEP=4.0; DELAY_DRAWINFO=8.0; TMOUT=2
 elif test "$lPL_SPEED" -ge 0;  then
 SLEEP=5.0; DELAY_DRAWINFO=10.0; TMOUT=2
-elif test "$lPL_SPEED" = "";   then
-_draw_stdalone 3 "WARNING: Could not set player speed. Using defaults."
 else
 _exit_stdalone 1 "ERROR while processing player speed."
 fi
@@ -1103,12 +1118,15 @@ _info_stdalone "Setting SLEEP=$SLEEP ,TMOUT=$TMOUT ,DELAY_DRAWINFO=$DELAY_DRAWIN
 }
 
 __set_sync_sleep_stdalone(){
-_debug_stdalone "__set_sync_sleep_stdalone:$*"
+_msg_stdalone 7 "__set_sync_sleep_stdalone:$*"
+_log_stdalone   "__set_sync_sleep_stdalone:$*"
 
 local lPL_SPEED=${1:-$PL_SPEED1}
 lPL_SPEED=${lPL_SPEED:-50}
 
-  if test "$lPL_SPEED" -gt 60; then
+  if test "$lPL_SPEED" = "";   then
+_draw_stdalone 3 "WARNING: Could not set player speed. Using defaults."
+elif test "$lPL_SPEED" -gt 60; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$lPL_SPEED" -gt 55; then
 SLEEP=0.5; DELAY_DRAWINFO=1.1; TMOUT=1
@@ -1132,8 +1150,6 @@ elif test "$lPL_SPEED" -gt 10; then
 SLEEP=4.0; DELAY_DRAWINFO=8.0; TMOUT=2
 elif test "$lPL_SPEED" -ge 0;  then
 SLEEP=5.0; DELAY_DRAWINFO=10.0; TMOUT=2
-elif test "$lPL_SPEED" = "";   then
-_draw_stdalone 3 "WARNING: Could not set player speed. Using defaults."
 else
 _exit_stdalone 1 "ERROR while processing player speed."
 fi
@@ -1188,7 +1204,8 @@ DIRECTION_NUMBER=$DIRN
 }
 
 _do_parameters_stdalone(){
-_debug_stdalone "_do_parameters_stdalone:$*"
+_msg_stdalone 7 "_do_parameters_stdalone:$*"
+_log_stdalone   "_do_parameters_stdalone:$*"
 
 # dont forget to pass parameters when invoking this function
 test "$*" || return 0
@@ -1234,6 +1251,7 @@ done
 
 _do_parameters(){
 _debug "_do_parameters:$*"
+_log   "_do_parameters:$*"
 
 # dont forget to pass parameters when invoking this function
 test "$*" || return 0
@@ -1478,7 +1496,8 @@ EoI
 
 
 _check_skill_available_stdalone(){
-_debug_stdalone "_check_skill_available_stdalone:$*"
+_msg_stdalone 7 "_check_skill_available_stdalone:$*"
+_log_stdalone   "_check_skill_available_stdalone:$*"
 
 local lSKILL=${*:-"$SKILL"}
 test "$lSKILL" || return 254
@@ -1493,7 +1512,7 @@ _is_stdalone 1 1 ready_skill "$lSKILL" # range attack, no message is printed
 while :; do unset REPLY
 read -t $TMOUT
   _log_stdalone "_check_skill_available_stdalone:$REPLY"
-_debug_stdalone "$REPLY"
+_msg_stdalone 7 "$REPLY"
 
  case $REPLY in
  '') break 1;;
@@ -1519,7 +1538,8 @@ return ${lRV:-3}
 }
 
 _set_next_direction_stdalone(){
-_debug_stdalone "_set_next_direction_stdalone:$*:$DIRN"
+_msg_stdalone 7 "_set_next_direction_stdalone:$*:$DIRN"
+_log_stdalone   "_set_next_direction_stdalone:$*:$DIRN"
 
 if test "$DO_CLOCKWISE"; then
  DIRN=$((DIRN-1))
@@ -1533,7 +1553,8 @@ _draw_stdalone 2 "Will turn to direction $DIRECTION .."
 }
 
 __set_next_direction_stdalone(){
-_debug_stdalone "_set_next_direction_stdalone:$*:$DIRN"
+_msg_stdalone 7 "_set_next_direction_stdalone:$*:$DIRN"
+_log_stdalone   "_set_next_direction_stdalone:$*:$DIRN"
 
 DIRN=$((DIRN-1))
 test "$DIRN" -le 0 && DIRN=8
@@ -1543,7 +1564,8 @@ _draw_stdalone 2 "Will turn to direction $DIRECTION .."
 }
 
 ___set_next_direction_stdalone(){
-_debug_stdalone "__set_next_direction_stdalone:$*:$DIRN"
+_msg_stdalone 7 "__set_next_direction_stdalone:$*:$DIRN"
+_log_stdalone   "__set_next_direction_stdalone:$*:$DIRN"
 
 DIRN=$((DIRN+1))
 test "$DIRN" -ge 9 && DIRN=1
@@ -1553,7 +1575,8 @@ _draw_stdalone 2 "Will turn to direction $DIRECTION .."
 }
 
 _kill_monster_stdalone(){
-_debug_stdalone "_kill_monster_stdalone:$*"
+_msg_stdalone 7 "_kill_monster_stdalone:$*"
+_log_stdalone   "_kill_monster_stdalone:$*"
 
 local lATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
 
@@ -1568,7 +1591,8 @@ _empty_message_stream_stdalone
 }
 
 _brace_stdalone(){
-_debug_stdalone "_brace_stdalone:$*"
+_msg_stdalone 7 "_brace_stdalone:$*"
+_log_stdalone   "_brace_stdalone:$*"
 
 _watch_stdalone $DRAWINFO
 while :
@@ -1577,7 +1601,7 @@ _is_stdalone 1 1 brace
  while :; do unset REPLY
  read -t $TMOUT
  _log_stdalone "_brace_stdalone:$REPLY"
- _debug_stdalone "$REPLY"
+ _msg_stdalone 7 "$REPLY"
  case $REPLY in
  *'You are braced.'*) break 2;;
  *'Not braced.'*)     break 1;;
@@ -1598,7 +1622,8 @@ _empty_message_stream_stdalone
 }
 
 _unbrace_stdalone(){
-_debug_stdalone "_unbrace_stdalone:$*"
+_msg_stdalone 7 "_unbrace_stdalone:$*"
+_log_stdalone   "_unbrace_stdalone:$*"
 
 _watch_stdalone $DRAWINFO
 while :
@@ -1607,7 +1632,7 @@ _is_stdalone 1 1 brace
  while :; do unset REPLY
  read -t $TMOUT
  _log_stdalone "_unbrace_stdalone:$REPLY"
- _debug_stdalone "$REPLY"
+ _msg_stdalone 7 "$REPLY"
  case $REPLY in
  *'You are braced.'*) break 1;;
  *'Not braced.'*)     break 2;;
@@ -1628,7 +1653,8 @@ _empty_message_stream_stdalone
 }
 
 _calm_down_monster_ready_skill_stdalone(){
-_debug_stdalone "_calm_down_monster_ready_skill_stdalone:$*"
+_msg_stdalone 7 "_calm_down_monster_ready_skill_stdalone:$*"
+_log_stdalone   "_calm_down_monster_ready_skill_stdalone:$*"
 
 # Return Possibilities :
 # 0 : success calming down, go on with orate
@@ -1658,7 +1684,7 @@ _watch_stdalone $DRAWINFO
   while :; do unset REPLY
   read -t $TMOUT
   _log_stdalone "_calm_down_monster_ready_skill_stdalone:$REPLY"
-  _debug_stdalone "$REPLY"
+  _msg_stdalone 7 "$REPLY"
 
   case $REPLY in
   # EMPTY response by !FLAG_MONSTER
@@ -1678,7 +1704,7 @@ _watch_stdalone $DRAWINFO
   while :; do unset REPLY
   read -t $TMOUT
   _log_stdalone "_calm_down_monster_ready_skill_stdalone:$REPLY"
-  _debug_stdalone "$REPLY"
+  _msg_stdalone 7 "$REPLY"
 
   case $REPLY in
   '') lRV=0; break 2;;
@@ -1699,12 +1725,13 @@ _watch_stdalone $DRAWINFO
 _unwatch_stdalone $DRAWINFO
 _draw_stdalone 5 "With ${SINGING_ATTEMPTS_DONE:-0} singings you calmed down ${CALMS:-0} monsters."
 #_sleep_stdalone
-_debug_stdalone 3 "lRV=$lRV"
+_msg_stdalone 7 "lRV=$lRV"
 return ${lRV:-1}
 }
 
 _orate_to_monster_ready_skill_stdalone(){
-_debug_stdalone "_orate_to_monster_ready_skill_stdalone:$*"
+_msg_stdalone 7 "_orate_to_monster_ready_skill_stdalone:$*"
+_log_stdalone   "_orate_to_monster_ready_skill_stdalone:$*"
 
 local lRV=
 
@@ -1723,7 +1750,7 @@ local lRV=
   while :; do unset REPLY
   read -t $TMOUT
   _log_stdalone "_orate_to_monster_ready_skill_stdalone:$REPLY"
-  _debug_stdalone "$REPLY"
+  _msg_stdalone 7 "$REPLY"
 
   case $REPLY in
   #PLAYER, more, head, msg
@@ -1742,7 +1769,7 @@ local lRV=
   while :; do unset REPLY
   read -t $TMOUT
   _log_stdalone "_orate_to_monster_ready_skill_stdalone:$REPLY"
-  _debug_stdalone "$REPLY"
+  _msg_stdalone 7 "$REPLY"
 
   case $REPLY in
   #!FLAG_UNAGGRESSIVE && !FLAG_FRIENDLY
@@ -1771,12 +1798,13 @@ local lRV=
 _unwatch_stdalone $DRAWINFO
 _draw_stdalone 5 "With ${ORATORY_ATTEMPTS_DONE:-0} oratings you conceived ${FOLLOWS:-0} followers."
 _is_stdalone 1 1 showpets
-_debug_stdalone 3 "lRV=$lRV"
+_msg_stdalone 7 "lRV=$lRV"
 return ${lRV:-1}
 }
 
 _sing_and_orate_around_stdalone(){
-_debug_stdalone "_sing_and_orate_around_stdalone:$*"
+_msg_stdalone 7 "_sing_and_orate_around_stdalone:$*"
+_log_stdalone   "_sing_and_orate_around_stdalone:$*"
 
 while :;
 do
@@ -1821,9 +1849,19 @@ done
 # MAIN
 
 _main_orate_stdalone(){
+_msg_stdalone 7 "_main_orate_stdalone:$*"
+_log_stdalone   "_main_orate_stdalone:$*"
+
 _set_global_variables_stdalone $*
-_say_start_msg_stdalone $*
 _do_parameters_stdalone $*
+
+if test "$ATTACKS_SPOT" -a "$COUNT_CHECK_FOOD"; then
+ COUNT_CHECK_FOOD=$((COUNT_CHECK_FOOD/ATTACKS_SPOT))
+ test "$COUNT_CHECK_FOOD" -le 0 && COUNT_CHECK_FOOD=1
+fi
+
+_say_start_msg_stdalone $*
+
 
 _get_player_speed_stdalone
 test "$PL_SPEED1" && __set_sync_sleep_stdalone ${PL_SPEED1} || _set_sync_sleep_stdalone "$PL_SPEED"

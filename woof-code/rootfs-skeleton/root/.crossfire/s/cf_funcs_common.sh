@@ -557,6 +557,8 @@ _emergency_exit(){
 RV=${1:-4}; shift
 local lRETURN_ITEM=${*:-"$RETURN_ITEM"}
 
+_is 1 1 fire_stop
+
 case $lRETURN_ITEM in
 ''|*rod*|*staff*|*wand*|*horn*)
 _is 1 1 apply -u ${lRETURN_ITEM:-'rod of word of recall'}
@@ -565,7 +567,7 @@ _is 1 1 fire center
 _is 1 1 fire_stop
 ;;
 *scroll*) _is 1 1 apply ${lRETURN_ITEM};;
-*) invoke "$lRETURN_ITEM";; # assuming spell
+*) _is 1 1 invoke "$lRETURN_ITEM";; # assuming spell
 esac
 
 _draw 3 "Emergency Exit $0 !"
