@@ -264,9 +264,12 @@ case $1 in
 [0-9]|[0-9][0-9]|[0-9][0-9][0-9]) RV=$1; shift;;
 esac
 
+_is_stdalone 1 1 fire_stop
 _sleep_stdalone
+
 test "$*" && _draw_stdalone 3 $@
 _draw_stdalone 3 "Exiting $0. PID was $$"
+
 _unwatch_stdalone ""
 _beep_std_stdalone
 test "${RV//[0-9]/}" && RV=3
@@ -275,6 +278,7 @@ exit ${RV:-0}
 
 _just_exit_stdalone(){
 _draw_stdalone 3 "Exiting $0."
+_is_stdalone 1 1 fire_stop
 _unwatch_stdalone
 _beep_std_stdalone
 exit ${1:-0}
@@ -540,6 +544,7 @@ case $UNDER_ME in
 *scripttell*break*)     break ${REPLY##*?break};;
 *scripttell*exit*)      _exit_stdalone 1 $REPLY;;
 *'YOU HAVE DIED.'*) _just_exit_stdalone;;
+*bed*to*reality*)   _just_exit_stdalone;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME

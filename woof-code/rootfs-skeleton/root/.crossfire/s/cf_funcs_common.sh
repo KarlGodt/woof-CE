@@ -532,14 +532,17 @@ case $1 in
 [0-9]|[0-9][0-9]|[0-9][0-9][0-9]) RV=$1; shift;;
 esac
 
+_is 1 1 fire_stop
+
 if test "$DIRB" -a "$DIRF"; then
 _move_back_and_forth 2
 fi
 
 _sleep
+
 test "$*" && _draw 3 $@
 _draw 3 "Exiting $0. PID was $$"
-#echo unwatch
+
 _unwatch ""
 _beep_std
 test ${RV//[0-9]/} && RV=3
@@ -548,6 +551,7 @@ exit ${RV:-0}
 
 _just_exit(){
 _draw 3 "Exiting $0."
+_is 1 1 fire_stop
 _unwatch
 _beep_std
 exit ${1:-0}
@@ -1141,6 +1145,7 @@ case $UNDER_ME in
 *scripttell*break*)     break ${REPLY##*?break};;
 *scripttell*exit*)      _exit 1 $REPLY;;
 *'YOU HAVE DIED.'*) _just_exit;;
+*bed*to*reality*)   _just_exit;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME
@@ -1226,6 +1231,7 @@ case $UNDER_ME in
 *scripttell*break*)     break ${REPLY##*?break};;
 *scripttell*exit*)      _exit 1 $REPLY;;
 *'YOU HAVE DIED.'*) _just_exit;;
+*bed*to*reality*)   _just_exit;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME

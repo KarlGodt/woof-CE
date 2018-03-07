@@ -39,6 +39,7 @@ case $UNDER_ME in
 *scripttell*break*)     break ${UNDER_ME##*?break};;
 *scripttell*exit*)    _exit 1 $REPLY;;
 *'YOU HAVE DIED.'*) _just_exit;;
+*bed*to*reality*)   _just_exit;;
 esac
 
 unset UNDER_ME

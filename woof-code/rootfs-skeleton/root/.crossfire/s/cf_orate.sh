@@ -273,8 +273,9 @@ case $1 in
 [0-9]|[0-9][0-9]|[0-9][0-9][0-9]) RV=$1; shift;;
 esac
 
-#_move_back_and_forth_stdalone 2 ##unused to move in this script
+_is_stdalone 1 1 fire_stop
 _sleep_stdalone
+
 test "$*" && _draw_stdalone 3 $@
 _draw_stdalone 3 "Exiting $0. PID was $$"
 #echo unwatch
@@ -286,6 +287,7 @@ exit ${RV:-0}
 
 _just_exit_stdalone(){
 _draw_stdalone 3 "Exiting $0."
+_is_stdalone 1 1 fire_stop
 _unwatch_stdalone
 _beep_std_stdalone
 exit ${1:-0}

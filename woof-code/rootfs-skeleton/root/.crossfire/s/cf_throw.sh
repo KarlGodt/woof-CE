@@ -138,7 +138,7 @@ _check_if_already_running_ps_stdalone(){
 
 local lPROGS=`ps -o pid,ppid,args | grep -w $PPID | grep -v -w $$`
 __debug_stdalone "$lPROGS"
-lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep'`
+lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep|cfsndserv'`
 __debug_stdalone "$lPROGS"
 test ! "$lPROGS"
 }

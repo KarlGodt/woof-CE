@@ -187,6 +187,7 @@ case $UNDER_ME in
 *scripttell*break*)     break ${REPLY##*?break};;
 *scripttell*exit*)      _exit 1 $REPLY;;
 *'YOU HAVE DIED.'*) _just_exit;;
+*bed*to*reality*)   _just_exit;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME
@@ -275,6 +276,7 @@ case $UNDER_ME in
 *scripttell*break*)     break ${REPLY##*?break};;
 *scripttell*exit*)      _exit 1 $REPLY;;
 *'YOU HAVE DIED.'*) _just_exit;;
+*bed*to*reality*)   _just_exit;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME

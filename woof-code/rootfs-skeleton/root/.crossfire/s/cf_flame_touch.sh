@@ -11,7 +11,8 @@ VERSION=3.0 # add healing codes, more logging
 VERSION=3.1 # exit early if already running or no DRAWINFO
 VERSION=3.2 # bugfixing
 
-HEAL_ITEM='rod of heal'
+HEAL_ITEM='rod of heal' # used by _heal[_*]() , put your staff, scroll here
+ATTACK_ATTEMPTS_DEF=1   # used by _kill_monster[_*]() , put the number of your attack attempts per spot here
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -324,11 +325,12 @@ case $1 in
 [0-9]|[0-9][0-9]|[0-9][0-9][0-9]) RV=$1; shift;;
 esac
 
-#_move_back_and_forth_stdalone 2 ##unused to move in this script
+_is_stdalone 1 1 fire_stop
 _sleep_stdalone
+
 test "$*" && _draw_stdalone 3 $@
 _draw_stdalone 3 "Exiting $0. PID was $$"
-#echo unwatch
+
 _unwatch_stdalone ""
 _beep_std_stdalone
 test ${RV//[0-9]/} && RV=3
@@ -337,6 +339,7 @@ exit ${RV:-0}
 
 _just_exit_stdalone(){
 _draw_stdalone 3 "Exiting $0."
+_is_stdalone 1 1 fire_stop
 _unwatch_stdalone
 _beep_std_stdalone
 exit ${1:-0}
@@ -1234,6 +1237,7 @@ case $UNDER_ME in
 *scripttell*break*)     break ${REPLY##*?break};;
 *scripttell*exit*)      _exit_stdalone 1 $REPLY;;
 *'YOU HAVE DIED.'*) _just_exit_stdalone;;
+*bed*to*reality*)   _just_exit_stdalone;;
 esac
 
 UNDER_ME_LIST="$UNDER_ME
