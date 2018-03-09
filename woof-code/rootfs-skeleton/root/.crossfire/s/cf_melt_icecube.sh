@@ -149,7 +149,7 @@ FAIL=0  # count the failure attempts
 test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
 
 _debug "NUMBER='$NUMBER'"
-_watch
+_watch $DRAWINFO
 
 unset one
 while :

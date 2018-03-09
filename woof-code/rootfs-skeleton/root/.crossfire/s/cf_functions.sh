@@ -75,12 +75,12 @@ southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
 
-SOUND_DIR="$HOME"/.crossfire/sounds
+SOUND_DIR="$HOME"/.crossfire/cf_sounds
 
 # Log file path in /tmp
 #MY_SELF=`realpath "$0"` ## needs to be in main script
 #MY_BASE=${MY_SELF##*/}  ## needs to be in main script
-TMP_DIR=/tmp/crossfire
+TMP_DIR=/tmp/crossfire_client
 mkdir -p "$TMP_DIR"
    LOGFILE=${LOGFILE:-"$TMP_DIR"/"$MY_BASE".$$.log}
   REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
@@ -248,7 +248,7 @@ esac
 _say_end_msg(){
 # *** Here ends program *** #
 _is 1 1 fire_stop
-test -f "$HOME"/.crossfire/sounds/su-fanf.raw && aplay $Q "$HOME"/.crossfire/sounds/su-fanf.raw & aPID=$!
+test -f "$SOUND_DIR"/su-fanf.raw && aplay $Q "$SOUND_DIR"/su-fanf.raw & aPID=$!
 
 _tell_script_time || _say_script_time
 

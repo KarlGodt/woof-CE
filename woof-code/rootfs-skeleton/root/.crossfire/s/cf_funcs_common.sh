@@ -51,7 +51,7 @@ case $CLIENT_VERSION in 0.*|1.[0-9].*|1.1[0-2].*)
 # especially the gtk+-2.0 clients v1.11.0 and earlier.
 # So setting the DRAWINFO variable here is of no real use.
 # _check_drawinfo() should take care of this now.
-DRAWINFO=drawextinfo #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
+DRAWINFO=drawinfo #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
                      #     except use_skill alchemy :watch drawinfo 0 The cauldron emits sparks.
                      # and except apply             :watch drawinfo 0 You open cauldron.
                      #
@@ -84,12 +84,12 @@ southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
 
-SOUND_DIR="$HOME"/.crossfire/sounds
+SOUND_DIR="$HOME"/.crossfire/cf_sounds
 
 # Log file path in /tmp
 #MY_SELF=`realpath "$0"` ## needs to be in main script
 #MY_BASE=${MY_SELF##*/}  ## needs to be in main script
-TMP_DIR=/tmp/crossfire
+TMP_DIR=/tmp/crossfire_client
 mkdir -p "$TMP_DIR"
     LOGFILE=${LOGFILE:-"$TMP_DIR"/"$MY_BASE".$$.log}
   REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
@@ -130,7 +130,7 @@ return ${lRV:-2}
 
 _check_if_already_running_ps(){
 
-local lPROGS=`ps -o pid,ppid,args | grep -w $PPID | grep -v -w $$`
+local lPROGS=`ps -o pid,ppid,args | grep "$PPID " | grep -v "$$ "`
 __debug "$lPROGS"
 lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep|cfsndserv'`
 __debug "$lPROGS"
@@ -368,7 +368,7 @@ esac
 _say_end_msg(){
 # *** Here ends program *** #
 _is 1 1 fire_stop
-test -f "$HOME"/.crossfire/sounds/su-fanf.raw && aplay $Q "$HOME"/.crossfire/sounds/su-fanf.raw & aPID=$!
+test -f "$SOUND_DIR"/su-fanf.raw && aplay $Q "$SOUND_DIR"/su-fanf.raw & aPID=$!
 
 _tell_script_time || _say_script_time
 
@@ -535,7 +535,7 @@ esac
 _is 1 1 fire_stop
 
 if test "$DIRB" -a "$DIRF"; then
-_move_back_and_forth 2
+_move_back_and_forth 2 # cf_funcs_move.sh
 fi
 
 _sleep

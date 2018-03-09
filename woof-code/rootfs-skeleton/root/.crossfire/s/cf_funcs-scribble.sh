@@ -30,7 +30,7 @@ _check_if_already_running_ps(){
 
 local lPROGS=`ps -o pid,ppid,args | grep -w $PPID | grep -v -w $$`
 __debug_stdalone "$lPROGS"
-lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep'`
+lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep|cfsndserv'`
 __debug_stdalone "$lPROGS"
 
 test ! "$lPROGS"
@@ -91,3 +91,72 @@ do
 done
 
 }
+
+_say_hello(){
+_debug "_say_hello:$*"
+_log   "_say_hello:$*"
+
+# NAME entered the game
+NAME=${*% *}
+_debug "$NAME"
+_log   "_say_hello:$NAME"
+
+NAME=${NAME#*watch drawinfo [0-9] }
+_debug "$NAME"
+_log   "_say_hello:$NAME"
+
+NAME=${NAME#*watch drawextinfo [0-9] [0-9] [0-9] }
+_debug "$NAME"
+_log   "_say_hello:$NAME"
+
+test "$NAME" || return 254
+
+_is 1 1 say $NAME "Hello and Welcome!?"
+
+}
+
+
+_chat_hello(){
+_debug "_chat_hello:$*"
+_log   "_chat_hello:$*"
+
+# NAME entered the game
+NAME=${*% *}
+_debug "$NAME"
+_log   "_chat_hello:$NAME"
+NAME=${NAME#*watch drawinfo [0-9] }
+_debug "$NAME"
+_log   "_chat_hello:$NAME"
+NAME=${NAME#*watch drawextinfo [0-9] [0-9] [0-9] }
+_debug "$NAME"
+_log   "_chat_hello:$NAME"
+test "$NAME" || return 254
+
+_is 1 1 chat $NAME "Hello and Welcome!?"
+
+}
+
+
+_tell_hello(){
+_debug "_tell_hello:$*"
+_log   "_tell_hello:$*"
+
+# NAME entered the game
+NAME=${*% *}
+_debug "$NAME"
+_log   "_tell_hello:$NAME"
+
+NAME=${NAME#*watch drawinfo [0-9] }
+_debug "$NAME"
+_log   "_tell_hello:$NAME"
+
+NAME=${NAME#*watch drawextinfo [0-9] [0-9] [0-9] }
+_debug "$NAME"
+_log   "_tell_hello:$NAME"
+
+test "$NAME" || return 254
+
+_is 1 1 tell $NAME "Hello and Welcome!?"
+
+}
+
