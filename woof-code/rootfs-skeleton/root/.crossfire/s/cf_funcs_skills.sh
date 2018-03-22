@@ -6,7 +6,7 @@ _check_skill_available(){
 _debug "_check_skill_available:$*"
 _log   "_check_skill_available:$*"
 
-local lSKILL=${*:-"$SKILL"}
+local lSKILL=${1:-"$SKILL"}
 test "$lSKILL" || return 254
 
 local lRV=
@@ -14,8 +14,9 @@ local lRV=
 _empty_message_stream
 _watch $DRAWINFO
 case "$lSKILL" in
-punch*) _is 1 1 ready_skill ${SKILL_NOT_PUNCHING:-alchemy};;
-*)      _is 1 1 ready_skill punching;;  # force response, because when not changing
+punch*) _is 1 1 ready_skill ${SKILL_NOT_PUNCHING:-throwing};;
+throw*) _is 1 1 ready_skill ${SKILL_NOT_THROWING:-punching};;
+*)      _is 1 1 ready_skill ${2:-punching};;  # force response, because when not changing
 esac
 _is 1 1 ready_skill "$lSKILL" # range attack, no message is printed
 

@@ -13,8 +13,10 @@ VERSION=3.1 # call _do_parameters before _say_start_msg,
 VERSION=3.2 # exit early if already running or no DRAWINFO
 VERSION=3.3 # bugfixing
 VERSION=3.4 # Use standard sound directories
+VERSION=3.5 # Wrap the call for _main_punch* into a while loop
+# ready_skill throwing instead punching since both are part of the basic_skills
 
-SKILL_NOT_PUNCHING=karate  # _check_skill_available[_*]() needs a skill that is not the skill wanted
+SKILL_NOT_PUNCHING=throwing  # _check_skill_available[_*]() needs a skill that is not the skill wanted
 
 HEAL_ITEM='rod of heal' # used by _heal[_*]() , put your staff, scroll here
 ATTACK_ATTEMPTS_DEF=1   # used by _kill_monster[_*]() , put the number of your attack attempts per spot here
@@ -83,12 +85,13 @@ MSGLEVEL=${MSGLEVEL:-6} #integer 1 emergency - 7 debug
 #7) DEBUG=${DEBUG:-1};; 6) INFO=${INFO:-1};; 5) NOTICE=${NOTICE:-1};; 4) WARN=${WARN:-1};;
 #3) ERROR=${ERROR:-1};; 2) ALERT=${ALERT:-1};; 1) EMERG=${EMERG:-1};;
 #esac
-DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
+DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; CRITICAL=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
 case $MSGLEVEL in
 7) unset Q;; 6) unset DEBUG Q;; 5) unset DEBUG INFO VERB;; 4) unset DEBUG INFO NOTICE VERB;;
 3) unset DEBUG INFO NOTICE WARN VERB;; 2) unset DEBUG INFO NOTICE WARN ERROR VERB;;
-1) unset DEBUG INFO NOTICE WARN ERROR ALERT VERB;;
-*) _error_stdalone "MSGLEVEL variable not set from 1 - 7";;
+1) unset DEBUG INFO NOTICE WARN ERROR CRITICAL VERB;;
+0) unset DEBUG INFO NOTICE WARN ERROR CRITICAL ALERT VERB;;
+*) _error_stdalone "MSGLEVEL variable not set from 0 - 7";;
 esac
 
 TMOUT=${TMOUT:-1}      # read -t timeout, integer, seconds
@@ -427,7 +430,7 @@ unset dcnt line
 
 _debug_stdalone(){
 test "$DEBUG" || return 0
-    echo draw 10 "DEBUG:"$@
+    echo draw ${NDI_BROWN:-10} "DEBUG:"$@
 }
 
 __debug_stdalone(){  ##+++2018-01-06
@@ -436,7 +439,7 @@ cnt=0
 echo "$*" | while read line
 do
 cnt=$((cnt+1))
-    echo draw 3 "__DEBUG:$cnt:$line"
+    echo draw ${NDI_RED:-3} "__DEBUG:$cnt:$line"
 done
 unset cnt line
 }
@@ -449,8 +452,9 @@ case $LVL in
 5|note)  test "$NOTICE" && _notice_stdalone "$*";;
 4|warn)  test "$WARN"   && _warn_stdalone   "$*";;
 3|err)   test "$ERROR"  && _error_stdalone  "$*";;
-2|alert) test "$ALERT"  && _alert_stdalone  "$*";;
-1|emerg) test "$EMERG"  && _emerg_stdalone  "$*";;
+2|crit)  test "$CRITICAL" && _critical_stdalone "$*";;
+1|alert) test "$ALERT"  && _alert_stdalone  "$*";;
+0|emerg) test "$EMERG"  && _emerg_stdalone  "$*";;
 *) _debug_stdalone "$*";;
 esac
 }
@@ -463,40 +467,46 @@ case $LVL in
 5|note)  _notice_stdalone "$*";;
 4|warn)  _warn_stdalone   "$*";;
 3|err)   _error_stdalone  "$*";;
-2|alert) _alert_stdalone  "$*";;
-1|emerg) _emerg_stdalone  "$*";;
+2|crit)  _critical_stdalone "$*";;
+1|alert) _alert_stdalone  "$*";;
+0|emerg) _emerg_stdalone  "$*";;
 *) _debug_stdalone "$*";;
 esac
 }
 
 _info_stdalone(){
 test "$INFO" || return 0
-    echo draw 7 "INFO:"$@
+    echo draw ${NDI_GREEN:-7} "INFO:"$@
 }
 
 _notice_stdalone(){
 test "$NOTICE" || return 0
-    echo draw 2 "NOTICE:"$@
+    echo draw ${NDI_NAVY:-2} "NOTICE:"$@
 }
 
 _warn_stdalone(){
 test "$WARN" || return 0
-    echo draw 6 "WARNING:"$@
+    echo draw ${NDI_DK_ORANGE:-6} "WARNING:"$@
 }
 
 _error_stdalone(){
 test "$ERROR" || return 0
-    echo draw 4 "ERROR:"$@
+    echo draw ${NDI_ORANGE:-4} "ERROR:"$@
+}
+
+_critical(){
+test "$CRITICAL" || return 0
+    echo draw ${NDI_RED:-3} "CRITICAL:"$@
 }
 
 _alert_stdalone(){
 test "$ALERT" || return 0
-    echo draw 3 "ALERT:"$@
+    echo draw ${NDI_RED:-3} "ALERT:"$@
 }
 
 _ermerg_stdalone(){
 test "$EMERG" || return 0
-    echo draw 3 "EMERGENCY:"$@
+    echo draw ${NDI_RED:-3} "EMERGENCY:"$@
 }
 
 _log_stdalone(){
@@ -731,7 +741,7 @@ if test "$1" = '-l'; then # loop counter
  shift
 fi
 
-_msg_stdalone 6  "Processing Player's speed..."
+_msg_stdalone 5  "Processing Player's speed..."
 
  _request_stdalone stat cmbt
  test "$ANSWER" && PL_SPEED0=`echo "$ANSWER" | awk '{print $7}'`
@@ -741,7 +751,7 @@ PL_SPEED=${PL_SPEED:-50000} # 0.50
 _player_speed_to_human_readable_stdalone $PL_SPEED
 _msg_stdalone 6 "Using player speed '$PL_SPEED1'"
 
-_msg_stdalone 6  "Done."
+_msg_stdalone 5  "Done."
 return 0
 }
 
@@ -754,7 +764,7 @@ if test "$1" = '-l'; then # loop counter
  shift
 fi
 
-_msg_stdalone 6  "Processing Player's speed..."
+_msg_stdalone 5 "Processing Player's speed..."
 
 _request_stat_cmbt_stdalone
 PL_SPEED=${PL_SPEED:-50000} # 0.50
@@ -762,7 +772,7 @@ PL_SPEED=${PL_SPEED:-50000} # 0.50
 _player_speed_to_human_readable_stdalone $PL_SPEED
 _msg_stdalone 6 "Using player speed '$PL_SPEED1'"
 
-_msg_stdalone 6  "Done."
+_msg_stdalone 5 "Done."
 return 0
 }
 
@@ -849,7 +859,7 @@ local lPL_SPEED=${1:-$PL_SPEED}
 lPL_SPEED=${lPL_SPEED:-50000}
 
   if test "$lPL_SPEED"  =  "";      then
-_msg_stdalone 4 "Could not set player speed. Using defaults."
+_warn_stdalone "Could not set player speed. Using defaults."
 elif test "$lPL_SPEED" -gt 60000; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$lPL_SPEED" -gt 55000; then
@@ -889,7 +899,7 @@ local lPL_SPEED=${1:-$PL_SPEED1}
 lPL_SPEED=${lPL_SPEED:-50}
 
   if test "$lPL_SPEED"  =  ""; then
-_msg_stdalone 4 "Could not set player speed. Using defaults."
+_warn_stdalone "Could not set player speed. Using defaults."
 elif test "$lPL_SPEED" -gt 60; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$lPL_SPEED" -gt 55; then
@@ -1675,10 +1685,14 @@ fi
 _say_end_msg
 }
 
+while :; do
 
-_main_punch_stdalone "$@"
-# _main_punch_func "$@"
+ _main_punch_stdalone "$@"
+#_main_punch_func "$@"
 
+test "$NUMBER" && break
+sleep 5
+done
 
 
 ###END###

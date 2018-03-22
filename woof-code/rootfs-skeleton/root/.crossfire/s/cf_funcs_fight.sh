@@ -112,7 +112,7 @@ if _check_counter; then
 _check_food_level
 _check_hp
 _check_hp_and_return_home $HP
-_check_skill_available $SKILL_MELEE || return 1
+_check_skill_available "$SKILL_MELEE" || return 1
 fi
 
 _say_script_time
@@ -141,7 +141,7 @@ if _check_counter; then
 _check_food_level
 _check_hp
 _check_hp_and_return_home $HP
-_check_skill_available karate || return 1
+_check_skill_available "karate" || return 1
 fi
 
 _say_script_time
@@ -169,7 +169,7 @@ if _check_counter; then
 _check_food_level
 _check_hp
 _check_hp_and_return_home $HP
-_check_skill_available clawing || return 1
+_check_skill_available "clawing" || return 1
 fi
 
 _say_script_time
@@ -197,7 +197,7 @@ if _check_counter; then
 _check_food_level
 _check_hp
 _check_hp_and_return_home $HP
-_check_skill_available flame touch || return 1
+_check_skill_available "flame touch" || return 1
 fi
 
 _say_script_time
@@ -225,7 +225,7 @@ if _check_counter; then
 _check_food_level
 _check_hp
 _check_hp_and_return_home $HP
-_check_skill_available punching || return 1
+_check_skill_available "punching" || return 1
 fi
 
 _say_script_time

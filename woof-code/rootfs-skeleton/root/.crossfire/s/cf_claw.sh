@@ -11,6 +11,8 @@ VERSION=3.0 # add healing codes, more logging
 VERSION=3.1 # exit early if already running or no DRAWINFO
 VERSION=3.2 # bugfixing
 VERSION=3.3 # Use standard sound directories
+VERSION=3.4 # Wrap the call for _main_claw* into a while loop
+# ready_skill throwing instead punching since both are part of the basic_skills
 
 HEAL_ITEM='rod of heal' # used by _heal[_*]() , put your staff, scroll here
 ATTACK_ATTEMPTS_DEF=1   # used by _kill_monster[_*]() , put the number of your attack attempts per spot here
@@ -77,12 +79,13 @@ MSGLEVEL=${MSGLEVEL:-6} #integer 1 emergency - 7 debug
 #7) DEBUG=${DEBUG:-1};; 6) INFO=${INFO:-1};; 5) NOTICE=${NOTICE:-1};; 4) WARN=${WARN:-1};;
 #3) ERROR=${ERROR:-1};; 2) ALERT=${ALERT:-1};; 1) EMERG=${EMERG:-1};;
 #esac
-DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
+DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; CRITICAL=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
 case $MSGLEVEL in
 7) unset Q;; 6) unset DEBUG Q;; 5) unset DEBUG INFO VERB;; 4) unset DEBUG INFO NOTICE VERB;;
 3) unset DEBUG INFO NOTICE WARN VERB;; 2) unset DEBUG INFO NOTICE WARN ERROR VERB;;
-1) unset DEBUG INFO NOTICE WARN ERROR ALERT VERB;;
-*) _error_stdalone "MSGLEVEL variable not set from 1 - 7";;
+1) unset DEBUG INFO NOTICE WARN ERROR CRITICAL VERB;;
+0) unset DEBUG INFO NOTICE WARN ERROR CRITICAL ALERT VERB;;
+*) _error_stdalone "MSGLEVEL variable not set from 0 - 7";;
 esac
 
 TMOUT=${TMOUT:-1}      # read -t timeout, integer, seconds
@@ -418,7 +421,7 @@ unset dcnt line
 
 _debug_stdalone(){
 test "$DEBUG" || return 0
-    echo draw 10 "DEBUG:"$@
+    echo draw ${NDI_BROWN:-10} "DEBUG:"$@
 }
 
 __debug_stdalone(){  ##+++2018-01-06
@@ -427,7 +430,7 @@ cnt=0
 echo "$*" | while read line
 do
 cnt=$((cnt+1))
-    echo draw 3 "__DEBUG:$cnt:$line"
+    echo draw ${NDI_RED:-3} "__DEBUG:$cnt:$line"
 done
 unset cnt line
 }
@@ -440,8 +443,9 @@ case $LVL in
 5|note)  test "$NOTICE" && _notice_stdalone "$*";;
 4|warn)  test "$WARN"   && _warn_stdalone   "$*";;
 3|err)   test "$ERROR"  && _error_stdalone  "$*";;
-2|alert) test "$ALERT"  && _alert_stdalone  "$*";;
-1|emerg) test "$EMERG"  && _emerg_stdalone  "$*";;
+2|crit)  test "$CRITICAL" && _critical_stdalone "$*";;
+1|alert) test "$ALERT"  && _alert_stdalone  "$*";;
+0|emerg) test "$EMERG"  && _emerg_stdalone  "$*";;
 *) _debug_stdalone "$*";;
 esac
 }
@@ -454,40 +458,46 @@ case $LVL in
 5|note)  _notice_stdalone "$*";;
 4|warn)  _warn_stdalone   "$*";;
 3|err)   _error_stdalone  "$*";;
-2|alert) _alert_stdalone  "$*";;
-1|emerg) _emerg_stdalone  "$*";;
+2|crit)  _critical_stdalone "$*";;
+1|alert) _alert_stdalone  "$*";;
+0|emerg) _emerg_stdalone  "$*";;
 *) _debug_stdalone "$*";;
 esac
 }
 
 _info_stdalone(){
 test "$INFO" || return 0
-    echo draw 7 "INFO:"$@
+    echo draw ${NDI_GREEN:-7} "INFO:"$@
 }
 
 _notice_stdalone(){
 test "$NOTICE" || return 0
-    echo draw 2 "NOTICE:"$@
+    echo draw ${NDI_NAVY:-2} "NOTICE:"$@
 }
 
 _warn_stdalone(){
 test "$WARN" || return 0
-    echo draw 6 "WARNING:"$@
+    echo draw ${NDI_DK_ORANGE:-6} "WARNING:"$@
 }
 
 _error_stdalone(){
 test "$ERROR" || return 0
-    echo draw 4 "ERROR:"$@
+    echo draw ${NDI_ORANGE:-4} "ERROR:"$@
+}
+
+_critical(){
+test "$CRITICAL" || return 0
+    echo draw ${NDI_RED:-3} "CRITICAL:"$@
 }
 
 _alert_stdalone(){
 test "$ALERT" || return 0
-    echo draw 3 "ALERT:"$@
+    echo draw ${NDI_RED:-3} "ALERT:"$@
 }
 
 _ermerg_stdalone(){
 test "$EMERG" || return 0
-    echo draw 3 "EMERGENCY:"$@
+    echo draw ${NDI_RED:-3} "EMERGENCY:"$@
 }
 
 _log_stdalone(){
@@ -637,7 +647,7 @@ local lRV=
 
 _empty_message_stream_stdalone
 _watch_stdalone $DRAWINFO
-_is_stdalone 1 1 ready_skill punching  # force response, because when not changing
+_is_stdalone 1 1 ready_skill throwing  # force response, because when not changing
 _is_stdalone 1 1 ready_skill "$lSKILL" # range attack, no message is printed
 
 while :; do unset REPLY
@@ -1636,10 +1646,12 @@ fi
 _say_end_msg
 }
 
-
+while :; do
  _main_claw_stdalone "$@"
 #_main_claw_func "$@"
 
-
+test "$NUMBER" && break
+sleep 5
+done
 
 ###END###

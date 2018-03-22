@@ -12,6 +12,8 @@ VERSION=3.0 # add healing codes, more logging
 VERSION=3.1 # exit early if already running or no DRAWINFO
 VERSION=3.2 # bugfixing
 VERSION=3.3 # Use standard sound directories
+VERSION=3.4 # Wrap the call for _main_melee* into a while loop
+# ready_skill throwing instead punching since both are part of the basic_skills
 
 HEAL_ITEM='rod of heal' # used by _heal[_*]() , put your staff, scroll here
 ATTACK_ATTEMPTS_DEF=1   # used by _kill_monster[_*]() , put the number of your attack attempts per spot here
@@ -90,12 +92,13 @@ MSGLEVEL=${MSGLEVEL:-6} #integer 1 emergency - 7 debug
 #7) DEBUG=${DEBUG:-1};; 6) INFO=${INFO:-1};; 5) NOTICE=${NOTICE:-1};; 4) WARN=${WARN:-1};;
 #3) ERROR=${ERROR:-1};; 2) ALERT=${ALERT:-1};; 1) EMERG=${EMERG:-1};;
 #esac
-DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
+DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; CRITICAL=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
 case $MSGLEVEL in
 7) unset Q;; 6) unset DEBUG Q;; 5) unset DEBUG INFO VERB;; 4) unset DEBUG INFO NOTICE VERB;;
 3) unset DEBUG INFO NOTICE WARN VERB;; 2) unset DEBUG INFO NOTICE WARN ERROR VERB;;
-1) unset DEBUG INFO NOTICE WARN ERROR ALERT VERB;;
-*) _error_stdalone "MSGLEVEL variable not set from 1 - 7";;
+1) unset DEBUG INFO NOTICE WARN ERROR CRITICAL VERB;;
+0) unset DEBUG INFO NOTICE WARN ERROR CRITICAL ALERT VERB;;
+*) _error_stdalone "MSGLEVEL variable not set from 0 - 7";;
 esac
 
 TMOUT=${TMOUT:-1}      # read -t timeout, integer, seconds
@@ -191,14 +194,14 @@ test ! "$lPROGS"
 
 _say_start_msg_stdalone(){
 # *** Here begins program *** #
-_draw_stdalone 2 "$0 has started.."
-_draw_stdalone 2 "PID is $$ - parentPID is $PPID"
+_msg_stdalone 5 "$0 has started.."
+_msg_stdalone 6 "PID is $$ - parentPID is $PPID"
 
 _check_if_already_running_ps_stdalone || _exit_stdalone 1 "Another $MY_BASE is already running."
 _check_drawinfo_stdalone || _exit_stdalone 1 "Unable to fetch the DRAWINFO variable. Please try again."
 
 # *** Check for parameters *** #
-_draw_stdalone 5 "Checking the parameters ($*)..."
+_msg_stdalone 5 "Checking the parameters ($*)..."
 }
 
 __check_drawinfo_stdalone(){  ##+++2018-01-08
@@ -208,7 +211,7 @@ _log_stdalone   "__check_drawinfo_stdalone:$*"
 oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
 oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
 
-_draw_stdalone 2 "Checking drawinfo ..."
+_msg_stdalone 6 "Checking drawinfo ..."
 
 echo watch
 
@@ -260,7 +263,7 @@ test "$DRAWINFO0" = "$DRAWINFO" || {
 
 DEBUG=$oDEBUG
 LOGGING=$oLOGGING
-_draw_stdalone 6 "Done."
+_msg_stdalone 6 "Done."
 test "$DRAWINFO"
 }
 
@@ -270,7 +273,7 @@ _msg_stdalone 7 "_check_drawinfo_stdalone:$*"
 oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
 oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
 
-_draw_stdalone 2 "Checking drawinfo ..."
+_msg_stdalone 6 "Checking drawinfo ..."
 
 echo watch
 
@@ -314,7 +317,7 @@ DRAWINFO=`echo $DRAWINFO`
 
 DEBUG=$oDEBUG
 LOGGING=$oLOGGING
-_draw_stdalone 6 "Done."
+_msg_stdalone 6 "Done."
 test "$DRAWINFO"
 }
 
@@ -325,7 +328,7 @@ test "$TIMEA" || return 1
  TIME=$((TIMEE-TIMEA))
  TIMEM=$((TIME/60))
  TIMES=$(( TIME - (TIMEM*60) ))
- _draw_stdalone 4 "Loop of script had run a total of $TIMEM minutes and $TIMES seconds."
+ _msg_stdalone 5 "Loop of script had run a total of $TIMEM minutes and $TIMES seconds."
 }
 
 _say_script_time_stdalone(){ ##+++2018-01-07
@@ -334,9 +337,9 @@ __debug_stdalone "$TIME_ELAPSED"
 TIME_ELAPSED=`echo "$TIME_ELAPSED" | awk '{print $2}'`
 __debug_stdalone "$TIME_ELAPSED"
 case $TIME_ELAPSED in
-*:*:*) _draw_stdalone 5 "Script had run a time of $TIME_ELAPSED h:m:s .";;
-*:*)   _draw_stdalone 5 "Script had run a time of $TIME_ELAPSED m:s .";;
-*)     _draw_stdalone 5 "Script had run a time of $TIME_ELAPSED s .";;
+*:*:*) _msg_stdalone 5 "Script had run a time of $TIME_ELAPSED h:m:s .";;
+*:*)   _msg_stdalone 5 "Script had run a time of $TIME_ELAPSED m:s .";;
+*)     _msg_stdalone 5 "Script had run a time of $TIME_ELAPSED s .";;
 esac
 }
 
@@ -352,7 +355,7 @@ test "$DEBUG" || { test -s "$ERROR_LOG" || rm -f "$ERROR_LOG"; }
 test "$DEBUG" -o "$INFO" || rm -f "$TMP_DIR"/*.$$*
 
 test "$aPID" && wait $aPID
-_draw_stdalone 2  "$0 $$ has finished."
+_msg_stdalone 5 "$0 $$ has finished."
 }
 
 # *** EXIT FUNCTIONS *** #
@@ -435,7 +438,7 @@ unset dcnt line
 
 _debug_stdalone(){
 test "$DEBUG" || return 0
-    echo draw 10 "DEBUG:"$@
+    echo draw ${NDI_BROWN:-10} "DEBUG:"$@
 }
 
 __debug_stdalone(){  ##+++2018-01-06
@@ -444,7 +447,7 @@ cnt=0
 echo "$*" | while read line
 do
 cnt=$((cnt+1))
-    echo draw 3 "__DEBUG:$cnt:$line"
+    echo draw ${NDI_RED:-3} "__DEBUG:$cnt:$line"
 done
 unset cnt line
 }
@@ -457,8 +460,9 @@ case $LVL in
 5|note)  test "$NOTICE" && _notice_stdalone "$*";;
 4|warn)  test "$WARN"   && _warn_stdalone   "$*";;
 3|err)   test "$ERROR"  && _error_stdalone  "$*";;
-2|alert) test "$ALERT"  && _alert_stdalone  "$*";;
-1|emerg) test "$EMERG"  && _emerg_stdalone  "$*";;
+2|crit)  test "$CRITICAL" && _critical_stdalone "$*";;
+1|alert) test "$ALERT"  && _alert_stdalone  "$*";;
+0|emerg) test "$EMERG"  && _emerg_stdalone  "$*";;
 *) _debug_stdalone "$*";;
 esac
 }
@@ -471,40 +475,46 @@ case $LVL in
 5|note)  _notice_stdalone "$*";;
 4|warn)  _warn_stdalone   "$*";;
 3|err)   _error_stdalone  "$*";;
-2|alert) _alert_stdalone  "$*";;
-1|emerg) _emerg_stdalone  "$*";;
+2|crit)  _critical_stdalone "$*";;
+1|alert) _alert_stdalone  "$*";;
+0|emerg) _emerg_stdalone  "$*";;
 *) _debug_stdalone "$*";;
 esac
 }
 
 _info_stdalone(){
 test "$INFO" || return 0
-    echo draw 7 "INFO:"$@
+    echo draw ${NDI_GREEN:-7} "INFO:"$@
 }
 
 _notice_stdalone(){
 test "$NOTICE" || return 0
-    echo draw 2 "NOTICE:"$@
+    echo draw ${NDI_NAVY:-2} "NOTICE:"$@
 }
 
 _warn_stdalone(){
 test "$WARN" || return 0
-    echo draw 6 "WARNING:"$@
+    echo draw ${NDI_DK_ORANGE:-6} "WARNING:"$@
 }
 
 _error_stdalone(){
 test "$ERROR" || return 0
-    echo draw 4 "ERROR:"$@
+    echo draw ${NDI_ORANGE:-4} "ERROR:"$@
+}
+
+_critical(){
+test "$CRITICAL" || return 0
+    echo draw ${NDI_RED:-3} "CRITICAL:"$@
 }
 
 _alert_stdalone(){
 test "$ALERT" || return 0
-    echo draw 3 "ALERT:"$@
+    echo draw ${NDI_RED:-3} "ALERT:"$@
 }
 
 _ermerg_stdalone(){
 test "$EMERG" || return 0
-    echo draw 3 "EMERGENCY:"$@
+    echo draw ${NDI_RED:-3} "EMERGENCY:"$@
 }
 
 _log_stdalone(){
@@ -653,7 +663,7 @@ local lRV=
 
 _empty_message_stream_stdalone
 _watch_stdalone $DRAWINFO
-_is_stdalone 1 1 ready_skill punching  # force response, because when not changing
+_is_stdalone 1 1 ready_skill throwing  # force response, because when not changing
 _is_stdalone 1 1 ready_skill "$lSKILL" # range attack, no message is printed
 
 while :; do unset REPLY
@@ -663,12 +673,41 @@ _msg_stdalone 7 "$REPLY"
 
  case $REPLY in
  '') break 1;;
+
  *'Readied skill: '"$lSKILL"*) lRV=0; break 1;;   # if (!(aflags & AP_NOPRINT))
  # server/apply.c:          new_draw_info_format (NDI_UNIQUE, 0, who, "Readied skill: %s.",
  # server/apply.c-                    op->skill? op->skill:op->name);
+
  *'Unable to find skill '*)    lRV=1; break 1;; # new_draw_info_format(NDI_UNIQUE, 0, op,
  # server/skill_util.c:          "Unable to find skill %s", string);
  # server/skill_util.c- return 0;
+
+
+ ## server/skill_util.c: do_skill
+
+ *"There is no special attack for this skill."*) :;;
+ # SK_USE_MAGIC_ITEM SK_MISSILE_WEAPON
+
+ *"This skill is not currently implemented."*) :;;
+ # SK_SET_TRAP
+
+ *"This skill is already in effect."*) :;;
+ # SK_SORCERY SK_EVOCATION SK_PYROMANCY SK_SUMMONING SK_CLIMBING
+
+ *"You come to earth."*|*"You rise into the air!."*) :;;
+ # SK_LEVITATION
+
+ *"karate-chopped"*|*"punched"*|*"flamed"*|*"clawed"*) :;;
+ # SK_KARATE SK_PUNCHING SK_FLAME_TOUCH SK_CLAWING
+
+ # server/skills.c do_skill_ident2
+ *"You identify "*|*"The item has a story:"*) :;;
+ # skill_ident
+ *"You look at the objects nearby..."*)  :;;
+ *"...and discover cursed items!"*)      :;; # SK_DET_CURSE
+ *"...and discover items imbued with mystic forces!"*) :;; # SK_DET_MAGIC
+ *"...and learn nothing more."*)         :;;
+
  *scripttell*break*)     break ${REPLY##*?break};;
  *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
@@ -713,7 +752,7 @@ if test "$1" = '-l'; then # loop counter
  shift
 fi
 
-_draw_stdalone 5 "Processing Player's speed..."
+_msg_stdalone 5 "Processing Player's speed..."
 
  _request_stdalone stat cmbt
  test "$ANSWER" && PL_SPEED0=`echo "$ANSWER" | awk '{print $7}'`
@@ -723,7 +762,7 @@ PL_SPEED=${PL_SPEED:-50000} # 0.50
 _player_speed_to_human_readable_stdalone $PL_SPEED
 _msg_stdalone 6 "Using player speed '$PL_SPEED1'"
 
-_draw_stdalone 6 "Done."
+_msg_stdalone 5 "Done."
 return 0
 }
 
@@ -736,7 +775,7 @@ if test "$1" = '-l'; then # loop counter
  shift
 fi
 
-_draw_stdalone 5 "Processing Player's speed..."
+_msg_stdalone 5 "Processing Player's speed..."
 
 _request_stat_cmbt_stdalone
 PL_SPEED=${PL_SPEED:-50000} # 0.50
@@ -744,7 +783,7 @@ PL_SPEED=${PL_SPEED:-50000} # 0.50
 _player_speed_to_human_readable_stdalone $PL_SPEED
 _msg_stdalone 6 "Using player speed '$PL_SPEED1'"
 
-_draw_stdalone 6 "Done."
+_msg_stdalone 5 "Done."
 return 0
 }
 
@@ -830,7 +869,9 @@ _log_stdalone   "_set_sync_sleep_stdalone:$*"
 local lPL_SPEED=${1:-$PL_SPEED}
 lPL_SPEED=${lPL_SPEED:-50000}
 
-  if test "$lPL_SPEED" -gt 60000; then
+  if test "$lPL_SPEED"  =  "";    then
+_warn_stdalone 3 "Could not set player speed. Using defaults."
+elif test "$lPL_SPEED" -gt 60000; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$lPL_SPEED" -gt 55000; then
 SLEEP=0.5; DELAY_DRAWINFO=1.1; TMOUT=1
@@ -854,8 +895,6 @@ elif test "$lPL_SPEED" -gt 10000; then
 SLEEP=4.0; DELAY_DRAWINFO=8.0; TMOUT=2
 elif test "$lPL_SPEED" -ge 0;  then
 SLEEP=5.0; DELAY_DRAWINFO=10.0; TMOUT=2
-elif test "$lPL_SPEED" = "";   then
-_draw_stdalone 3 "WARNING: Could not set player speed. Using defaults."
 else
 _exit_stdalone 1 "ERROR while processing player speed."
 fi
@@ -870,7 +909,9 @@ _log_stdalone   "__set_sync_sleep_stdalone:$*"
 local lPL_SPEED=${1:-$PL_SPEED1}
 lPL_SPEED=${lPL_SPEED:-50}
 
-  if test "$lPL_SPEED" -gt 60; then
+  if test "$lPL_SPEED"  =  ""; then
+_warn_stdalone "Could not set player speed. Using defaults."
+elif test "$lPL_SPEED" -gt 60; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$lPL_SPEED" -gt 55; then
 SLEEP=0.5; DELAY_DRAWINFO=1.1; TMOUT=1
@@ -894,8 +935,6 @@ elif test "$lPL_SPEED" -gt 10; then
 SLEEP=4.0; DELAY_DRAWINFO=8.0; TMOUT=2
 elif test "$lPL_SPEED" -ge 0;  then
 SLEEP=5.0; DELAY_DRAWINFO=10.0; TMOUT=2
-elif test "$lPL_SPEED" = "";   then
-_draw_stdalone 3 "WARNING: Could not set player speed. Using defaults."
 else
 _exit_stdalone 1 "ERROR while processing player speed."
 fi
@@ -1056,7 +1095,7 @@ else
  test "$DIRN" -ge 9 && DIRN=1
 fi
 _number_to_direction_stdalone $DIRN
-_draw_stdalone 2 "Will turn to direction $DIRECTION .."
+_msg_stdalone 6 "Will turn to direction $DIRECTION .."
 }
 
 ___set_next_direction_stdalone(){
@@ -1067,7 +1106,7 @@ DIRN=$((DIRN-1))
 test "$DIRN" -le 0 && DIRN=8
 
 _number_to_direction_stdalone $DIRN
-_draw_stdalone 2 "Will turn to direction $DIRECTION .."
+_msg_stdalone 6 "Will turn to direction $DIRECTION .."
 }
 
 __set_next_direction_stdalone(){
@@ -1078,7 +1117,7 @@ DIRN=$((DIRN+1))
 test "$DIRN" -ge 9 && DIRN=1
 
 _number_to_direction_stdalone $DIRN
-_draw_stdalone 2 "Will turn to direction $DIRECTION .."
+_msg_stdalone 6 "Will turn to direction $DIRECTION .."
 }
 
 _check_food_level_stdalone(){
@@ -1143,7 +1182,7 @@ read -t ${TMOUT:-1} oneITEM
 
  case $oneITEM in
  $oldITEM|'') break 1;;
- *"$lITEM"*|*"${lITEM// /?*}"*) _draw_stdalone 7 "Got that item $lITEM in inventory.";;
+ *"$lITEM"*|*"${lITEM// /?*}"*) _msg_stdalone 6 "Got that item $lITEM in inventory.";;
  *scripttell*break*)  break ${oneITEM##*?break};;
  *scripttell*exit*)   _exit_stdalone 1 $oneITEM;;
  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
@@ -1299,7 +1338,7 @@ done
 local lITEM=${*:-"$ITEM"}
 test "$lITEM" || return 254
 
-_draw_stdalone 5 "Checking if standing on $lITEM ..."
+_msg_stdalone 5 "Checking if standing on $lITEM ..."
 UNDER_ME='';
 UNDER_ME_LIST='';
 
@@ -1362,7 +1401,7 @@ fi
 test "$lRV" = 0 && return 0
 
 _beep_std_stdalone
-_draw_stdalone 3 $lMSG
+_msg_stdalone 6 $lMSG
 test "$DO_LOOP" && return 1 || _exit_stdalone 1 $lMSG
 }
 
@@ -1611,7 +1650,7 @@ if _check_counter_stdalone; then
 _check_food_level_stdalone
 _check_hp_stdalone
 _check_hp_and_return_home_stdalone $HP
-_check_skill_available_stdalone $SKILL_MELEE || return 1
+_check_skill_available_stdalone "$SKILL_MELEE" || return 1
 fi
 
 _say_script_time_stdalone
@@ -1642,7 +1681,7 @@ test "$PL_SPEED1" && __set_sync_sleep_stdalone ${PL_SPEED1} || _set_sync_sleep_s
 
 _direction_to_number_stdalone $DIRECTION_OPT
 
-if _check_skill_available_stdalone $SKILL_MELEE; then
+if _check_skill_available_stdalone "$SKILL_MELEE"; then
 [ "$DO_BRACE" ] && _brace_stdalone
 _melee_around_stdalone
 _unbrace_stdalone
@@ -1677,7 +1716,7 @@ test "$PL_SPEED1" && __set_sync_sleep ${PL_SPEED1} || _set_sync_sleep "$PL_SPEED
 
 _direction_to_number $DIRECTION_OPT
 
-if _check_skill_available $SKILL_MELEE; then
+if _check_skill_available "$SKILL_MELEE"; then
 [ "$DO_BRACE" ] && _brace
 _melee_around
 _unbrace
@@ -1686,10 +1725,14 @@ fi
 _say_end_msg
 }
 
+while :; do
 
  _main_melee_stdalone "$@"
 #_main_melee_func "$@"
 
+test "$NUMBER" && break
+sleep 5
+done
 
 
 ###END###

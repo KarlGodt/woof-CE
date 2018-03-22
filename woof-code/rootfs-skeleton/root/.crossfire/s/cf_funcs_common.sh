@@ -13,12 +13,13 @@ MSGLEVEL=${MSGLEVEL:-6} #integer 1 emergency - 7 debug
 #7) DEBUG=${DEBUG:-1};; 6) INFO=${INFO:-1};; 5) NOTICE=${NOTICE:-1};; 4) WARN=${WARN:-1};;
 #3) ERROR=${ERROR:-1};; 2) ALERT=${ALERT:-1};; 1) EMERG=${EMERG:-1};;
 #esac
-DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
+DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; CRITICAL=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
 case $MSGLEVEL in
 7) unset Q;; 6) unset DEBUG Q;; 5) unset DEBUG INFO VERB;; 4) unset DEBUG INFO NOTICE VERB;;
 3) unset DEBUG INFO NOTICE WARN VERB;; 2) unset DEBUG INFO NOTICE WARN ERROR VERB;;
-1) unset DEBUG INFO NOTICE WARN ERROR ALERT VERB;;
-*) _error "MSGLEVEL variable not set from 1 - 7";;
+1) unset DEBUG INFO NOTICE WARN ERROR CRITICAL VERB;;
+0) unset DEBUG INFO NOTICE WARN ERROR CRITICAL ALERT VERB;;
+*) _error "MSGLEVEL variable not set from 0 - 7";;
 esac
 
 TMOUT=${TMOUT:-1}      # read -t timeout, integer, seconds
@@ -232,8 +233,9 @@ case $LVL in
 5|note)  test "$NOTICE" && _notice "$*";;
 4|warn)  test "$WARN"   && _warn   "$*";;
 3|err)   test "$ERROR"  && _error  "$*";;
-2|alert) test "$ALERT"  && _alert  "$*";;
-1|emerg) test "$EMERG"  && _emerg  "$*";;
+2|crit)  test "$CRITICAL" && _critical "$*";;
+1|alert) test "$ALERT"  && _alert  "$*";;
+0|emerg) test "$EMERG"  && _emerg  "$*";;
 *) _debug "$*";;
 esac
 }
@@ -246,15 +248,16 @@ case $LVL in
 5|note)  _notice "$*";;
 4|warn)  _warn   "$*";;
 3|err)   _error  "$*";;
-2|alert) _alert  "$*";;
-1|emerg) _emerg  "$*";;
+2|crit)  _critical "$*";;
+1|alert) _alert  "$*";;
+0|emerg) _emerg  "$*";;
 *) _debug "$*";;
 esac
 }
 
 _debug(){
 test "$DEBUG" || return 0
-    echo draw 10 "DEBUG:$@"
+    echo draw ${NDI_BROWN:-10} "DEBUG:$@"
 }
 
 __debug(){  ##+++2018-01-06
@@ -263,39 +266,44 @@ dcnt=0
 echo "$*" | while read line
 do
 dcnt=$((dcnt+1))
-    echo draw 3 "__DEBUG:$dcnt:$line"
+    echo draw ${NDI_RED:-3} "__DEBUG:$dcnt:$line"
 done
 unset dcnt line
 }
 
 _info(){
 test "$INFO" || return 0
-    echo draw 7 "INFO:$@"
+    echo draw ${NDI_GREEN:-7} "INFO:"$@
 }
 
 _notice(){
 test "$NOTICE" || return 0
-    echo draw 2 "NOTICE:$@"
+    echo draw ${NDI_NAVY:-2} "NOTICE:"$@
 }
 
 _warn(){
 test "$WARN" || return 0
-    echo draw 6 "WARNING:$@"
+    echo draw ${NDI_DK_ORANGE:-6} "WARNING:"$@
 }
 
 _error(){
 test "$ERROR" || return 0
-    echo draw 4 "ERROR:$@"
+    echo draw ${NDI_ORANGE:-4} "ERROR:"$@
+}
+
+_critical(){
+test "$CRITICAL" || return 0
+    echo draw ${NDI_RED:-3} "CRITICAL:"$@
 }
 
 _alert(){
 test "$ALERT" || return 0
-    echo draw 3 "ALERT:$@"
+    echo draw ${NDI_RED:-3} "ALERT:"$@
 }
 
 _ermerg(){
 test "$EMERG" || return 0
-    echo draw 3 "EMERGENCY:$@"
+    echo draw ${NDI_RED:-3} "EMERGENCY:"$@
 }
 
 _log(){
