@@ -68,6 +68,7 @@ VERSION=3.1.1 # false variable names fixed
 VERSION=3.2 # fix missings and end msg when using funcs libraries files
 VERSION=3.3 # exit early if already running or no DRAWINFO
 VERSION=3.4 # bugfixing
+VERSION=3.5 # Use standard sound directories
 
 SEARCH_ATTEMPTS_DEFAULT=9
 #DISARM variable set to skill, invokation OR cast
@@ -192,7 +193,27 @@ southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
 
+# *** Color numbers found in common/shared/newclient.h : *** #
+NDI_BLACK=0
+NDI_WHITE=1
+NDI_NAVY=2
+NDI_RED=3
+NDI_ORANGE=4
+NDI_BLUE=5       #/**< Actually, it is Dodger Blue */
+NDI_DK_ORANGE=6  #/**< DarkOrange2 */
+NDI_GREEN=7      #/**< SeaGreen */
+NDI_LT_GREEN=8   #/**< DarkSeaGreen, which is actually paler
+#                  *   than seagreen - also background color. */
+NDI_GREY=9
+NDI_BROWN=10     #/**< Sienna. */
+NDI_GOLD=11
+NDI_TAN=12       #/**< Khaki. */
+#define NDI_MAX_COLOR   12      /**< Last value in. */
+
+CF_DATADIR=/usr/local/share/crossfire-client
 SOUND_DIR="$HOME"/.crossfire/cf_sounds
+USER_SOUNDS_PATH="$HOME"/.crossfire/sound.cache
+CF_SOUND_DIR="$CF_DATADIR"/sounds
 
 # Log file path in /tmp
 #MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -381,17 +402,40 @@ else
 fi
 }
 
+_sound_or_beep_stdalone(){
+    local lDUR
+test "$2" && { lDUR="$1"; shift; }
+lDUR=${lDUR:-0}
+#test -e "$SOUND_DIR"/${1}.raw && \
+#           aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw
+
+if test "$APLAY_ERR"; then
+ _beep_std_stdalone
+elif test -e "$SOUND_DIR"/${1}.raw; then
+ aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw || APLAY_ERR=$?
+ test "$APLAY_ERR" && _beep_std_stdalone
+else
+ _beep_std_stdalone
+fi
+}
+
 _sound_stdalone(){
     local lDUR
 test "$2" && { lDUR="$1"; shift; }
 lDUR=${lDUR:-0}
 #test -e "$SOUND_DIR"/${1}.raw && \
 #           aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw
-if test -e "$SOUND_DIR"/${1}.raw; then
- aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw
-else
- _beep_std_stdalone
+if   test -e                 "$SOUND_DIR"/${1}.raw; then
+     aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw
+elif test -e                 "$USER_SOUNDS_PATH"/${1}.raw; then
+     aplay $Q $VERB -d $lDUR "$USER_SOUNDS_PATH"/${1}.raw
+elif test -e                 "$CF_SOUND_DIR"/${1}.raw; then
+     aplay $Q $VERB -d $lDUR "$CF_SOUND_DIR"/${1}.raw
 fi
+}
+
+_fanfare_stdalone(){
+ _sound_stdalone 0 su-fanf
 }
 
 _beep_std_stdalone(){
@@ -2328,9 +2372,9 @@ _disarm_traps_stdalone
 _open_chests_stdalone
 }
 
-# _main_open_chests_func "$@" && _draw 8 "You opened ${CHEST_COUNT:-0} chest(s)."
-# _say_end_msg
-_main_open_chests_stdalone "$@" && _draw_stdalone 8 "You opened ${CHEST_COUNT:-0} chest(s)."
-_say_end_msg_stdalone
+ _main_open_chests_func "$@" && _draw 8 "You opened ${CHEST_COUNT:-0} chest(s)."
+ _say_end_msg
+#_main_open_chests_stdalone "$@" && _draw_stdalone 8 "You opened ${CHEST_COUNT:-0} chest(s)."
+#_say_end_msg_stdalone
 
 ###END###

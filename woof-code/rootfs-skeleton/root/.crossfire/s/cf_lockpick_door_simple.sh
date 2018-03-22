@@ -46,6 +46,7 @@ VERSION=2.1 # bugfixes for calls to _move_* functions
 VERSION=2.1.1 # bugfixes
 VERSION=3.0 # make it standalone possible again
 VERSION=3.1 # bugfixing
+VERSION=3.2 # Use standard sound directories
 
 LOCKPICK_ATTEMPTS_DEFAULT=9
 SEARCH_ATTEMPTS_DEFAULT=9
@@ -182,7 +183,27 @@ southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
 
+# *** Color numbers found in common/shared/newclient.h : *** #
+NDI_BLACK=0
+NDI_WHITE=1
+NDI_NAVY=2
+NDI_RED=3
+NDI_ORANGE=4
+NDI_BLUE=5       #/**< Actually, it is Dodger Blue */
+NDI_DK_ORANGE=6  #/**< DarkOrange2 */
+NDI_GREEN=7      #/**< SeaGreen */
+NDI_LT_GREEN=8   #/**< DarkSeaGreen, which is actually paler
+#                  *   than seagreen - also background color. */
+NDI_GREY=9
+NDI_BROWN=10     #/**< Sienna. */
+NDI_GOLD=11
+NDI_TAN=12       #/**< Khaki. */
+#define NDI_MAX_COLOR   12      /**< Last value in. */
+
+CF_DATADIR=/usr/local/share/crossfire-client
 SOUND_DIR="$HOME"/.crossfire/cf_sounds
+USER_SOUNDS_PATH="$HOME"/.crossfire/sound.cache
+CF_SOUND_DIR="$CF_DATADIR"/sounds
 
 # Log file path in /tmp
 #MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -261,6 +282,25 @@ _log_stdalone(){
     test "$2" && {
     lFILE="$1"; shift; } || lFILE="$LOGFILE"
    echo "$*" >>"$lFILE"
+}
+
+_sound_stdalone(){
+    local lDUR
+test "$2" && { lDUR="$1"; shift; }
+lDUR=${lDUR:-0}
+#test -e "$SOUND_DIR"/${1}.raw && \
+#           aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw
+if   test -e                 "$SOUND_DIR"/${1}.raw; then
+     aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw
+elif test -e                 "$USER_SOUNDS_PATH"/${1}.raw; then
+     aplay $Q $VERB -d $lDUR "$USER_SOUNDS_PATH"/${1}.raw
+elif test -e                 "$CF_SOUND_DIR"/${1}.raw; then
+     aplay $Q $VERB -d $lDUR "$CF_SOUND_DIR"/${1}.raw
+fi
+}
+
+_fanfare_stdalone(){
+ _sound_stdalone 0 su-fanf
 }
 
 _sleep_stdalone(){
@@ -429,7 +469,8 @@ sleep 0.2
 _say_end_msg_stdalone(){
 # *** Here ends program *** #
 __is_stdalone 1 1 fire_stop
-test -f "$SOUND_DIR"/su-fanf.raw && aplay $Q "$SOUND_DIR"/su-fanf.raw & aPID=$!
+#test -f "$SOUND_DIR"/su-fanf.raw && aplay $Q "$SOUND_DIR"/su-fanf.raw & aPID=$!
+_fanfare_stdalone & aPID=$!
 
 _tell_script_time_stdalone || _say_script_time_stdalone
 

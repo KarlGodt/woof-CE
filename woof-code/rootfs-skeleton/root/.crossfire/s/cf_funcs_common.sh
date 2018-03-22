@@ -5,23 +5,6 @@
 export LC_NUMERIC=de_DE
 export LC_ALL=de_DE
 
-# *** Color numbers found in common/shared/newclient.h : *** #
-#define NDI_BLACK       0
-#define NDI_WHITE       1
-#define NDI_NAVY        2
-#define NDI_RED         3
-#define NDI_ORANGE      4
-#define NDI_BLUE        5       /**< Actually, it is Dodger Blue */
-#define NDI_DK_ORANGE   6       /**< DarkOrange2 */
-#define NDI_GREEN       7       /**< SeaGreen */
-#define NDI_LT_GREEN    8       /**< DarkSeaGreen, which is actually paler
-#                                 *   than seagreen - also background color. */
-#define NDI_GREY        9
-#define NDI_BROWN       10      /**< Sienna. */
-#define NDI_GOLD        11
-#define NDI_TAN         12      /**< Khaki. */
-#define NDI_MAX_COLOR   12      /**< Last value in. */
-
 _set_global_variables(){
 LOGGING=${LOGGING:-''}  #bool, set to ANYTHING ie "1" to enable, empty to disable
 #DEBUG=${DEBUG:-''}      #bool, set to ANYTHING ie "1" to enable, empty to disable
@@ -84,7 +67,27 @@ southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
 
+# *** Color numbers found in common/shared/newclient.h : *** #
+NDI_BLACK=0
+NDI_WHITE=1
+NDI_NAVY=2
+NDI_RED=3
+NDI_ORANGE=4
+NDI_BLUE=5       #/**< Actually, it is Dodger Blue */
+NDI_DK_ORANGE=6  #/**< DarkOrange2 */
+NDI_GREEN=7      #/**< SeaGreen */
+NDI_LT_GREEN=8   #/**< DarkSeaGreen, which is actually paler
+#                  *   than seagreen - also background color. */
+NDI_GREY=9
+NDI_BROWN=10     #/**< Sienna. */
+NDI_GOLD=11
+NDI_TAN=12       #/**< Khaki. */
+#define NDI_MAX_COLOR   12      /**< Last value in. */
+
+CF_DATADIR=/usr/local/share/crossfire-client
 SOUND_DIR="$HOME"/.crossfire/cf_sounds
+USER_SOUNDS_PATH="$HOME"/.crossfire/sound.cache
+CF_SOUND_DIR="$CF_DATADIR"/sounds
 
 # Log file path in /tmp
 #MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -303,12 +306,46 @@ _log(){
    echo "$*" >>"$lFILE"
 }
 
-_sound(){
+__sound(){
     local lDUR
 test "$2" && { lDUR="$1"; shift; }
 lDUR=${lDUR:-0}
 test -e "$SOUND_DIR"/${1}.raw && \
            aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw
+}
+
+_sound_or_beep(){
+    local lDUR
+test "$2" && { lDUR="$1"; shift; }
+lDUR=${lDUR:-0}
+
+if test "$APLAY_ERR"; then
+ _beep_std
+elif test -e "$SOUND_DIR"/${1}.raw; then
+ aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw || APLAY_ERR=$?
+ test "$APLAY_ERR" && _beep_std
+else
+ _beep_std
+fi
+}
+
+_sound(){
+    local lDUR
+test "$2" && { lDUR="$1"; shift; }
+lDUR=${lDUR:-0}
+#test -e "$SOUND_DIR"/${1}.raw && \
+#           aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw
+if   test -e                 "$SOUND_DIR"/${1}.raw; then
+     aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw
+elif test -e                 "$USER_SOUNDS_PATH"/${1}.raw; then
+     aplay $Q $VERB -d $lDUR "$USER_SOUNDS_PATH"/${1}.raw
+elif test -e                 "$CF_SOUND_DIR"/${1}.raw; then
+     aplay $Q $VERB -d $lDUR "$CF_SOUND_DIR"/${1}.raw
+fi
+}
+
+_fanfare(){
+ _sound 0 su-fanf
 }
 
 _success(){
@@ -368,7 +405,8 @@ esac
 _say_end_msg(){
 # *** Here ends program *** #
 _is 1 1 fire_stop
-test -f "$SOUND_DIR"/su-fanf.raw && aplay $Q "$SOUND_DIR"/su-fanf.raw & aPID=$!
+#test -f "$SOUND_DIR"/su-fanf.raw && aplay $Q "$SOUND_DIR"/su-fanf.raw & aPID=$!
+_fanfare & aPID=$!
 
 _tell_script_time || _say_script_time
 

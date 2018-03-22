@@ -10,6 +10,7 @@ VERSION=2.0 # made library cf_funcs_*.sh ready
 VERSION=3.0 # add healing codes, more logging
 VERSION=3.1 # exit early if already running or no DRAWINFO
 VERSION=3.2 # bugfixing
+VERSION=3.3 # Use standard sound directories
 
 HEAL_ITEM='rod of heal' # used by _heal[_*]() , put your staff, scroll here
 ATTACK_ATTEMPTS_DEF=1   # used by _kill_monster[_*]() , put the number of your attack attempts per spot here
@@ -130,7 +131,27 @@ southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
 
+# *** Color numbers found in common/shared/newclient.h : *** #
+NDI_BLACK=0
+NDI_WHITE=1
+NDI_NAVY=2
+NDI_RED=3
+NDI_ORANGE=4
+NDI_BLUE=5       #/**< Actually, it is Dodger Blue */
+NDI_DK_ORANGE=6  #/**< DarkOrange2 */
+NDI_GREEN=7      #/**< SeaGreen */
+NDI_LT_GREEN=8   #/**< DarkSeaGreen, which is actually paler
+#                  *   than seagreen - also background color. */
+NDI_GREY=9
+NDI_BROWN=10     #/**< Sienna. */
+NDI_GOLD=11
+NDI_TAN=12       #/**< Khaki. */
+#define NDI_MAX_COLOR   12      /**< Last value in. */
+
+CF_DATADIR=/usr/local/share/crossfire-client
 SOUND_DIR="$HOME"/.crossfire/cf_sounds
+USER_SOUNDS_PATH="$HOME"/.crossfire/sound.cache
+CF_SOUND_DIR="$CF_DATADIR"/sounds
 
 # Log file path in /tmp
 #MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -308,7 +329,8 @@ esac
 _say_end_msg_stdalone(){
 # *** Here ends program *** #
 _is_stdalone 1 1 fire_stop
-test -f "$SOUND_DIR"/su-fanf.raw && aplay $Q "$SOUND_DIR"/su-fanf.raw & aPID=$!
+#test -f "$SOUND_DIR"/su-fanf.raw && aplay $Q "$SOUND_DIR"/su-fanf.raw & aPID=$!
+_fanfare_stdalone & aPID=$!
 
 _tell_script_time_stdalone || _say_script_time_stdalone
 
@@ -484,7 +506,7 @@ else
 fi
 }
 
-_sound_stdalone(){
+_sound_or_beep_stdalone(){
     local lDUR
 test "$2" && { lDUR="$1"; shift; }
 lDUR=${lDUR:-0}
@@ -495,6 +517,25 @@ if test -e "$SOUND_DIR"/${1}.raw; then
 else
  _beep_std_stdalone
 fi
+}
+
+_sound_stdalone(){
+    local lDUR
+test "$2" && { lDUR="$1"; shift; }
+lDUR=${lDUR:-0}
+#test -e "$SOUND_DIR"/${1}.raw && \
+#           aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw
+if   test -e                 "$SOUND_DIR"/${1}.raw; then
+     aplay $Q $VERB -d $lDUR "$SOUND_DIR"/${1}.raw
+elif test -e                 "$USER_SOUNDS_PATH"/${1}.raw; then
+     aplay $Q $VERB -d $lDUR "$USER_SOUNDS_PATH"/${1}.raw
+elif test -e                 "$CF_SOUND_DIR"/${1}.raw; then
+     aplay $Q $VERB -d $lDUR "$CF_SOUND_DIR"/${1}.raw
+fi
+}
+
+_fanfare_stdalone(){
+ _sound_stdalone 0 su-fanf
 }
 
 _beep_std_stdalone(){
