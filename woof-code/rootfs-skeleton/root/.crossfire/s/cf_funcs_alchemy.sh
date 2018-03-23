@@ -2,6 +2,9 @@
 
 [ "$HAVE_FUNCS_ALCHEMY" ] && return 0
 
+# depends :
+[ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
+
 ### ALCHEMY
 
 _drop_in_cauldron(){

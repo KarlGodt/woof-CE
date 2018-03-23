@@ -15,6 +15,7 @@ VERSION=3.3 # bugfixing
 VERSION=3.4 # Use standard sound directories
 VERSION=3.5 # Wrap the call for _main_punch* into a while loop
 # ready_skill throwing instead punching since both are part of the basic_skills
+VERSION=3.6 # require cf_funcs_items.sh
 
 SKILL_NOT_PUNCHING=throwing  # _check_skill_available[_*]() needs a skill that is not the skill wanted
 
@@ -27,6 +28,8 @@ ATTACK_ATTEMPTS_DEF=1   # used by _kill_monster[_*]() , put the number of your a
 MY_SELF=`realpath "$0"` ## needs to be in main script
 MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 MY_DIR=${MY_SELF%/*}
+
+cd "$MY_DIR"
 
 _say_help_stdalone(){
 _draw_stdalone 6  "$MY_BASE"
@@ -1661,6 +1664,7 @@ _source_library_files(){
 . $MY_DIR/cf_funcs_fight.sh  ||   _exit 10 "$MY_DIR/cf_funcs_fight.sh     failed to load."
 . $MY_DIR/cf_funcs_requests.sh || _exit 12 "$MY_DIR/cf_funcs_requests.sh  failed to load."
 . $MY_DIR/cf_funcs_heal.sh   ||   _exit 13 "$MY_DIR/cf_funcs_heal.sh      failed to load."
+. $MY_DIR/cf_funcs_items.sh    ||   _exit 16 "$MY_DIR/cf_funcs_items.sh     failed to load."
 }
 _source_library_files
 

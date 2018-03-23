@@ -1,6 +1,9 @@
 #!/bin/ash
 
-[ "$HAVE_FUNCS_REQUEST" ] && return 0
+[ "$HAVE_FUNCS_REQUESTS" ] && return 0
+
+# depends :
+[ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
 
 _request_stub(){
 
@@ -409,7 +412,7 @@ read -t ${TMOUT:-1} r fl FL_FLAGS FL_FIRE_ON FL_RUN_ON FL_NO_ECHO REST
 #test ##TODO: UNKNOWN
 }
 
-_request_items_inv(){
+__request_items_inv(){
 #Return a list of items in the inventory, one per line
 
 #test "$*" || return 254
@@ -441,6 +444,74 @@ read -t ${TMOUT:-1} ANSWER
 
 test "$ANSWER"
 }
+
+
+_request_items_inv(){
+_debug "_request_items_inv:$*"
+_log   "_request_items_inv:$*"
+
+INV_LIST_FILE=${INV_LIST_FILE:-"$TMP_DIR"/"$MY_BASE".$$.inv}
+
+local lEMPTY_LINE=0
+
+unset INVENTORY_LIST
+
+echo request items inv
+usleep 1000
+
+while :; do
+unset REPLY
+
+#flags=it->magical;                      1
+#   flags= (flags<<1)|it->cursed;        2
+#   flags= (flags<<1)|it->damned;        4
+#   flags= (flags<<1)|it->unpaid;        8
+#   flags= (flags<<1)|it->locked;       16
+#   flags= (flags<<1)|it->applied;      32
+#   flags= (flags<<1)|it->open;         64
+#   flags= (flags<<1)|it->was_open;    128
+#   flags= (flags<<1)|it->inv_updated; 256
+
+# sprintf(buf,"%s%d %d %f %d %d %s\n",
+# head,
+# it->tag,
+# it->nrof,
+# it->weight,
+# flags,
+# it->type,
+# it->d_name);
+read -t ${TMOUT:-1}
+# 72605606 1 19 17 0 flower
+_log "$INV_LIST_FILE" "_request_items_inv:$REPLY"
+_debug "$REPLY"
+
+case $REPLY in
+'') lEMPTY_LINE=$((lEMPTY_LINE+1));
+    if test $lEMPTY_LINE -ge 5; then
+     _log "WARNING: Inventory has too many items to request them all!"
+     _warn "Inventory has too many items to request them all!"
+     break 1
+    fi
+ ;;
+*"request items inv end"*) break 1;;
+
+esac
+
+INVENTORY_LIST="$INVENTORY_LIST
+$REPLY"
+
+usleep 1000
+done
+
+INVENTORY_LIST=`echo "$INVENTORY_LIST" | sed 's/request items inv end//'`
+INVENTORY_LIST=`echo "$INVENTORY_LIST" | sed 's/request items inv //'`
+INVENTORY_LIST=`echo "$INVENTORY_LIST" | sed 's/^$//'`
+
+ANSWER="$INVENTORY_LIST"
+test "$ANSWER"
+#test "$INVENTORY_LIST"
+}
+
 
 _request_items_actv(){
 #Return a list of inventory items that are active, one per line
@@ -631,4 +702,4 @@ test "$ANSWER"
 }
 
 ###END###
-HAVE_FUNCS_REQUEST=1
+HAVE_FUNCS_REQUESTS=1

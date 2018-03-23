@@ -2,6 +2,9 @@
 
 [ "$HAVE_FUNCS_CHEST" ] && return 0
 
+# depends :
+[ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
+
 __open_chests(){
 _debug "__open_chests:$*"
 _log   "__open_chests:$*"

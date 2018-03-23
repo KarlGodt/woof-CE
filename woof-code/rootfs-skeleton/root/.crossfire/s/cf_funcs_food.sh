@@ -2,6 +2,9 @@
 
 [ "$HAVE_FUNCS_FOOD" ] && return 0
 
+# depends :
+[ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
+
 #Food
 
 _check_mana_for_create_food(){

@@ -2,6 +2,9 @@
 
 [ "$HAVE_FUNCS_MOVE" ] && return 0
 
+# depends :
+[ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
+
 ___direction_to_number(){ # cf_funcs_common.sh
 local lDIRECTION=${1:-$DIRECTION}
 test "$lDIRECTION" || return 0
@@ -45,6 +48,7 @@ DIRECTION_NUMBER=$DIRN
 
 ___set_next_direction(){ # clockwise
 _debug "___set_next_direction:$*:$DIRN"
+_log   "___set_next_direction:$*:$DIRN"
 
 DIRN=$((DIRN-1))
 test "$DIRN" -le 0 && DIRN=8
@@ -55,6 +59,7 @@ _draw 2 "Will turn to direction $DIRECTION .."
 
 __set_next_direction(){ # anti-clockwise
 _debug "__set_next_direction:$*:$DIRN"
+_log   "__set_next_direction:$*:$DIRN"
 
 DIRN=$((DIRN+1))
 test "$DIRN" -ge 9 && DIRN=1
@@ -64,7 +69,8 @@ _draw 2 "Will turn to direction $DIRECTION .."
 }
 
 _set_next_direction(){
-_debug_stdalone "_set_next_direction:$*:$DIRN"
+_debug "_set_next_direction:$*:$DIRN"
+_log   "_set_next_direction:$*:$DIRN"
 
 if test "$DO_CLOCKWISE"; then
  DIRN=$((DIRN-1))

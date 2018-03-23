@@ -2,6 +2,10 @@
 
 [ "$HAVE_FUNCS_FIGHT" ] && return 0
 
+# depends :
+[ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
+[ "$HAVE_FUNCS_MOVE"   ]   || . cf_funcs_move.sh
+
 _kill_monster_move(){
 _debug "_kill_monster_move:$*"
 _log   "_kill_monster_move:$*"
@@ -31,6 +35,8 @@ local lATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
 for i in `seq 1 1 ${lATTACKS:-1}`; do
 _is 1 1 fire $DIRN
 _is 1 1 fire_stop
+NROF_ITEM=$((NROF_ITEM-1))
+test "$NROF_ITEM" -le 0 && break 1
 done
 _empty_message_stream
 }
@@ -226,6 +232,35 @@ _check_food_level
 _check_hp
 _check_hp_and_return_home $HP
 _check_skill_available "punching" || return 1
+fi
+
+_say_script_time
+
+done
+}
+
+_throw_around(){
+_log   "_throw_around:$*"
+_debug "_throw_around:$*"
+
+while :;
+do
+
+one=$((one+1))
+
+[ "$DIRECTION_OPT" ] && _number_to_direction $DIRECTION_OPT || _set_next_direction
+
+_kill_monster_fire $ATTACKS_SPOT
+
+test "$NROF_ITEM" -le 0 && break 1
+case $NUMBER in $one) break 1;; esac
+#case $PUNCH_ATTEMPTS in $PUNCH_ATTEMPTS_DONE) break;; esac
+
+if _check_counter; then
+_check_food_level
+_check_hp
+_check_hp_and_return_home $HP
+_check_skill_available "throwing" || return 1
 fi
 
 _say_script_time

@@ -69,6 +69,7 @@ VERSION=3.2 # fix missings and end msg when using funcs libraries files
 VERSION=3.3 # exit early if already running or no DRAWINFO
 VERSION=3.4 # bugfixing
 VERSION=3.5 # Use standard sound directories
+VERSION=3.6 # require cf_funcs_items.sh
 
 SEARCH_ATTEMPTS_DEFAULT=9
 #DISARM variable set to skill, invokation OR cast
@@ -79,6 +80,8 @@ PICKUP_ALL_MODE=5  # set pickup 4 or 5
 MY_SELF=`realpath "$0"` ## needs to be in main script
 MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 MY_DIR=${MY_SELF%/*}
+
+cd "$MY_DIR"
 
 #DEBUG=1
 #LOGGING=1
@@ -2297,6 +2300,7 @@ _source_library_files(){
 . $MY_DIR/cf_funcs_move.sh     ||       _exit 7 "$MY_DIR/cf_funcs_move.sh     failed to load."
 . $MY_DIR/cf_funcs_chests.sh   ||       _exit 8 "$MY_DIR/cf_funcs_chests.sh   failed to load."
 . $MY_DIR/cf_funcs_requests.sh ||      _exit 12 "$MY_DIR/cf_funcs_requests.sh failed to load."
+. $MY_DIR/cf_funcs_items.sh    ||   _exit 16 "$MY_DIR/cf_funcs_items.sh     failed to load."
 }
 _source_library_files
 

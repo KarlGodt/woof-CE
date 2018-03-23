@@ -2,6 +2,8 @@
 
 [ "$HAVE_FUNCS_HEAL" ] && return 0
 
+# depends :
+[ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
 
 __check_hp(){
 _debug "__check_hp:$*"

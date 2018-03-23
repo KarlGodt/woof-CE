@@ -2,10 +2,13 @@
 
 [ "$HAVE_FUNCS_TRAPS" ] && return 0
 
+# depends :
+[ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
+
 _disarm_traps(){
 _draw 5 "Disarming ${TRAPS_ALL:-0} traps ..."
 case "$DISARM" in
-invokation) _invoke_disarm;;
+invokation|invocation) _invoke_disarm;;
 cast|spell) #case "$DIRECTION" in '') _invoke_disarm;; *) _cast_disarm;; esac;;
             _cast_disarm;;
 skill|'') _use_skill_disarm;;

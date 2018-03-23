@@ -9,11 +9,14 @@ VERSION=0.1 # exit early if already running or no DRAWINFO
 VERSION=0.2 # bugfixing
 VERSION=0.3 # Use standard sound directories
 VERSION=0.4 # bugfixings
+VERSION=0.5 # require cf_funcs_items.sh
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
 MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 MY_DIR=${MY_SELF%/*}
+
+cd "$MY_DIR"
 
 LOGGING=1
 
@@ -1991,6 +1994,7 @@ _source_library_files(){
 . $MY_DIR/cf_funcs_fight.sh    ||      _exit 10 "$MY_DIR/cf_funcs_fight.sh    failed to load."
 . $MY_DIR/cf_funcs_oratory.sh  ||      _exit 11 "$MY_DIR/cf_funcs_oratory.sh  failed to load."
 . $MY_DIR/cf_funcs_requests.sh ||      _exit 12 "$MY_DIR/cf_funcs_requests.sh failed to load."
+. $MY_DIR/cf_funcs_items.sh    ||   _exit 16 "$MY_DIR/cf_funcs_items.sh     failed to load."
 }
 _source_library_files
 

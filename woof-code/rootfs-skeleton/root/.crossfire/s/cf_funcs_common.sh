@@ -99,6 +99,8 @@ mkdir -p "$TMP_DIR"
   REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
 REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
      ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
+    INV_LOG="$TMP_DIR"/"$MY_BASE".$$.inv
+INV_LIST_FILE="$TMP_DIR"/"$MY_BASE".$$.inv
   ERROR_LOG="$TMP_DIR"/"$MY_BASE".$$.err
 exec 2>>"$ERROR_LOG"
 }
@@ -717,7 +719,7 @@ _error "Not recognized: '$DIRECTION'"
 ERROR="$oERROR"; unset oERROR;;
 esac
 DIRECTION_NUMBER=$DIRN
-return ${DIRN:-255}
+#return ${DIRN:-255}
 }
 
 _number_to_direction(){ # cf_funcs_move.sh
@@ -741,7 +743,7 @@ _error "Not recognized: '$DIRECTION'"
 ERROR="$oERROR"; unset oERROR;;
 esac
 DIRECTION_NUMBER=$DIRN
-return ${DIRN:-255}
+#return ${DIRN:-255}
 }
 
 _round_up_and_down(){  ##+++2018-01-08
@@ -1085,11 +1087,12 @@ fi
 unset HP
 }
 
-_check_if_on_item_examine(){
+_check_if_on_item_examine_(){
 # Using 'examine' directly after dropping
 # the item examines the bottommost tile
 # as 'That is marble'
-_debug "_check_if_on_item_examine:$*"
+_debug "_check_if_on_item_examine_:$*"
+_log   "_check_if_on_item_examine_:$*"
 
 local DO_LOOP TOPMOST LIST
 unset DO_LOOP TOPMOST LIST
@@ -1154,8 +1157,8 @@ else
 fi
 }
 
-_check_if_on_item(){
-_debug "_check_if_on_item:$*"
+_check_if_on_item_(){
+_debug "_check_if_on_item_:$*"
 
 local DO_LOOP TOPMOST lMSG lRV
 unset DO_LOOP TOPMOST lMSG lRV
@@ -1182,14 +1185,14 @@ echo request items on
 
 while :; do
 read -t $TMOUT UNDER_ME
-_log "$ON_LOG" "_check_if_on_item:$UNDER_ME"
+_log "$ON_LOG" "_check_if_on_item_:$UNDER_ME"
 _msg 7 "$UNDER_ME"
 
 case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
-*scripttell*break*)     break ${REPLY##*?break};;
-*scripttell*exit*)      _exit 1 $REPLY;;
+*scripttell*break*)     break ${UNDER_ME##*?break};;
+*scripttell*exit*)      _exit 1 $UNDER_ME;;
 *'YOU HAVE DIED.'*) _just_exit;;
 *bed*to*reality*)   _just_exit;;
 esac
@@ -1240,8 +1243,9 @@ _draw ${NDI_RED:-3} $lMSG
 test "$DO_LOOP" && return 1 || _exit 1
 }
 
-__check_if_on_item(){
-_debug "__check_if_on_item:$*"
+__check_if_on_item_(){
+_debug "__check_if_on_item_:$*"
+_log   "__check_if_on_item_:$*"
 
 local DO_LOOP TOPMOST lMSG lRV
 unset DO_LOOP TOPMOST lMSG lRV
@@ -1268,14 +1272,14 @@ echo request items on
 
 while :; do
 read -t $TMOUT UNDER_ME
-_log "$ON_LOG" "__check_if_on_item:$UNDER_ME"
+_log "$ON_LOG" "__check_if_on_item_:$UNDER_ME"
 _msg 7 "$UNDER_ME"
 
 case $UNDER_ME in
 '') continue;;
 *request*items*on*end*) break 1;;
-*scripttell*break*)     break ${REPLY##*?break};;
-*scripttell*exit*)      _exit 1 $REPLY;;
+*scripttell*break*)     break ${UNDER_ME##*?break};;
+*scripttell*exit*)      _exit 1 $UNDER_ME;;
 *'YOU HAVE DIED.'*) _just_exit;;
 *bed*to*reality*)   _just_exit;;
 esac
@@ -1332,8 +1336,9 @@ _draw ${NDI_RED:-3} $lMSG
 test "$DO_LOOP" && return 1 || _exit 1
 }
 
-_check_have_item_in_inventory(){
-_debug "_check_have_item_in_inventory:$*"
+_check_have_item_in_inventory_(){
+_debug "_check_have_item_in_inventory_:$*"
+_log   "_check_have_item_in_inventory_:$*"
 
 local oneITEM oldITEM ITEMS ITEMSA lITEM
 lITEM=${*:-"$ITEM"}
@@ -1348,12 +1353,14 @@ echo request items inv
 while :;
 do
 read -t ${TMOUT:-1} oneITEM
- _log "$INV_LOG" "_check_have_item_in_inventory:$oneITEM"
+ _log "$INV_LOG" "_check_have_item_in_inventory_:$oneITEM"
  _debug "$oneITEM"
 
  case $oneITEM in
  $oldITEM|'') break 1;;
- *"$lITEM"*) _draw 7 "Got that item $lITEM in inventory.";;
+ *"$lITEM"*)
+  NrOF=`echo "$oneITEM" | cut -f5 -d' '`; NROF_ITEM=$((NROF_ITEM+NrOF))
+  _draw 7 "Got $NrOF of that item $lITEM in inventory.";;
  *scripttell*break*)  break ${oneITEM##*?break};;
  *scripttell*exit*)   _exit 1 $oneITEM;;
  *'YOU HAVE DIED.'*) _just_exit;;
@@ -1375,7 +1382,7 @@ _debug "Fetching Inventory List: Elapsed $TIME sec."
 #_debug "tail:`echo -e "$ITEMS" | tail -n2 | head -n1`"
 #HAVEIT=`echo "$ITEMS" | grep -E  " $lITEM| ${lITEM}s| ${lITEM}es"`
 #__debug "HAVEIT=$HAVEIT"
-echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es"
+echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
 }
 
 _is(){

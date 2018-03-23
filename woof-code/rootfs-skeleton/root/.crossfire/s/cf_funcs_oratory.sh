@@ -2,6 +2,9 @@
 
 [ "$HAVE_FUNCS_ORATORY" ] && return 0
 
+# depends :
+[ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
+
 _sing_and_orate_around(){
 _debug "_sing_and_orate_around:$*"
 

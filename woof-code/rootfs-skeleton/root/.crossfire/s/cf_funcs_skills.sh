@@ -2,6 +2,9 @@
 
 [ "$HAVE_FUNCS_SKILLS" ] && return 0
 
+# depends :
+[ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
+
 _check_skill_available(){
 _debug "_check_skill_available:$*"
 _log   "_check_skill_available:$*"
@@ -17,8 +20,8 @@ case "$lSKILL" in
 punch*) _is 1 1 ready_skill ${SKILL_NOT_PUNCHING:-throwing};;
 throw*) _is 1 1 ready_skill ${SKILL_NOT_THROWING:-punching};;
 *)      _is 1 1 ready_skill ${2:-punching};;  # force response, because when not changing
-esac
-_is 1 1 ready_skill "$lSKILL" # range attack, no message is printed
+esac                                          # range attack, no message is printed
+_is 1 1 ready_skill "$lSKILL"
 
 while :; do unset REPLY
 read -t $TMOUT

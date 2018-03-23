@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/bash
 
 
 # 2018-02-10
@@ -9,18 +9,24 @@ VERSION=0.0 # Initial version,
 VERSION=0.1 # exit early if already running or no DRAWINFO
 VERSION=0.2 # Use standard sound directories
 VERSION=0.3 # add missing functions _do_parameters
+VERSION=0.4 # require item to throw, check if item is in inventory NROF, lock all other items
+VERSION=1.0 # first workings
 
-THROW_WEAPON='Throwing Dagger'
+LOGGING=1
+
+#THROW_WEAPON='throwing dagger'
+THROW_WEAPON='silver coin'
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
 MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 MY_DIR=${MY_SELF%/*}
 
+cd "$MY_DIR"
 
 _say_help_stdalone(){
 _draw_stdalone 6  "$MY_BASE"
-_draw_stdalone 7  "Script to throw weapon killing monsters"
+_draw_stdalone 7  "Script to throw weapon to kill monsters"
 _draw_stdalone 7  "by skill throwing."
 _draw_stdalone 2  "To be used in the crossfire roleplaying game client."
 _draw_stdalone 6  "Syntax:"
@@ -28,6 +34,10 @@ _draw_stdalone 7  "$0 <<NUMBER>> <<Options>>"
 _draw_stdalone 8  "Options:"
 _draw_stdalone 10 "Simple number as first parameter:Just make NUMBER loop rounds."
 _draw_stdalone 10 "-C # :like above, just make NUMBER loop rounds."
+_draw_stdalone 9  "-A # :Number of attack attempts per spot."
+_draw_stdalone 9  "-B : brace character."
+_draw_stdalone 9  "-Z : turn anti-clockwise."
+_draw_stdalone 10 "-W WEAPON: Weapon to throw."
 #_draw_stdalone 9  "-O # :Number of oratory attempts." #, default $ORATORY_ATTEMPTS_DEFAULT"
 #_draw_stdalone 9  "-S # :Number of singing attempts." #, default $SINGING_ATTEMPTS_DEFAULT"
 _draw_stdalone 8  "-D word :Direction to throw to,"
@@ -35,12 +45,13 @@ _draw_stdalone 8  " as n, ne, e, se, s, sw, w, nw."
 _draw_stdalone 8  " If no direction, turns clockwise all around on the spot."
 _draw_stdalone 11 "-V   :Print version information."
 _draw_stdalone 10 "-d   :Print debugging to msgpane."
+_draw_stdalone 10 "-L   :Turn on logging."
 exit ${1:-2}
 }
 
 _say_help(){
 _draw 6  "$MY_BASE"
-_draw 7  "Script to throw weapon killing monsters"
+_draw 7  "Script to throw weapon to kill monsters"
 _draw 7  "by skill throwing."
 _draw 2  "To be used in the crossfire roleplaying game client."
 _draw 6  "Syntax:"
@@ -48,13 +59,18 @@ _draw 7  "$0 <<NUMBER>> <<Options>>"
 _draw 8  "Options:"
 _draw 10 "Simple number as first parameter:Just make NUMBER loop rounds."
 _draw 10 "-C # :like above, just make NUMBER loop rounds."
+_draw 9  "-A # :Number of attack attempts per spot."
+_draw 9  "-B : brace character."
+_draw 9  "-Z : turn anti-clockwise."
+_draw 10 "-W WEAPON: Weapon to throw."
 #_draw 9  "-O # :Number of oratory attempts." #, default $ORATORY_ATTEMPTS_DEFAULT"
 #_draw 9  "-S # :Number of singing attempts." #, default $SINGING_ATTEMPTS_DEFAULT"
-_draw 8  "-D word :Direction to sing and orate to,"
+_draw 8  "-D word :Direction to throw to,"
 _draw 8  " as n, ne, e, se, s, sw, w, nw."
 _draw 8  " If no direction, turns clockwise all around on the spot."
 _draw 11 "-V   :Print version information."
 _draw 10 "-d   :Print debugging to msgpane."
+_draw 10 "-L   :Turn on logging."
 exit ${1:-2}
 }
 
@@ -100,7 +116,7 @@ esac
 ;;
 esac
 
-COUNT_CHECK_FOOD=${COUNT_CHECK_FOOD:-10} # number between attempts to check foodlevel.
+COUNT_CHECK_FOOD=${COUNT_CHECK_FOOD:-1000} # number between attempts to check foodlevel.
                     #  1 would mean check every single time, which is too much
 EAT_FOOD=${EAT_FOOD:-waybread}   # set to desired food to eat ie food, mushroom, booze, .. etc.
 FOOD_DEF=haggis     # default
@@ -149,11 +165,12 @@ CF_SOUND_DIR="$CF_DATADIR"/sounds
 #MY_BASE=${MY_SELF##*/}  ## needs to be in main script
 TMP_DIR=/tmp/crossfire_client
 mkdir -p "$TMP_DIR"
-    LOGFILE=${LOGFILE:-"$TMP_DIR"/"$MY_BASE".$$.log}
-  REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
-REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
-     ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
-  ERROR_LOG="$TMP_DIR"/"$MY_BASE".$$.err
+      LOGFILE=${LOGFILE:-"$TMP_DIR"/"$MY_BASE".$$.log}
+    REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
+  REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
+       ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
+INV_LIST_FILE="$TMP_DIR"/"$MY_BASE".$$.inv
+    ERROR_LOG="$TMP_DIR"/"$MY_BASE".$$.err
 exec 2>>"$ERROR_LOG"
 }
 
@@ -223,6 +240,7 @@ _is_stdalone 0 0 examine
  done
 
 _sleep_stdalone
+break
 done
 
 echo unwatch
@@ -491,6 +509,7 @@ case $lREPLY in
 *scripttell*break*)     break ${lREPLY##*?break};;
 *scripttell*exit*)      _exit_stdalone 1 $lREPLY;;
 *'YOU HAVE DIED.'*) _just_exit_stdalone;;
+*'You have nothing to throw.'*) _exit_stdalone 1 $lREPLY;;
 esac
 _msg_stdalone 7 "_empty_message_stream_stdalone:$lREPLY"
 unset lREPLY
@@ -590,6 +609,7 @@ _debug_stdalone "$REPLY"
  *scripttell*break*)     break ${REPLY##*?break};;
  *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
+ *'You have nothing to throw.'*) _exit_stdalone 1 $REPLY;;
  *) :;;
  esac
 
@@ -622,8 +642,9 @@ _number_to_direction_stdalone $DIRN
 _draw_stdalone 2 "Will turn to direction $DIRECTION .."
 }
 
-_kill_monster_stdalone(){
-_debug_stdalone "_kill_monster_stdalone:$*"
+__kill_monster_stdalone(){
+_debug_stdalone "__kill_monster_stdalone:$*"
+_log_stdalone   "__kill_monster_stdalone:$*"
 
 local lATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
 
@@ -636,6 +657,26 @@ _is_stdalone 1 1 $DIRECTION
 done
 _empty_message_stream_stdalone
 }
+
+_kill_monster_stdalone(){
+_msg_stdalone 7 "_kill_monster_stdalone:$*"
+_log_stdalone   "_kill_monster_stdalone:$*"
+
+local lATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
+
+# TODO:
+#*'You withhold your attack'*)  _set_next_direction_stdalone; break 1;;
+#*'You avoid attacking '*)      _set_next_direction_stdalone; break 1;;
+
+for i in `seq 1 1 ${lATTACKS:-1}`; do
+_is_stdalone 1 1 fire $DIRN
+_is_stdalone 1 1 fire_stop
+NROF_ITEM=$((NROF_ITEM-1))
+test "$NROF_ITEM" -le 0 && break 1
+done
+_empty_message_stream_stdalone
+}
+
 
 _brace_stdalone(){
 _debug_stdalone "_brace_stdalone:$*"
@@ -654,6 +695,7 @@ _is_stdalone 1 1 brace
  *scripttell*break*)     break ${REPLY##*?break};;
  *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
+ *'You have nothing to throw.'*) _exit_stdalone 1 $REPLY;;
  '') :;;
  *) :;;
  esac
@@ -684,6 +726,7 @@ _is_stdalone 1 1 brace
  *scripttell*break*)     break ${REPLY##*?break};;
  *scripttell*exit*)    _exit_stdalone 1 $REPLY;;
  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
+ *'You have nothing to throw.'*) _exit_stdalone 1 $REPLY;;
  '') :;;
  *) :;;
  esac
@@ -713,7 +756,7 @@ read -t ${TMOUT:-1} r s c WC AC DAM SPEED WP_SPEED REST
  _msg_stdalone 7 "$WC $AC $DAM $SPEED $WP_SPEED $REST"
 
 PL_SPEED=$SPEED
-test "$WC" -a "$AC" -a "$DAM" -a "$SPEED" -a "$WP_SPEED"
+test "$WC" != "" -a "$AC" != "" -a "$DAM" -a "$SPEED" -a "$WP_SPEED"
 }
 
 
@@ -978,7 +1021,7 @@ esac
 # C # :Count loop rounds
 
 # d   :debugging output
-while getopts A:BC:D:LZdVhabdefgijklmnopqrstuvwxyzEFGHIJKMNOPQRSTUWXY oneOPT
+while getopts A:BC:D:LZdVWhabdefgijklmnopqrstuvwxyzEFGHIJKMNOPQRSTUXY oneOPT
 do
 case $oneOPT in
 A) ATTACKS_SPOT=$OPTARG;;
@@ -986,6 +1029,7 @@ B) DO_BRACE=1;;
 C) NUMBER=$OPTARG;;
 D) DIRECTION_OPT=$OPTARG;;
 L) LOGGING=$((LOGGING+1));;
+W) THROW_WEAPON="$OPTARG";;
 Z) DO_CLOCKWISE=1;;
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
 h) _say_help_stdalone 0;;
@@ -1022,7 +1066,7 @@ esac
 # C # :Count loop rounds
 
 # d   :debugging output
-while getopts A:BC:D:LZdVhabdefgijklmnopqrstuvwxyzEFGHIJKMNPOQRSTUWXY oneOPT
+while getopts A:BC:D:LZdVWhabdefgijklmnopqrstuvwxyzEFGHIJKMNPOQRSTUXY oneOPT
 do
 case $oneOPT in
 A) ATTACKS_SPOT=$OPTARG;;
@@ -1030,6 +1074,7 @@ B) DO_BRACE=1;;
 C) NUMBER=$OPTARG;;
 D) DIRECTION_OPT=$OPTARG;;
 L) LOGGING=$((LOGGING+1));;
+W) THROW_WEAPON="$OPTARG";;
 Z) DO_CLOCKWISE=1;;
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
 h) _say_help 0;;
@@ -1044,12 +1089,591 @@ done
 
 }
 
+_check_have_item_in_inventory_stdalone(){
+_msg_stdalone 7 "_check_have_item_in_inventory_stdalone:$*"
+_log_stdalone   "_check_have_item_in_inventory_stdalone:$*"
 
-#check if THROW_WEAPON in inventory
+local oneITEM oldITEM ITEMS ITEMSA lITEM
+lITEM=${*:-"$ITEM"}
+test "$lITEM" || return 254
+
+TIMEB=`date +%s`
+
+unset oneITEM oldITEM ITEMS ITEMSA
+
+_empty_message_stream_stdalone
+echo request items inv
+while :;
+do
+read -t ${TMOUT:-1} oneITEM
+ _log_stdalone "_check_have_item_in_inventory_stdalone:$oneITEM"
+ _msg_stdalone 7 "$oneITEM"
+
+ case $oneITEM in
+ $oldITEM|'') break 1;;
+
+ *"$lITEM"*|*"${lITEM// /?*}"*)
+   NrOF=`echo "$oneITEM" | cut -f5 -d' '`; NROF_ITEM=$((NROF_ITEM+NrOF))
+   _draw_stdalone 7 "Got $NrOF of that item $lITEM in inventory.";;
+ *scripttell*break*)  break ${oneITEM##*?break};;
+ *scripttell*exit*)   _exit_stdalone 1 $oneITEM;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
+
+ *'You have nothing to throw.'*) _exit_stdalone 1 $oneITEM;;
+ *) :;;
+ esac
+ ITEMS="${ITEMS}${oneITEM}\n"
+ oldITEM="$oneITEM"
+sleep 0.01
+done
+unset oldITEM oneITEM
+
+
+TIMEE=`date +%s`
+TIME=$((TIMEE-TIMEB))
+_msg_stdalone 7 "Fetching Inventory List: Elapsed $TIME sec."
+
+echo -e "$ITEMS" | grep -q -i -E " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}"
+}
+
+_toggle_lock_stdalone(){
+  _log_stdalone "_toggle_lock_stdalone:$*"
+_debug_stdalone "_toggle_lock_stdalone:$*"
+
+lD_NAME=${lD_NAME:-"$D_NAME"}
+test "$lD_NAME" || return 254
+
+case $lD_NAME in
+ "one "*|"two "*|"three "*|"four "*|"five "*|"six "*|"seven "*|"eight "*|"nine "*)
+   _is_stdalone 1 1 lock ${lD_NAME#* };;
+ "ten "*|"eleven "*|"twelve "*|"thirteen "*|*"teen "*|"twenty "*)
+   _is_stdalone 1 1 lock ${lD_NAME#* };;
+*) _is_stdalone 1 1 lock ${lD_NAME};;
+esac
+unset lD_NAME
+
+}
+
+_lock_all_items_stdalone(){
+_log_stdalone   "_lock_all_items_stdalone:$*"
+_debug_stdalone "_lock_all_items_stdalone:$*"
+
+local lEMPTY_LINE=0
+
+unset INVENTORY_LIST
+
+echo request items inv
+usleep 1000
+
+while :; do
+unset  req itm inv TAG NROF WEIGHT FLAGS TYPE D_NAME
+
+#flags=it->magical;                      1
+#   flags= (flags<<1)|it->cursed;        2
+#   flags= (flags<<1)|it->damned;        4
+#   flags= (flags<<1)|it->unpaid;        8
+#   flags= (flags<<1)|it->locked;       16
+#   flags= (flags<<1)|it->applied;      32
+#   flags= (flags<<1)|it->open;         64
+#   flags= (flags<<1)|it->was_open;    128
+#   flags= (flags<<1)|it->inv_updated; 256
+
+# sprintf(buf,"%s%d %d %f %d %d %s\n",
+# head,
+# it->tag,
+# it->nrof,
+# it->weight,
+# flags,
+# it->type,
+# it->d_name);
+read -t ${TMOUT:-1} req itm inv TAG NROF WEIGHT FLAGS TYPE D_NAME
+# 72605606 1 19 17 0 flower
+_log_stdalone "$INV_LIST_FILE" "_lock_all_items_stdalone:$req $itm $inv $TAG $NROF $WEIGHT $FLAGS $TYPE $D_NAME"
+_debug_stdalone "$req $itm $inv $TAG $NROF $WEIGHT $FLAGS $TYPE $D_NAME"
+
+case $req in
+'') lEMPTY_LINE=$((lEMPTY_LINE+1));
+    if test $lEMPTY_LINE -ge 5; then
+     _log_stdalone "$INV_LIST_FILE" "WARNING: Inventory has too many items to request them all!"
+     _warn_stdalone "Inventory has too many items to request them all!"
+     break 1
+    fi
+ ;;
+esac
+
+case $TAG in end) break 1;; esac
+
+INVENTORY_LIST="$INVENTORY_LIST
+$NROF:$D_NAME"
+
+test $FLAGS -lt 16 && _toggle_lock_stdalone
+
+
+usleep 1000
+done
+
+INVENTORY_LIST=`echo "$INVENTORY_LIST" | sed 's/request items inv end//'`
+INVENTORY_LIST=`echo "$INVENTORY_LIST" | sed 's/request items inv //'`
+INVENTORY_LIST=`echo "$INVENTORY_LIST" | sed 's/^$//'`
+
+test "$INVENTORY_LIST"
+}
+
+_unlock_stdalone(){
+_log_stdalone   "_unlock_stdalone:$*"
+_debug_stdalone "_unlock_stdalone:$*"
+
+local lITEM=${*:-"$THROW_WEAPON"}
+test "$lITEM" || return 254
+
+local lreq litm linv lTAG lNROF lWEIGHT lFLAGS lTYPE lD_NAME
+local lEMPTY_LINE=0
+
+echo request items inv
+usleep 1000
+
+while :; do
+unset lreq litm linv lTAG lNROF lWEIGHT lFLAGS lTYPE lD_NAME
+read -t ${TMOUT:-1} lreq litm linv lTAG lNROF lWEIGHT lFLAGS lTYPE lD_NAME
+# 72605606 1 19 17 0 flower
+_log_stdalone "$INV_LIST_FILE" "_unlock_stdalone:$lreq $litm $linv $lTAG $lNROF $lWEIGHT $lFLAGS $lTYPE $lD_NAME"
+_debug_stdalone "$lreq $litm $linv $lTAG $lNROF $lWEIGHT $lFLAGS $lTYPE $lD_NAME"
+
+case $req in
+'') lEMPTY_LINE=$((lEMPTY_LINE+1));
+    if test $lEMPTY_LINE -ge 5; then
+     _log_stdalone "$INV_LIST_FILE" "WARNING: Inventory has too many items to request them all!"
+     _warn_stdalone "Inventory has too many items to request them all!"
+     break 1
+    fi
+ ;;
+esac
+
+case $lTAG in end) break 1;; esac
+
+#case $lITEM in
+#*$lD_NAME*)
+# _debug_stdalone "Have '$lITEM' in '$lD_NAME'"
+# _log_stdalone   "_unlock_stdalone:Have '$lITEM' in '$lD_NAME'"
+# test "$lFLAGS" -gt 15 && _toggle_lock_stdalone;;
+#esac
+
+case $lD_NAME in
+*$lITEM*|*"$lITEM"*|*"${lITEM// /?*}"*)
+ _debug_stdalone "Have '$lITEM' in '$lD_NAME'"
+ _log_stdalone   "_unlock_stdalone:Have '$lITEM' in '$lD_NAME'"
+ test "$lFLAGS" -gt 15 && _toggle_lock_stdalone;;
+esac
+
+usleep 1000
+done
+}
+
+_check_food_level_stdalone(){
+_msg_stdalone 7 "_check_food_level_stdalone:$*"
+_log_stdalone   "_check_food_level_stdalone:$*"
+
+test "$*" && MIN_FOOD_LEVEL="$@"
+MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
+MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-300}
+
+local FOOD_LVL=''
+local REPLY
+
+while :;
+do
+
+_request_stat_hp_stdalone # FOOD_LVL
+
+if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
+ _cast_create_food_and_eat_stdalone $EAT_FOOD || _eat_food_from_inventory_stdalone $EAT_FOOD
+ _request_stat_hp_stdalone
+  break
+else true
+fi
+
+test "$FOOD_LVL" && break
+
+sleep 0.1
+done
+}
+
+_eat_food_from_inventory_stdalone(){
+_msg_stdalone 7 "_eat_food_from_inventory_stdalone:$*"
+_log_stdalone   "_eat_food_from_inventory_stdalone:$*"
+
+local lEAT_FOOD="${@:-$EAT_FOOD}"
+lEAT_FOOD=${lEAT_FOOD:-"$FOOD_DEF"}
+test "$lEAT_FOOD" || return 254
+
+_check_have_item_in_inventory_stdalone $lEAT_FOOD && _is_stdalone 1 1 apply $lEAT_FOOD
+}
+
+_request_stat_hp_stdalone(){
+#Return hp,maxhp,sp,maxsp,grace,maxgrace,food
+_msg_stdalone 7 "_request_stat_hp_stdalone:$*"
+_log_stdalone   "_request_stat_hp_stdalone:$*"
+
+_empty_message_stream_stdalone
+
+unset HP MHP SP MSP GR MGR FOOD_LVL REST
+echo request stat hp
+read -t ${TMOUT:-1} r s hp HP MHP SP MSP GR MGR FOOD_LVL REST
+#request stat hp %d %d %d %d %d %d %d\n",
+#cpl.stats.hp,cpl.stats.maxhp,cpl.stats.sp,cpl.stats.maxsp,cpl.stats.grace,cpl.stats.maxgrace,cpl.stats.food)
+ _log_stdalone "$REQUEST_LOG" "_request_stat_hp_stdalone $*:$HP $MHP $SP $MSP $GR $MGR $FOOD_LVL $REST"
+ _msg_stdalone 7 "$HP $MHP $SP $MSP $GR $MGR $FOOD_LVL $REST"
+
+MAXHP=$MHP
+MAXSP=$MSP
+MAXGR=$MGR
+test "$HP" -a "$MHP" -a "$SP" -a "$MSP" -a "$GR" -a "$MGR" -a "$FOOD_LVL"
+}
+
+_check_mana_for_create_food_stdalone(){
+_msg_stdalone 7 "_check_mana_for_create_food_stdalone:$*"
+_log_stdalone   "_check_mana_for_create_food_stdalone:$*"
+
+local lSP=${*:-$SP}
+test "$lSP" || return 254
+
+local REPLY
+
+# This function forces drawing of
+# all spells that start witch 'create'
+# to the message panel and the reads the
+# drawinfo lines.
+# It needs the SP variable set by
+# _check_food_level()
+_watch_stdalone $DRAWINFO
+_is_stdalone 1 0 cast create
+
+while :;
+do
+
+read -t ${TMOUT:-1}
+   _log_stdalone "$REPLY_LOG" "_check_mana_for_create_food_stdalone:$REPLY"
+ _msg_stdalone 7 "_check_mana_for_create_food_stdalone:$REPLY"
+
+ case $REPLY in
+ *ready*the*spell*create*food*) return 0;;
+ *create*food*)
+ MANA_NEEDED=`echo "$REPLY" | awk '{print $NF}'`
+ _msg_stdalone 7 "MANA_NEEDED=$MANA_NEEDED"
+ test "$lSP" -ge "$MANA_NEEDED" && return 0 || break 1
+ ;;
+ *'Something blocks your spellcasting.'*) _exit_stdalone 1 "Not possible on this spot.";;
+ *scripttell*break*) break ${REPLY##*?break};;
+ *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
+
+ *'You have nothing to throw.'*) _exit_stdalone 1 $REPLY;;
+ '') break 1;;
+ *) :;;
+ esac
+
+sleep 0.01
+unset REPLY
+done
+
+_unwatch_stdalone $DRAWINFO
+return 1
+}
+
+
+#** we may get attacked and die **#
+_check_hp_and_return_home_stdalone(){
+_msg_stdalone 7 "_check_hp_and_return_home_stdalone:$*"
+_log_stdalone   "_check_hp_and_return_home_stdalone:$*"
+
+local currHP currHPMin
+currHP=${1:-$HP}
+currHPMin=${2:-$HP_MIN_DEF}
+currHPMin=${currHPMin:-$((MHP/10))}
+
+unset HP
+_msg_stdalone 7 "currHP=$currHP currHPMin=$currHPMin"
+if test "$currHP" -le ${currHPMin:-20}; then
+_emergency_exit_stdalone
+fi
+}
+
+__check_hp_stdalone(){
+_msg_stdalone 7 "__check_hp_stdalone:$*"
+_log_stdalone   "__check_hp_stdalone:$*"
+
+while :; do
+ unset HP MAXHP
+ _request_stat_hp_stdalone
+ case $HP in '') :;; *) break 1;; esac
+done
+
+  if test $MAXHP -le 20; then return 0
+elif test $HP -le 100; then
+     test $HP -gt $(( ( MAXHP / 10 ) * 9 ))
+else test $HP -gt $(( ( MAXHP / 100 ) * 90 ))
+fi
+}
+
+_heal_stdalone(){
+_msg_stdalone 7 "_heal_stdalone:$*"
+_log_stdalone   "_heal_stdalone:$*"
+
+local lITEM=${*:-"$HEAL_ITEM"}
+
+case $lITEM in
+*rod*|*staff*|*wand*|*horn*|*scroll*) _check_have_item_in_inventory_stdalone $lITEM || return 1;;
+*) :;;
+esac
+
+case $lITEM in
+*rod*|*staff*|*wand*|*horn*)
+ _is_stdalone 1 1 apply -u $lITEM
+ _is_stdalone 1 1 apply -a $lITEM
+ _is_stdalone 1 1 fire 0
+ _is_stdalone 1 1 fire_stop
+ ;;
+*scroll*) _is_stdalone 1 1 apply $lITEM;;
+'') :;;
+*) _is_stdalone 1 1 invoke $lITEM;;
+esac
+
+}
+
+_check_hp_stdalone(){
+_msg_stdalone 7 "_check_hp_stdalone:$*"
+_log_stdalone   "_check_hp_stdalone:$*"
+
+while :;
+do
+ __check_hp_stdalone && return 0
+ _heal_stdalone
+ _sleep_stdalone
+done
+
+}
+
+_cast_create_food_and_eat_stdalone(){
+_msg_stdalone 7 "_cast_create_food_and_eat_stdalone:$*"
+_log_stdalone   "_cast_create_food_and_eat_stdalone:$*"
+
+local lEAT_FOOD BUNGLE
+
+lEAT_FOOD="${*:-$EAT_FOOD}"
+lEAT_FOOD=${lEAT_FOOD:-"$FOOD_DEF"}
+lEAT_FOOD=${lEAT_FOOD:-food}
+
+ _set_pickup_stdalone 0
+
+_unwatch_stdalone $DRAWINFO
+_empty_message_stream_stdalone
+_watch_stdalone $DRAWINFO
+
+unset HAVE_NOT_SPELL
+# TODO: Check MANA
+_is_stdalone 1 1 cast create food $lEAT_FOOD
+while :;
+ do
+ unset REPLY
+ read -t $TMOUT
+ _log_stdalone "$REPLY_LOG" "_cast_create_food_and_eat_stdalone:$REPLY"
+ _msg_stdalone 7 "$REPLY"
+ case $REPLY in
+ *Cast*what*spell*) HAVE_NOT_SPELL=1; break 1;; #Cast what spell?  Choose one of:
+ *ready*the*spell*)  break 1;;                  #You ready the spell create food
+ '')                 break 1;;
+ *scripttell*break*) break ${REPLY##*?break};;
+ *scripttell*exit*)  _exit_stdalone 1 $REPLY;;
+ *'YOU HAVE DIED.'*) _just_exit_stdalone;;
+
+ *'You have nothing to throw.'*) _exit_stdalone 1 $REPLY;;
+ *) :;;
+ esac
+sleep 0.01
+done
+
+test "$HAVE_NOT_SPELL" && return 253
+
+_empty_message_stream_stdalone
+
+while :;
+do
+_is_stdalone 1 1 fire_stop # precaution
+sleep 0.1
+
+ while :;
+ do
+  _check_mana_for_create_food_stdalone && break
+  sleep 10
+ done
+
+# _check_mana_for_create_food_stdalone returns early
+_unwatch_stdalone $DRAWINFO
+_empty_message_stream_stdalone
+sleep 0.2
+
+_watch_stdalone $DRAWINFO
+_is_stdalone 1 1 fire center ## TODO: handle bungling the spell
+_is_stdalone 1 1 fire_stop
+
+ while :; do
+  unset BUNGLE
+  read -t $TMOUT BUNGLE
+  _log_stdalone "$REPLY_LOG" "_cast_create_food_and_eat_stdalone:$BUNGLE"
+  _msg_stdalone 7 "BUNGLE=$BUNGLE"
+  case $BUNGLE in
+  *bungle*|*fumble*) break 1;;
+  '') break 2;;
+  *scripttell*break*) break ${BUNGLE##*?break};;
+  *scripttell*exit*)  _exit_stdalone 1 $BUNGLE;;
+  *'YOU HAVE DIED.'*) _just_exit_stdalone;;
+
+  *'You have nothing to throw.'*) _exit_stdalone 1 $BUNGLE;;
+  *) :;;
+  esac
+ sleep 0.01
+ done
+
+sleep 0.2
+done
+
+_unwatch_stdalone $DRAWINFO
+_is_stdalone 1 1 fire_stop
+_empty_message_stream_stdalone
+_sleep_stdalone
+
+_check_if_on_item_stdalone -l ${lEAT_FOOD:-haggis}
+case $? in 0) _is_stdalone 1 1 apply;;
+*) _is_stdalone 1 1 get all
+   _is_stdalone 1 1 apply ${lEAT_FOOD:-haggis};;
+esac
+_empty_message_stream_stdalone
+}
+
+_check_if_on_item_stdalone(){
+_msg_stdalone 7 "_check_if_on_item_stdalone:$*"
+_log_stdalone   "_check_if_on_item_stdalone:$*"
+
+local DO_LOOP TOPMOST lMSG lRV
+unset DO_LOOP TOPMOST lMSG lRV
+
+while [ "$1" ]; do
+case $1 in
+-l) DO_LOOP=1;;
+-t) TOPMOST=1;;
+-lt|-tl) DO_LOOP=1; TOPMOST=1;;
+*) break;;
+esac
+shift
+done
+
+local lITEM=${*:-"$ITEM"}
+test "$lITEM" || return 254
+
+_msg_stdalone 6  "Checking if standing on $lITEM ..."
+UNDER_ME='';
+UNDER_ME_LIST='';
+
+_empty_message_stream_stdalone
+echo request items on
+
+while :; do
+read -t $TMOUT UNDER_ME
+_log_stdalone "$ON_LOG" "_check_if_on_item_stdalone:$UNDER_ME"
+_msg_stdalone 7 "$UNDER_ME"
+
+case $UNDER_ME in
+'') continue;;
+*request*items*on*end*) break 1;;
+*scripttell*break*)     break ${UNDER_ME##*?break};;
+*scripttell*exit*)      _exit_stdalone 1 $UNDER_ME;;
+*'YOU HAVE DIED.'*) _just_exit_stdalone;;
+*bed*to*reality*)   _just_exit_stdalone;;
+*'You have nothing to throw.'*) _exit_stdalone 1 $UNDER_ME;;
+esac
+
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+
+unset UNDER_ME
+sleep 0.1s
+done
+
+UNDER_ME_LIST=`echo "$UNDER_ME_LIST" | sed 's%^$%%'`
+
+__debug_stdalone "UNDER_ME_LIST='$UNDER_ME_LIST'"
+
+NUMBER_ITEM=`echo "$UNDER_ME_LIST" | grep -iE " $lITEM| ${lITEM}s| ${lITEM}es| ${lITEM// /[s ]+}" | wc -l`
+
+unset TOPMOST_MSG
+case "$UNDER_ME_LIST" in
+*"$lITEM"|*"${lITEM}s"|*"${lITEM}es"|*"${lITEM// /?*}")
+ TOPMOST_MSG='some'
+;;
+esac
+test "$TOPMOST" && { UNDER_ME_LIST=`echo "$UNDER_ME_LIST" | tail -n1`; TOPMOST_MSG=${TOPMOST_MSG:-topmost}; }
+
+case "$UNDER_ME_LIST" in
+*"$lITEM"|*"${lITEM}s"|*"${lITEM}es"|*"${lITEM// /?*}")
+   lRV=0;;
+*) lMSG="You appear not to stand on $TOPMOST_MSG $lITEM!"
+   lRV=1;;
+esac
+
+if test $lRV = 0; then
+ case "$UNDER_ME_LIST" in
+ *cursed*)
+   lMSG="You appear to stand upon $TOPMOST_MSG cursed $lITEM!"
+   lRV=1;;
+ *damned*)
+   lMSG="You appear to stand upon $TOPMOST_MSG damned $lITEM!"
+   lRV=1;;
+ esac
+fi
+
+test "$lRV" = 0 && return 0
+
+_beep_std_stdalone
+_draw_stdalone 3 $lMSG
+test "$DO_LOOP" && return 1 || _exit_stdalone 1 $lMSG
+}
+
 
 # MAIN
 
+_throw_around_stdalone(){
+_log_stdalone   "_throw_around_stdalone:$*"
+_debug_stdalone "_throw_around_stdalone:$*"
+
+while :;
+do
+
+one=$((one+1))
+
+[ "$DIRECTION_OPT" ] && _number_to_direction_stdalone $DIRECTION_OPT || _set_next_direction_stdalone
+
+_kill_monster_stdalone $ATTACKS_SPOT
+
+test "$NROF_ITEM" -le 0 && break 1
+case $NUMBER in $one) break 1;; esac
+#case $PUNCH_ATTEMPTS in $PUNCH_ATTEMPTS_DONE) break;; esac
+
+if _check_counter_stdalone; then
+_check_food_level_stdalone
+_check_hp_stdalone
+_check_hp_and_return_home_stdalone $HP
+_check_skill_available_stdalone "throwing" || return 1
+fi
+
+_say_script_time_stdalone
+
+done
+}
+
 _main_throw_stdalone(){
+_log_stdalone   "_main_throw_stdalone:$*"
+_debug_stdalone "_main_throw_stdalone:$*"
+
 _set_global_variables_stdalone $*
 _say_start_msg_stdalone $*
 _do_parameters_stdalone $*
@@ -1057,12 +1681,24 @@ _do_parameters_stdalone $*
 _get_player_speed_stdalone
 test "$PL_SPEED1" && __set_sync_sleep_stdalone ${PL_SPEED1} || _set_sync_sleep_stdalone "$PL_SPEED"
 
-
 _direction_to_number_stdalone $DIRECTION_OPT
-_check_skill_available_stdalone throwing || return 1
 
-_brace_stdalone
+STATUS=0
+       _check_skill_available_stdalone throwing        || STATUS=$((STATUS+1))
+_check_have_item_in_inventory_stdalone "$THROW_WEAPON" || STATUS=$((STATUS+2))
+_lock_all_items_stdalone         || STATUS=$((STATUS+4))
+_unlock_stdalone "$THROW_WEAPON" || STATUS=$((STATUS+8))
+_is_stdalone 1 1 mark "$THROW_WEAPON"
+
+#DEBUG:
+#_draw_stdalone 3 "STATUS=$STATUS"
+#sleep 9
+
+if test "$STATUS" = 0; then
+[ "$DO_BRACE" ] && _brace_stdalone
 _throw_around_stdalone
+fi
+
 _unbrace_stdalone
 _say_end_msg_stdalone
 }
@@ -1075,6 +1711,8 @@ _source_library_files(){
 . $MY_DIR/cf_funcs_skills.sh   ||   _exit 9  "$MY_DIR/cf_funcs_skills.sh    failed to load."
 . $MY_DIR/cf_funcs_fight.sh    ||   _exit 10 "$MY_DIR/cf_funcs_fight.sh     failed to load."
 . $MY_DIR/cf_funcs_requests.sh ||   _exit 12 "$MY_DIR/cf_funcs_requests.sh  failed to load."
+. $MY_DIR/cf_funcs_heal.sh     ||   _exit 13 "$MY_DIR/cf_funcs_heal.sh     failed to load."
+. $MY_DIR/cf_funcs_items.sh    ||   _exit 16 "$MY_DIR/cf_funcs_items.sh     failed to load."
 }
 _source_library_files
 
@@ -1088,24 +1726,32 @@ _do_parameters $*
 _get_player_speed
 test "$PL_SPEED1" && __set_sync_sleep ${PL_SPEED1} || _set_sync_sleep "$PL_SPEED"
 
-
 _direction_to_number $DIRECTION_OPT
-_check_skill_available throwing || return 1
 
-_brace
+STATUS=0
+       _check_skill_available throwing        || STATUS=$((STATUS+1))
+_check_have_item_in_inventory "$THROW_WEAPON" || STATUS=$((STATUS+1))
+_lock_all_items         || STATUS=$((STATUS+1))
+_unlock "$THROW_WEAPON" || STATUS=$((STATUS+1))
+_is 1 1 mark "$THROW_WEAPON"
+
+if test "$STATUS" = 0; then
+[ "$DO_BRACE" ] && _brace
 _throw_around
+fi
+
 _unbrace
 _say_end_msg
 }
 
-while :; do
+#while :; do
 
- _main_throw_stdalone "$@"
-#_main_throw_func "$@"
+# _main_throw_stdalone "$@"
+ _main_throw_func "$@"
 
-test "$NUMBER" && break
-sleep 5
-done
+#test "$NUMBER" && break
+#sleep 5
+#done
 
 ###END###
 
