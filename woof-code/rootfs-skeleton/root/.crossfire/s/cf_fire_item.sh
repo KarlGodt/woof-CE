@@ -53,7 +53,7 @@ _draw_stdalone(){
     lCOLOUR="$1"; shift;; esac
     local lCOLOUR=${lCOLOUR:-1} #set default
     local lMSG="$@"
-    echo draw $lCOLOUR "$lMSG"
+    echo draw $lCOLOUR $lMSG
 }
 
 __draw_stdalone(){
@@ -94,7 +94,7 @@ echo "$*" >>"$LOG_FILE"
 _debug_stdalone(){
 test "$DEBUG" || return 0
 case $1 in -s) shift; sleep 0.5;; esac
-echo draw 3 "$*"
+echo draw 3 $*
 }
 
 __debug_stdalone(){  ##+++2018-01-10

@@ -47,6 +47,7 @@ VERSION=2.1.1 # bugfixes
 VERSION=3.0 # make it standalone possible again
 VERSION=3.1 # bugfixing
 VERSION=3.2 # Use standard sound directories
+VERSION=3.2.1 # add -l logging option
 
 LOCKPICK_ATTEMPTS_DEFAULT=9
 SEARCH_ATTEMPTS_DEFAULT=9
@@ -87,6 +88,7 @@ _draw_stdalone 12 "-c   :cast spell disarm"
 _draw_stdalone 12 "-i   :invoke spell disarm"
 _draw_stdalone 12 "-u   :use_skill disarm"
 _draw_stdalone 10 "-d   :Print debugging to msgpane."
+_draw_stdalone 10 "-l   :Log to $TMP_DIR ."
 
 exit ${1:-2}
 }
@@ -112,6 +114,7 @@ _draw 12 "-c   :cast spell disarm"
 _draw 12 "-i   :invoke spell disarm"
 _draw 12 "-u   :use_skill disarm"
 _draw 10 "-d   :Print debugging to msgpane."
+_draw 10 "-l   :Log to $TMP_DIR ."
 
 exit ${1:-2}
 }
@@ -129,12 +132,13 @@ MSGLEVEL=${MSGLEVEL:-6} #integer 1 emergency - 7 debug
 #7) DEBUG=${DEBUG:-1};; 6) INFO=${INFO:-1};; 5) NOTICE=${NOTICE:-1};; 4) WARN=${WARN:-1};;
 #3) ERROR=${ERROR:-1};; 2) ALERT=${ALERT:-1};; 1) EMERG=${EMERG:-1};;
 #esac
-DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
+DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; CRITICAL=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
 case $MSGLEVEL in
 7) unset Q;; 6) unset DEBUG Q;; 5) unset DEBUG INFO VERB;; 4) unset DEBUG INFO NOTICE VERB;;
 3) unset DEBUG INFO NOTICE WARN VERB;; 2) unset DEBUG INFO NOTICE WARN ERROR VERB;;
-1) unset DEBUG INFO NOTICE WARN ERROR ALERT VERB;;
-*) _error_stdalone "MSGLEVEL variable not set from 1 - 7";;
+1) unset DEBUG INFO NOTICE WARN ERROR CRITICAL VERB;;
+0) unset DEBUG INFO NOTICE WARN ERROR CRITICAL ALERT VERB;;
+*) _error_stdalone "MSGLEVEL variable not set from 0 - 7";;
 esac
 
 TMOUT=${TMOUT:-1}      # read -t timeout, integer, seconds
@@ -234,15 +238,16 @@ case $LVL in
 5|note)  _notice_stdalone "$*";;
 4|warn)  _warn_stdalone   "$*";;
 3|err)   _error_stdalone  "$*";;
-2|alert) _alert_stdalone  "$*";;
-1|emerg) _emerg_stdalone  "$*";;
+2|crit)  _critical_stdalone "$*";;
+1|alert) _alert_stdalone  "$*";;
+0|emerg) _emerg_stdalone  "$*";;
 *) _debug_stdalone "$*";;
 esac
 }
 
 _debug_stdalone(){
 test "$DEBUG" || return 0
-    echo draw 10 "DEBUG:$@"
+    echo draw 10 "DEBUG:"$@
 }
 
 __debug_stdalone(){  ##+++2018-01-06
@@ -258,22 +263,37 @@ unset dcnt line
 
 _info_stdalone(){
 test "$INFO" || return 0
-    echo draw 7 "INFO:$@"
+    echo draw 7 "INFO:"$@
 }
 
 _notice_stdalone(){
 test "$NOTICE" || return 0
-    echo draw 2 "NOTICE:$@"
+    echo draw 2 "NOTICE:"$@
 }
 
 _warn_stdalone(){
 test "$WARN" || return 0
-    echo draw 6 "WARNING:$@"
+    echo draw 6 "WARNING:"$@
 }
 
 _error_stdalone(){
 test "$ERROR" || return 0
-    echo draw 4 "ERROR:$@"
+    echo draw 4 "ERROR:"$@
+}
+
+_critical_stdalone(){
+test "$CRITICAL" || return 0
+    echo draw 3 "CRITICAL:"$@
+}
+
+_alert_stdalone(){
+test "$ALERT" || return 0
+    echo draw 3 "ALERT:"$@
+}
+
+_ermerg_stdalone(){
+test "$EMERG" || return 0
+    echo draw 3 "EMERGENCY:"$@
 }
 
 _log_stdalone(){
@@ -1091,7 +1111,7 @@ esac
 # S # :Search attempts
 # D # :Direction to open door
 # I   :Infinte lockpick attempts
-while getopts S:D:L:IVMhabcdefgijklmnopqrstuvwxyzABCEFGHJKNOPQRTUWXYZ oneOPT
+while getopts S:D:L:IVMhlabcdefgijkmnopqrstuvwxyzABCEFGHJKNOPQRTUWXYZ oneOPT
 do
 case $oneOPT in
 D) DIRECTION=${OPTARG:-0};;
@@ -1106,6 +1126,7 @@ i) DISARM=invokation;;
 u) DISARM=skill;;
 
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
+l) LOGGING=$((LOGGING+1));;
 
 h) _say_help_stdalone 0;;
 V) __say_version_stdalone 0;;
@@ -1137,7 +1158,7 @@ esac
 # S # :Search attempts
 # D # :Direction to open door
 # I   :Infinte lockpick attempts
-while getopts S:D:L:IVMhabcdefgijklmnopqrstuvwxyzABCEFGHJKNOPQRTUWXYZ oneOPT
+while getopts S:D:L:IVMhlabcdefgijkmnopqrstuvwxyzABCEFGHJKNOPQRTUWXYZ oneOPT
 do
 case $oneOPT in
 D) DIRECTION=${OPTARG:-0};;
@@ -1152,6 +1173,7 @@ i) DISARM=invokation;;
 u) DISARM=skill;;
 
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
+l) LOGGING=$((LOGGING+1));;
 
 h) _say_help 0;;
 V) __say_version 0;;

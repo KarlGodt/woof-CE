@@ -8,6 +8,7 @@
 VERSION=0.0 # Initial version,
 VERSION=0.1 # exit early if already running or no DRAWINFO
 VERSION=0.2 # Use standard sound directories
+VERSION=0.3 # add missing functions _do_parameters
 
 THROW_WEAPON='Throwing Dagger'
 
@@ -70,12 +71,13 @@ MSGLEVEL=${MSGLEVEL:-6} #integer 1 emergency - 7 debug
 #7) DEBUG=${DEBUG:-1};; 6) INFO=${INFO:-1};; 5) NOTICE=${NOTICE:-1};; 4) WARN=${WARN:-1};;
 #3) ERROR=${ERROR:-1};; 2) ALERT=${ALERT:-1};; 1) EMERG=${EMERG:-1};;
 #esac
-DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
+DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; CRITICAL=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
 case $MSGLEVEL in
 7) unset Q;; 6) unset DEBUG Q;; 5) unset DEBUG INFO VERB;; 4) unset DEBUG INFO NOTICE VERB;;
 3) unset DEBUG INFO NOTICE WARN VERB;; 2) unset DEBUG INFO NOTICE WARN ERROR VERB;;
-1) unset DEBUG INFO NOTICE WARN ERROR ALERT VERB;;
-*) _error_stdalone "MSGLEVEL variable not set from 1 - 7";;
+1) unset DEBUG INFO NOTICE WARN ERROR CRITICAL VERB;;
+0) unset DEBUG INFO NOTICE WARN ERROR CRITICAL ALERT VERB;;
+*) _error_stdalone "MSGLEVEL variable not set from 0 - 7";;
 esac
 
 TMOUT=${TMOUT:-1}      # read -t timeout, integer, seconds
@@ -369,8 +371,9 @@ case $LVL in
 5|note)  test "$NOTICE" && _notice_stdalone "$*";;
 4|warn)  test "$WARN"   && _warn_stdalone   "$*";;
 3|err)   test "$ERROR"  && _error_stdalone  "$*";;
-2|alert) test "$ALERT"  && _alert_stdalone  "$*";;
-1|emerg) test "$EMERG"  && _emerg_stdalone  "$*";;
+2|crit)  test "$CRITICAL" && _critical_stdalone "$*";;
+1|alert) test "$ALERT"  && _alert_stdalone  "$*";;
+0|emerg) test "$EMERG"  && _emerg_stdalone  "$*";;
 *) _debug_stdalone "$*";;
 esac
 }
@@ -383,8 +386,9 @@ case $LVL in
 5|note)  _notice_stdalone "$*";;
 4|warn)  _warn_stdalone   "$*";;
 3|err)   _error_stdalone  "$*";;
-2|alert) _alert_stdalone  "$*";;
-1|emerg) _emerg_stdalone  "$*";;
+2|crit)  _critical_stdalone "$*";;
+1|alert) _alert_stdalone  "$*";;
+0|emerg) _emerg_stdalone  "$*";;
 *) _debug_stdalone "$*";;
 esac
 }
@@ -407,6 +411,11 @@ test "$WARN" || return 0
 _error_stdalone(){
 test "$ERROR" || return 0
     echo draw 4 "ERROR:"$@
+}
+
+_critical_stdalone(){
+test "$CRITICAL" || return 0
+    echo draw 3 "CRITICAL:"$@
 }
 
 _alert_stdalone(){
@@ -799,19 +808,19 @@ LC_NUMERIC=$oLC_NUMERIC
 }
 
 _round_up_and_down_stdalone(){  ##+++2018-01-08
-echo "_round_up_and_down_stdalone:$1" >&2
+[ "$DEBUG" ] && echo "_round_up_and_down_stdalone:$1" >&2
                #123
 STELLEN=${#1}  #3
-echo "STELLEN=$STELLEN" >&2
+[ "$DEBUG" ] && echo "STELLEN=$STELLEN" >&2
 
 LETZTSTELLE=${1:$((STELLEN-1))} #123:2
-echo "LETZTSTELLE=$LETZTSTELLE" >&2
+[ "$DEBUG" ] && echo "LETZTSTELLE=$LETZTSTELLE" >&2
 
 VORLETZTSTELLE=${1:$((STELLEN-2)):1} #123:1:1
-echo "VORLETZTSTELLE=$VORLETZTSTELLE" >&2
+[ "$DEBUG" ] && echo "VORLETZTSTELLE=$VORLETZTSTELLE" >&2
 
 GERUNDET_BASIS=${1:0:$((STELLEN-1))} #123:0:2
-echo "GERUNDET_BASIS=$GERUNDET_BASIS" >&2
+[ "$DEBUG" ] && echo "GERUNDET_BASIS=$GERUNDET_BASIS" >&2
 
 case $LETZTSTELLE in
 0)     GERUNDET="${GERUNDET_BASIS}0";;
@@ -829,7 +838,9 @@ _debug_stdalone "_set_sync_sleep_stdalone:$*"
 local lPL_SPEED=${1:-$PL_SPEED}
 lPL_SPEED=${lPL_SPEED:-50000}
 
-  if test "$lPL_SPEED" -gt 60000; then
+  if test "$lPL_SPEED"  =  "";    then
+_warn_stdalone "Could not set player speed. Using defaults."
+elif test "$lPL_SPEED" -gt 60000; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$lPL_SPEED" -gt 55000; then
 SLEEP=0.5; DELAY_DRAWINFO=1.1; TMOUT=1
@@ -853,8 +864,6 @@ elif test "$lPL_SPEED" -gt 10000; then
 SLEEP=4.0; DELAY_DRAWINFO=8.0; TMOUT=2
 elif test "$lPL_SPEED" -ge 0;  then
 SLEEP=5.0; DELAY_DRAWINFO=10.0; TMOUT=2
-elif test "$lPL_SPEED" = "";   then
-_draw_stdalone 3 "WARNING: Could not set player speed. Using defaults."
 else
 _exit_stdalone 1 "ERROR while processing player speed."
 fi
@@ -868,7 +877,9 @@ _debug_stdalone "__set_sync_sleep_stdalone:$*"
 local lPL_SPEED=${1:-$PL_SPEED1}
 lPL_SPEED=${lPL_SPEED:-50}
 
-  if test "$lPL_SPEED" -gt 60; then
+  if test "$lPL_SPEED"  =  ""; then
+_warn_stdalone "Could not set player speed. Using defaults."
+elif test "$lPL_SPEED" -gt 60; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$lPL_SPEED" -gt 55; then
 SLEEP=0.5; DELAY_DRAWINFO=1.1; TMOUT=1
@@ -892,8 +903,6 @@ elif test "$lPL_SPEED" -gt 10; then
 SLEEP=4.0; DELAY_DRAWINFO=8.0; TMOUT=2
 elif test "$lPL_SPEED" -ge 0;  then
 SLEEP=5.0; DELAY_DRAWINFO=10.0; TMOUT=2
-elif test "$lPL_SPEED" = "";   then
-_draw_stdalone 3 "WARNING: Could not set player speed. Using defaults."
 else
 _exit_stdalone 1 "ERROR while processing player speed."
 fi
@@ -945,6 +954,94 @@ case $lDIRECTION in
 *) ERROR=1 _error_stdalone "Not recognized: '$lDIRECTION'";;
 esac
 DIRECTION_NUMBER=$DIRN
+}
+
+_do_parameters_stdalone(){
+_msg_stdalone 7 "_do_parameters_stdalone:$*"
+_log_stdalone   "_do_parameters_stdalone:$*"
+
+# dont forget to pass parameters when invoking this function
+test "$*" || return 0
+
+case $1 in
+*help)    _say_help_stdalone 0;;
+*version) _say_version_stdalone 0;;
+--?*)  _exit_stdalone 3 "No other long options than help and version recognized.";;
+--*)   _exit_stdalone 3 "Unhandled first parameter '$1' .";;
+-?*) :;;
+[0-9]*) NUMBER=$1
+        test "${NUMBER//[[:digit:]]/}" && _exit_stdalone 3 "NUMBER '$1' is not an integer digit."
+        shift;;
+*) _exit_stdalone 3 "Unknown first parameter '$1' .";;
+esac
+
+# C # :Count loop rounds
+
+# d   :debugging output
+while getopts A:BC:D:LZdVhabdefgijklmnopqrstuvwxyzEFGHIJKMNOPQRSTUWXY oneOPT
+do
+case $oneOPT in
+A) ATTACKS_SPOT=$OPTARG;;
+B) DO_BRACE=1;;
+C) NUMBER=$OPTARG;;
+D) DIRECTION_OPT=$OPTARG;;
+L) LOGGING=$((LOGGING+1));;
+Z) DO_CLOCKWISE=1;;
+d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
+h) _say_help_stdalone 0;;
+V) _say_version_stdalone 0;;
+
+'') _draw_stdalone 2 "FIXME: Empty positional parameter ...?";;
+*) _draw_stdalone 3 "Unrecognized parameter '$oneOPT' .";;
+esac
+
+sleep 0.1
+done
+
+}
+
+_do_parameters(){
+_debug "_do_parameters:$*"
+_log   "_do_parameters:$*"
+
+# dont forget to pass parameters when invoking this function
+test "$*" || return 0
+
+case $1 in
+*help)    _say_help 0;;
+*version) _say_version 0;;
+--?*)  _exit 3 "No other long options than help and version recognized.";;
+--*)   _exit 3 "Unhandled first parameter '$1' .";;
+-?*) :;;
+[0-9]*) NUMBER=$1
+        test "${NUMBER//[[:digit:]]/}" && _exit 3 "NUMBER '$1' is not an integer digit."
+        shift;;
+*) _exit 3 "Unknown first parameter '$1' .";;
+esac
+
+# C # :Count loop rounds
+
+# d   :debugging output
+while getopts A:BC:D:LZdVhabdefgijklmnopqrstuvwxyzEFGHIJKMNPOQRSTUWXY oneOPT
+do
+case $oneOPT in
+A) ATTACKS_SPOT=$OPTARG;;
+B) DO_BRACE=1;;
+C) NUMBER=$OPTARG;;
+D) DIRECTION_OPT=$OPTARG;;
+L) LOGGING=$((LOGGING+1));;
+Z) DO_CLOCKWISE=1;;
+d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
+h) _say_help 0;;
+V) _say_version 0;;
+
+'') _draw 2 "FIXME: Empty positional parameter ...?";;
+*) _draw 3 "Unrecognized parameter '$oneOPT' .";;
+esac
+
+sleep 0.1
+done
+
 }
 
 
@@ -1001,11 +1098,14 @@ _unbrace
 _say_end_msg
 }
 
+while :; do
 
  _main_throw_stdalone "$@"
 #_main_throw_func "$@"
 
-
+test "$NUMBER" && break
+sleep 5
+done
 
 ###END###
 

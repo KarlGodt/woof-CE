@@ -1,10 +1,10 @@
 #!/bin/bash
-# *** script to cast wizard spell - does not handle praying spells regeneration (yet)
+# *** script to cast a wizard spell - does not handle praying spells regeneration (yet)
 # *   written May 2015 by Karl Reimer Godt
 # * Uses busybox almquist shell as interpreter - should work with bash
 # * busybox ash can be configured with options - and some internal functions
 # * may not be implemented by the distribution
-# * Use 'scrits' to check if it is still running
+# * Use the 'scripts' command in the cmdline of the client to check if it is still running
 # * This script loops forever,
 # * use 'scriptkill' to terminate it -
 # * otherwise should be terminated when the computer shuts down,
@@ -20,7 +20,7 @@
 # * pause between firing is an integer value; 1,2,3,4,5 are usable for me,
 # * larger pause values make monsters regenerating too much, smaller may not generate enough monsters to be effective ( cone spells )
 # * - Remember : Dependent on the complexity of the code the pausing sleep value given can increase by one to three seconds currently.
-# * CAUTION : Does not handle "You bungle the spell" events (yet) - so make sure no two-handed weapon applied
+# * CAUTION : Does not handle "You bungle the spell" events (yet) - so make sure that you have no two-handed weapon applied
 # * Also high armour class and armour resistances may be of some use
 # * While the script is running, the character can level up, while you are multi-tasking or taking a shower :)
 
@@ -98,7 +98,7 @@ _draw_stdalone(){
     lCOLOUR="$1"; shift;; esac
     local lCOLOUR=${lCOLOUR:-1} #set default
     local lMSG="$@"
-    echo draw $lCOLOUR "$lMSG"
+    echo draw $lCOLOUR $lMSG
 }
 
 __draw_stdalone(){
@@ -160,7 +160,7 @@ _verbose_stdalone(){
 # ***
 test "$VERBOSE" || return 0
 case $1 in -s) shift; sleep 0.5;; esac
-echo draw 7 "$*"
+echo draw 7 $*
 }
 
 # ***
@@ -169,7 +169,7 @@ _debug_stdalone(){
 
 test "$DEBUG" || return 0
 case $1 in -s) shift; sleep 0.5;; esac
-echo draw 3 "$*"
+echo draw 3 $*
 }
 
 __debug_stdalone(){  ##+++2018-01-10

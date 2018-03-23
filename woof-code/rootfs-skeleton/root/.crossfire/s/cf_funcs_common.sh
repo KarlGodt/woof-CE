@@ -257,7 +257,7 @@ esac
 
 _debug(){
 test "$DEBUG" || return 0
-    echo draw ${NDI_BROWN:-10} "DEBUG:$@"
+    echo draw ${NDI_BROWN:-10} "DEBUG:"$@
 }
 
 __debug(){  ##+++2018-01-06
@@ -378,14 +378,14 @@ beep -l 1000 -f 700
 
 _say_start_msg(){
 # *** Here begins program *** #
-_draw 2 "$0 has started.."
-_draw 2 "PID is $$ - parentPID is $PPID"
+_draw ${NDI_NAVY:-2} "$0 has started.."
+_draw ${NDI_NAVY:-2} "PID is $$ - parentPID is $PPID"
 
 _check_if_already_running_ps || _exit 1 "Another $MY_BASE is already running."
 _check_drawinfo || _exit 1 "Unable to fetch the DRAWINFO variable. Please try again."
 
 # *** Check for parameters *** #
-_draw 5 "Checking the parameters ($*)..."
+_draw ${NDI_BLUE:-5} "Checking the parameters ($*)..."
 }
 
 _tell_script_time(){
@@ -395,7 +395,7 @@ test "$TIMEA" || return 1
  TIME=$((TIMEE-TIMEA))
  TIMEM=$((TIME/60))
  TIMES=$(( TIME - (TIMEM*60) ))
- _draw 4 "Loop of script had run a total of $TIMEM minutes and $TIMES seconds."
+ _draw ${NDI_ORANGE:-4} "Loop of script had run a total of $TIMEM minutes and $TIMES seconds."
 }
 
 _say_script_time(){ ##+++2018-01-07
@@ -404,9 +404,9 @@ __debug "$TIME_ELAPSED"
 TIME_ELAPSED=`echo "$TIME_ELAPSED" | awk '{print $2}'`
 __debug "$TIME_ELAPSED"
 case $TIME_ELAPSED in
-*:*:*) _draw 5 "Script had run a time of $TIME_ELAPSED h:m:s .";;
-*:*)   _draw 5 "Script had run a time of $TIME_ELAPSED m:s .";;
-*)     _draw 5 "Script had run a time of $TIME_ELAPSED s .";;
+*:*:*) _draw ${NDI_BLUE:-5} "Script had run a time of $TIME_ELAPSED h:m:s .";;
+*:*)   _draw ${NDI_BLUE:-5} "Script had run a time of $TIME_ELAPSED m:s .";;
+*)     _draw ${NDI_BLUE:-5} "Script had run a time of $TIME_ELAPSED s .";;
 esac
 }
 
@@ -422,7 +422,7 @@ test "$DEBUG" || { test -s "$ERROR_LOG" || rm -f "$ERROR_LOG"; }
 test "$DEBUG" -o "$INFO" || rm -f "$TMP_DIR"/*.$$*
 
 test "$aPID" && wait $aPID
-_draw 2  "$0 $$ has finished."
+_draw ${NDI_NAVY:-2} "$0 $$ has finished."
 }
 
 _loop_counter(){
@@ -433,7 +433,7 @@ TIME=$((TIMEE-TIMEB))
 TIMEZ=$((TIMEE-TIMEA))
 TIMEAV=$((TIMEZ/one))
 TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
-_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL ($TIMEEST m) to go..."
+_draw ${NDI_ORANGE:-4} "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL ($TIMEEST m) to go..."
 }
 
 #** the messages in the msgpane may pollute **#
@@ -463,7 +463,7 @@ _debug "__check_drawinfo:$*"
 oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
 oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
 
-_draw 2 "Checking drawinfo ..."
+_draw ${NDI_NAVY:-2} "Checking drawinfo ..."
 
 echo watch
 
@@ -515,7 +515,7 @@ test "$DRAWINFO0" = "$DRAWINFO" || {
 
 DEBUG=$oDEBUG
 LOGGING=$oLOGGING
-_draw 6 "Done."
+_draw ${NDI_DK_ORANGE:-6} "Done."
 }
 
 _check_drawinfo(){  ##+++2018-02-19
@@ -524,7 +524,7 @@ _debug "_check_drawinfo:$*"
 oDEBUG=$DEBUG;       DEBUG=${DEBUG:-''}
 oLOGGING=$LOGGING; LOGGING=${LOGGING:-1}
 
-_draw 2 "Checking drawinfo ..."
+_draw ${NDI_NAVY:-2} "Checking drawinfo ..."
 
 echo watch
 
@@ -568,7 +568,7 @@ _msg 5 "Client recognizes $DRAWINFO"
 
 DEBUG=$oDEBUG
 LOGGING=$oLOGGING
-_draw 6 "Done."
+_draw ${NDI_DK_ORANGE:-6} "Done."
 test "$DRAWINFO"
 }
 
@@ -586,8 +586,8 @@ fi
 
 _sleep
 
-test "$*" && _draw 3 $@
-_draw 3 "Exiting $0. PID was $$"
+test "$*" && _draw ${NDI_RED:-3} $@
+_draw ${NDI_RED:-3} "Exiting $0. PID was $$"
 
 _unwatch ""
 _beep_std
@@ -596,7 +596,7 @@ exit ${RV:-0}
 }
 
 _just_exit(){
-_draw 3 "Exiting $0."
+_draw ${NDI_RED:-3} "Exiting $0."
 _is 1 1 fire_stop
 _unwatch
 _beep_std
@@ -620,7 +620,7 @@ _is 1 1 fire_stop
 *) _is 1 1 invoke "$lRETURN_ITEM";; # assuming spell
 esac
 
-_draw 3 "Emergency Exit $0 !"
+_draw ${NDI_RED:-3} "Emergency Exit $0 !"
 _unwatch
 
 # apply bed of reality
@@ -632,9 +632,9 @@ exit ${RV:-0}
 }
 
 _exit_no_space(){
-_draw 3 "On position $nr $DIRB there is something ($IS_WALL)!"
-_draw 3 "Remove that item and try again."
-_draw 3 "If this is a wall, try on another place."
+_draw ${NDI_RED:-3} "On position $nr $DIRB there is something ($IS_WALL)!"
+_draw ${NDI_RED:-3} "Remove that item and try again."
+_draw ${NDI_RED:-3} "If this is a wall, try on another place."
 _beep_std
 exit ${1:-0}
 }
@@ -645,7 +645,7 @@ __error(){  # _error 1 "Some error occured"
 
 RV=$1;shift
 eMSG=`echo -e "$*"`
-__draw 3 "$eMSG"
+__draw ${NDI_RED:-3} "$eMSG"
 exit ${RV:-1}
 }
 
@@ -776,7 +776,7 @@ local lPL_SPEED=${1:-$PL_SPEED}
 lPL_SPEED=${lPL_SPEED:-50000}
 
   if test "$lPL_SPEED"  =  "";    then
-_draw 3 "WARNING: Could not set player speed. Using defaults."
+_warn "Could not set player speed. Using defaults."
 elif test "$lPL_SPEED" -gt 60000; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$lPL_SPEED" -gt 55000; then
@@ -815,7 +815,7 @@ local lPL_SPEED=${1:-$PL_SPEED1}
 lPL_SPEED=${lPL_SPEED:-50}
 
   if test "$lPL_SPEED"  =  ""; then
-_draw 3 "WARNING: Could not set player speed. Using defaults."
+_warn "Could not set player speed. Using defaults."
 elif test "$lPL_SPEED" -gt 60; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$lPL_SPEED" -gt 55; then
@@ -1006,7 +1006,7 @@ test "$ANSWER" && PL_SPEED0=`echo "$ANSWER" | awk '{print $7}'`
 PL_SPEED=${PL_SPEED0:-$PL_SPEED}
 }
 
-_draw 5 "Processing Player's speed..."
+_draw ${NDI_BLUE:-5} "Processing Player's speed..."
 #_use_old_funcs
 _use_new_funcs
 
@@ -1015,7 +1015,7 @@ PL_SPEED=${PL_SPEED:-50000} # 0.50
 _player_speed_to_human_readable $PL_SPEED
 _msg 6 "Using player speed '$PL_SPEED1'"
 
-_draw 6 "Done."
+_draw ${NDI_DK_ORANGE:-6} "Done."
 return 0
 }
 
@@ -1025,7 +1025,7 @@ _debug "_unapply_rod_of_recall:$*"
 
 local RECALL OLD_REPLY REPLY
 
-_draw 5 "Preparing for recall if monsters come forth..."
+_draw ${NDI_BLUE:-5} "Preparing for recall if monsters come forth..."
 
 RECALL=0
 OLD_REPLY="";
@@ -1050,7 +1050,7 @@ if test "$RECALL" = 1; then # unapply it now , _emergency_exit applies again
 _is 1 1 apply -u rod of word of recall
 fi
 
-_draw 6 "Done."
+_draw ${NDI_DK_ORANGE:-6} "Done."
 }
 
 #** we may get attacked and die **#
@@ -1107,7 +1107,7 @@ done
 local lITEM=${*:-"$ITEM"}
 test "$lITEM" || return 254
 
-_draw 5 "Checking if standing on $lITEM ..."
+_draw ${NDI_BLUE:-5} "Checking if standing on $lITEM ..."
 
 _watch $DRAWINFO
 #_is 0 0 examine
@@ -1173,7 +1173,7 @@ done
 local lITEM=${*:-"$ITEM"}
 test "$lITEM" || return 254
 
-_draw 5 "Checking if standing on $lITEM ..."
+_draw ${NDI_BLUE:-5} "Checking if standing on $lITEM ..."
 UNDER_ME='';
 UNDER_ME_LIST='';
 
@@ -1236,7 +1236,7 @@ fi
 test "$lRV" = 0 && return 0
 
 _beep_std
-_draw 3 $lMSG
+_draw ${NDI_RED:-3} $lMSG
 test "$DO_LOOP" && return 1 || _exit 1
 }
 
@@ -1259,7 +1259,7 @@ done
 local lITEM=${*:-"$ITEM"}
 test "$lITEM" || return 254
 
-_draw 5 "Checking if standing on $lITEM ..."
+_draw ${NDI_BLUE:-5} "Checking if standing on $lITEM ..."
 UNDER_ME='';
 UNDER_ME_LIST='';
 
@@ -1328,7 +1328,7 @@ fi
 test "$lRV" = 0 && return 0
 
 _beep_std
-_draw 3 $lMSG
+_draw ${NDI_RED:-3} $lMSG
 test "$DO_LOOP" && return 1 || _exit 1
 }
 
@@ -1368,7 +1368,7 @@ unset oldITEM oneITEM
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-_debug 4 "Fetching Inventory List: Elapsed $TIME sec."
+_debug "Fetching Inventory List: Elapsed $TIME sec."
 
 #_debug "lITEM=$lITEM"
 #_debug "head:`echo -e "$ITEMS" | head -n1`"

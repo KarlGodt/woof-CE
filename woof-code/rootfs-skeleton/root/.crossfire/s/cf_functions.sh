@@ -25,12 +25,13 @@ MSGLEVEL=${MSGLEVEL:-7} #integer 1 emergency - 7 debug
 #7) DEBUG=${DEBUG:-1};; 6) INFO=${INFO:-1};; 5) NOTICE=${NOTICE:-1};; 4) WARN=${WARN:-1};;
 #3) ERROR=${ERROR:-1};; 2) ALERT=${ALERT:-1};; 1) EMERG=${EMERG:-1};;
 #esac
-DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
+DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; CRITICAL=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
 case $MSGLEVEL in
 7) unset Q;; 6) unset DEBUG Q;; 5) unset DEBUG INFO VERB;; 4) unset DEBUG INFO NOTICE VERB;;
 3) unset DEBUG INFO NOTICE WARN VERB;; 2) unset DEBUG INFO NOTICE WARN ERROR VERB;;
-1) unset DEBUG INFO NOTICE WARN ERROR ALERT VERB;;
-*) _error "MSGLEVEL variable not set from 1 - 7";;
+1) unset DEBUG INFO NOTICE WARN ERROR CRITICAL VERB;;
+0) unset DEBUG INFO NOTICE WARN ERROR CRITICAL ALERT VERB;;
+*) _error "MSGLEVEL variable not set from 0 - 7";;
 esac
 
 TMOUT=${TMOUT:-1}      # read -t timeout, integer, seconds
@@ -75,7 +76,27 @@ southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
 
+# *** Color numbers found in common/shared/newclient.h : *** #
+NDI_BLACK=0
+NDI_WHITE=1
+NDI_NAVY=2
+NDI_RED=3
+NDI_ORANGE=4
+NDI_BLUE=5       #/**< Actually, it is Dodger Blue */
+NDI_DK_ORANGE=6  #/**< DarkOrange2 */
+NDI_GREEN=7      #/**< SeaGreen */
+NDI_LT_GREEN=8   #/**< DarkSeaGreen, which is actually paler
+#                  *   than seagreen - also background color. */
+NDI_GREY=9
+NDI_BROWN=10     #/**< Sienna. */
+NDI_GOLD=11
+NDI_TAN=12       #/**< Khaki. */
+#define NDI_MAX_COLOR   12      /**< Last value in. */
+
+CF_DATADIR=/usr/local/share/crossfire-client
 SOUND_DIR="$HOME"/.crossfire/cf_sounds
+USER_SOUNDS_PATH="$HOME"/.crossfire/sound.cache
+CF_SOUND_DIR="$CF_DATADIR"/sounds
 
 # Log file path in /tmp
 #MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -106,7 +127,7 @@ _draw(){
     lCOLOUR=${lCOLOUR:-1} #set default
     shift
     local MSG="$@"
-    echo draw ${lCOLOUR} "$MSG"
+    echo draw ${lCOLOUR} $MSG
 }
 
 __draw(){
@@ -130,8 +151,9 @@ case $LVL in
 5|note)  test "$NOTICE" && _notice "$*";;
 4|warn)  test "$WARN"   && _warn   "$*";;
 3|err)   test "$ERROR"  && _error  "$*";;
-2|alert) test "$ALERT"  && _alert  "$*";;
-1|emerg) test "$EMERG"  && _emerg  "$*";;
+2|crit)  test "$CRITICAL" && _critical "$*";;
+1|alert) test "$ALERT"  && _alert  "$*";;
+0|emerg) test "$EMERG"  && _emerg  "$*";;
 *) _debug "$*";;
 esac
 }
@@ -144,15 +166,16 @@ case $LVL in
 5|note)  _notice "$*";;
 4|warn)  _warn   "$*";;
 3|err)   _error  "$*";;
-2|alert) _alert  "$*";;
-1|emerg) _emerg  "$*";;
+2|crit)  _critical "$*";;
+1|alert) _alert  "$*";;
+0|emerg) _emerg  "$*";;
 *) _debug "$*";;
 esac
 }
 
 _debug(){
 test "$DEBUG" || return 0
-    echo draw 10 "DEBUG:$@"
+    echo draw 10 "DEBUG:"$@
 }
 
 __debug(){  ##+++2018-01-06
@@ -168,32 +191,37 @@ unset dcnt line
 
 _info(){
 test "$INFO" || return 0
-    echo draw 7 "INFO:$@"
+    echo draw 7 "INFO:"$@
 }
 
 _notice(){
 test "$NOTICE" || return 0
-    echo draw 2 "NOTICE:$@"
+    echo draw 2 "NOTICE:"$@
 }
 
 _warn(){
 test "$WARN" || return 0
-    echo draw 6 "WARNING:$@"
+    echo draw 6 "WARNING:"$@
 }
 
 _error(){
 test "$ERROR" || return 0
-    echo draw 4 "ERROR:$@"
+    echo draw 4 "ERROR:"$@
+}
+
+_critical(){
+test "$CRITICAL" || return 0
+    echo draw ${NDI_RED:-3} "CRITICAL:"$@
 }
 
 _alert(){
 test "$ALERT" || return 0
-    echo draw 3 "ALERT:$@"
+    echo draw 3 "ALERT:"$@
 }
 
 _ermerg(){
 test "$EMERG" || return 0
-    echo draw 3 "EMERGENCY:$@"
+    echo draw 3 "EMERGENCY:"$@
 }
 
 _log(){
@@ -507,7 +535,9 @@ _debug "_set_sync_sleep:$*"
 PL_SPEED1=${1:-$PL_SPEED1}
 PL_SPEED1=${PL_SPEED1:-50}
 
-  if test "$PL_SPEED1" -gt 60; then
+  if test "$PL_SPEED1"  =  ""; then
+_draw 3 "WARNING: Could not set player speed. Using defaults."
+elif test "$PL_SPEED1" -gt 60; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$PL_SPEED1" -gt 55; then
 SLEEP=0.5; DELAY_DRAWINFO=1.1; TMOUT=1
@@ -531,8 +561,6 @@ elif test "$PL_SPEED1" -gt 10; then
 SLEEP=4.0; DELAY_DRAWINFO=8.0; TMOUT=2
 elif test "$PL_SPEED1" -ge 0;  then
 SLEEP=5.0; DELAY_DRAWINFO=10.0; TMOUT=2
-elif test "$PL_SPEED1" = "";   then
-_draw 3 "WARNING: Could not set player speed. Using defaults."
 else
 _exit 1 "ERROR while processing player speed."
 fi

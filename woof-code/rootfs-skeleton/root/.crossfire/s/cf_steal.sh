@@ -8,6 +8,7 @@ VERSION=0.0 # Initial version, taken from cf_orate.sh
 VERSION=0.1 # exit early if already running or no DRAWINFO
 VERSION=0.2 # bugfixing
 VERSION=0.3 # Use standard sound directories
+VERSION=0.4 # bugfixings
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -38,6 +39,7 @@ _draw_stdalone 8  " as n, ne, e, se, s, sw, w, nw."
 _draw_stdalone 8  " If no direction, turns clockwise all around on the spot."
 _draw_stdalone 11 "-V   :Print version information."
 _draw_stdalone 10 "-d   :Print debugging to msgpane."
+_draw_stdalone 10 "-L   :Log to $TMP_DIR ."
 exit ${1:-2}
 }
 
@@ -59,6 +61,7 @@ _draw 8  " as n, ne, e, se, s, sw, w, nw."
 _draw 8  " If no direction, turns clockwise all around on the spot."
 _draw 11 "-V   :Print version information."
 _draw 10 "-d   :Print debugging to msgpane."
+_draw 10 "-L   :Log to $TMP_DIR ."
 exit ${1:-2}
 }
 
@@ -75,12 +78,13 @@ MSGLEVEL=${MSGLEVEL:-6} #integer 1 emergency - 7 debug
 #7) DEBUG=${DEBUG:-1};; 6) INFO=${INFO:-1};; 5) NOTICE=${NOTICE:-1};; 4) WARN=${WARN:-1};;
 #3) ERROR=${ERROR:-1};; 2) ALERT=${ALERT:-1};; 1) EMERG=${EMERG:-1};;
 #esac
-DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
+DEBUG=1; INFO=1; NOTICE=1; WARN=1; ERROR=1; CRITICAL=1; ALERT=1; EMERG=1; Q=-q; VERB=-v
 case $MSGLEVEL in
 7) unset Q;; 6) unset DEBUG Q;; 5) unset DEBUG INFO VERB;; 4) unset DEBUG INFO NOTICE VERB;;
 3) unset DEBUG INFO NOTICE WARN VERB;; 2) unset DEBUG INFO NOTICE WARN ERROR VERB;;
-1) unset DEBUG INFO NOTICE WARN ERROR ALERT VERB;;
-*) _error_stdalone "MSGLEVEL variable not set from 1 - 7";;
+1) unset DEBUG INFO NOTICE WARN ERROR CRITICAL VERB;;
+0) unset DEBUG INFO NOTICE WARN ERROR CRITICAL ALERT VERB;;
+*) _error_stdalone "MSGLEVEL variable not set from 0 - 7";;
 esac
 
 TMOUT=${TMOUT:-1}      # read -t timeout, integer, seconds
@@ -382,8 +386,9 @@ case $LVL in
 5|note)  test "$NOTICE" && _notice_stdalone "$*";;
 4|warn)  test "$WARN"   && _warn_stdalone   "$*";;
 3|err)   test "$ERROR"  && _error_stdalone  "$*";;
-2|alert) test "$ALERT"  && _alert_stdalone  "$*";;
-1|emerg) test "$EMERG"  && _emerg_stdalone  "$*";;
+2|crit)  test "$CRITICAL" && _critical_stdalone "$*";;
+1|alert) test "$ALERT"  && _alert_stdalone  "$*";;
+0|emerg) test "$EMERG"  && _emerg_stdalone  "$*";;
 *) _debug_stdalone "$*";;
 esac
 }
@@ -396,8 +401,9 @@ case $LVL in
 5|note)  _notice_stdalone "$*";;
 4|warn)  _warn_stdalone   "$*";;
 3|err)   _error_stdalone  "$*";;
-2|alert) _alert_stdalone  "$*";;
-1|emerg) _emerg_stdalone  "$*";;
+2|crit)  _critical_stdalone "$*";;
+1|alert) _alert_stdalone  "$*";;
+0|emerg) _emerg_stdalone  "$*";;
 *) _debug_stdalone "$*";;
 esac
 }
@@ -420,6 +426,11 @@ test "$WARN" || return 0
 _error_stdalone(){
 test "$ERROR" || return 0
     echo draw 4 "ERROR:"$@
+}
+
+_critical_stdalone(){
+test "$CRITICAL" || return 0
+    echo draw 3 "CRITICAL:"$@
 }
 
 _alert_stdalone(){
@@ -1196,7 +1207,7 @@ esac
 # C # :Count loop rounds
 
 # d   :debugging output
-while getopts C:O:S:D:dVhabdefgijklmnopqrstuvwxyzABEFGHIJKLMNPQRTUWXYZ oneOPT
+while getopts C:O:S:D:dVhLabdefgijklmnopqrstuvwxyzABEFGHIJKMNPQRTUWXYZ oneOPT
 do
 case $oneOPT in
 C) NUMBER=$OPTARG;;
@@ -1204,6 +1215,7 @@ D) DIRECTION_OPT=$OPTARG;;
 #O) ORATORY_ATTEMPTS=${OPTARG:-$ORATORY_ATTEMPTS_DEFAULT};;
 #S) SINGING_ATTEMPTS=${OPTARG:-$SINGING_ATTEMPTS_DEFAULT};;
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
+L) LOGGING=$((LOGGING+1));;
 h) _say_help_stdalone 0;;
 V) _say_version_stdalone 0;;
 
@@ -1237,7 +1249,7 @@ esac
 # C # :Count loop rounds
 
 # d   :debugging output
-while getopts C:O:S:D:dVhabdefgijklmnopqrstuvwxyzABEFGHIJKLMNPQRTUWXYZ oneOPT
+while getopts C:O:S:D:dVhLabdefgijklmnopqrstuvwxyzABEFGHIJKLMNPQRTUWXYZ oneOPT
 do
 case $oneOPT in
 C) NUMBER=$OPTARG;;
@@ -1245,6 +1257,7 @@ D) DIRECTION_OPT=$OPTARG;;
 #O) ORATORY_ATTEMPTS=${OPTARG:-$ORATORY_ATTEMPTS_DEFAULT};;
 #S) SINGING_ATTEMPTS=${OPTARG:-$SINGING_ATTEMPTS_DEFAULT};;
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
+L) LOGGING=$((LOGGING+1));;
 h) _say_help 0;;
 V) _say_version 0;;
 

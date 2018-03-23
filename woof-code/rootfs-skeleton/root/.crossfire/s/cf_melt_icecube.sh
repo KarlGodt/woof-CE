@@ -47,6 +47,7 @@ PARAM_1="$1"
 case "$PARAM_1" in
 -h|*"help"*) _say_help;;
 -d) DEBUG=$((DEBUG+1));;
+-L) LOGGING=$((LOGGING+1));;
 -V) _say_version;;
 *) # *** testing parameters for validity *** #
    PARAM_1test="${PARAM_1//[[:digit:]]/}"

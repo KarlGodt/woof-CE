@@ -4,7 +4,6 @@
 # No real changes,
 # except to support infinte looping.
 
-export PATH=/bin:/usr/bin
 export LC_NUMERIC=de_DE
 export LC_ALL=de_DE
 
@@ -36,17 +35,7 @@ test -f "$MY_DIR"/"${MY_BASE}".conf && . "$MY_DIR"/"${MY_BASE}".conf
 
 unset DIRB DIRF
 
-# *** Here begins program *** #
-_say_start_msg "$@"
-
-# *** Check for parameters *** #
-
-while [ "$1" ]
-do
-PARAM_1="$1"
-
-# *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help"*)
+_usage(){
 _draw 5 "$MY_BASE"
 _draw 5 "Script to pray given number times."
 _draw 5  "To be used in the crossfire roleplaying game client."
@@ -57,8 +46,23 @@ _draw 5 "will issue 50 times the use_skill praying command."
 _draw 2 "Without <number> will loop forever,"
 _draw 2 "use scriptkill to terminate."
 
-        exit 0;;
+        exit 0
+}
+
+# *** Here begins program *** #
+_say_start_msg "$@"
+
+# *** Check for parameters *** #
+
+while [ "$1" ]
+do
+PARAM_1="$1"
+
+# *** implementing 'help' option *** #
+case "$PARAM_1" in
+-h|*"help"*) _usage;;
 -d) DEBUG=$((DEBUG+1));;
+-L) LOGGING=$((LOGGING+1));;
 -V) _say_version;;
 *)
 # *** testing parameters for validity *** #
