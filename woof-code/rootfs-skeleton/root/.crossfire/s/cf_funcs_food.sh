@@ -4,6 +4,7 @@
 
 # depends :
 [ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
+[ "$HAVE_FUNCS_REQUESTS" ] || . cf_funcs_requests.sh
 
 #Food
 
@@ -175,8 +176,13 @@ lEAT_FOOD=${lEAT_FOOD:-"$FOOD_DEF"}
 test "$lEAT_FOOD" || return 254
 
 #_check_food_in_inventory ## Todo: check if food is in INV
-_check_have_item_in_inventory $lEAT_FOOD && _is 1 1 apply $lEAT_FOOD
-#_is 1 1 apply $lEAT_FOOD
+
+if _check_have_item_in_inventory $lEAT_FOOD; then
+     unset NROF_ITEM
+  _is 1 1 apply $lEAT_FOOD
+else unset NROF_ITEM
+     false
+fi
 }
 
 _eat_food_from_open_container(){

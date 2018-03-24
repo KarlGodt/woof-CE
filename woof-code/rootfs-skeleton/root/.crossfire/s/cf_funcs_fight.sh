@@ -3,8 +3,10 @@
 [ "$HAVE_FUNCS_FIGHT" ] && return 0
 
 # depends :
-[ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
+[ "$HAVE_FUNCS_COMMON" ]   || . cf_funcs_common.sh
 [ "$HAVE_FUNCS_MOVE"   ]   || . cf_funcs_move.sh
+[ "$HAVE_FUNCS_SKILLS" ]   || . cf_funcs_skills.sh
+[ "$HAVE_FUNCS_FOOD"   ]   || . cf_funcs_food.sh
 
 _kill_monster_move(){
 _debug "_kill_monster_move:$*"
@@ -32,12 +34,18 @@ local lATTACKS=${*:-$ATTACK_ATTEMPTS_DEF}
 #*'You withhold your attack'*)  _set_next_direction; break 1;;
 #*'You avoid attacking '*)      _set_next_direction; break 1;;
 
+_watch $DRAWINFO
 for i in `seq 1 1 ${lATTACKS:-1}`; do
 _is 1 1 fire $DIRN
 _is 1 1 fire_stop
-NROF_ITEM=$((NROF_ITEM-1))
-test "$NROF_ITEM" -le 0 && break 1
+
+ if test "$NROF_ITEM_ATTACK" ; then
+  NROF_ITEM_ATTACK=$((NROF_ITEM_ATTACK-1))
+  test "$NROF_ITEM_ATTACK" -le 0 && break 1
+ fi
+
 done
+_unwatch $DRAWINFO
 _empty_message_stream
 }
 
@@ -57,7 +65,10 @@ _is 1 1 brace
  case $REPLY in
  *'You are braced.'*) break 2;;
  *'Not braced.'*)     break 1;;
- '') :;;
+  *scripttell*break*)     break ${REPLY##*?break};;
+  *scripttell*exit*)    _exit 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit;;
+ '') _warn "_brace:Still waiting for message ...";;
  *) :;;
  esac
 
@@ -85,7 +96,10 @@ _is 1 1 brace
  case $REPLY in
  *'You are braced.'*) break 1;;
  *'Not braced.'*)     break 2;;
- '') :;;
+  *scripttell*break*)     break ${REPLY##*?break};;
+  *scripttell*exit*)    _exit 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit;;
+ '') _warn "_unbrace:Still waiting for message ...";;
  *) :;;
  esac
 
@@ -252,7 +266,7 @@ one=$((one+1))
 
 _kill_monster_fire $ATTACKS_SPOT
 
-test "$NROF_ITEM" -le 0 && break 1
+test "${NROF_ITEM_ATTACK:-1}" -le 0 && break 1
 case $NUMBER in $one) break 1;; esac
 #case $PUNCH_ATTEMPTS in $PUNCH_ATTEMPTS_DONE) break;; esac
 

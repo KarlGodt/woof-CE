@@ -1023,6 +1023,8 @@ return 0
 
 _unapply_rod_of_recall(){
 # *** Unreadying rod of word of recall - just in case *** #
+# this function had been written, when we did not know about the
+# apply options -u and -a ....
 _debug "_unapply_rod_of_recall:$*"
 
 local RECALL OLD_REPLY REPLY
@@ -1066,22 +1068,7 @@ currHPMin=${currHPMin:-$((MHP/10))}
 
 _msg 7 "currHP=$currHP currHPMin=$currHPMin"
 if test "$currHP" -le ${currHPMin:-20}; then
-
- __old_recall(){
- _empty_message_stream
- _is 1 1 apply -u ${RETURN_ITEM:-'rod of word of recall'}
- _is 1 1 apply -a ${RETURN_ITEM:-'rod of word of recall'}
- _empty_message_stream
-
- _is 1 1 fire center ## TODO: check if already applied and in inventory
- _is 1 1 fire_stop
-
- _empty_message_stream
- _unwatch $DRAWINFO
- exit 5
- }
-
-_emergency_exit
+ _emergency_exit
 fi
 
 unset HP

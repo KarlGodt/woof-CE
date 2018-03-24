@@ -3,20 +3,19 @@
 
 # 2018-02-10
 # cf_throw.sh :
-# script to level up the skill throwing
+# script to level up the skill missile weapon
 
 VERSION=0.0 # Initial version,
 VERSION=0.1 # exit early if already running or no DRAWINFO
 VERSION=0.2 # Use standard sound directories
 VERSION=0.3 # add missing functions _do_parameters
 VERSION=0.4 # require item to throw, check if item is in inventory NROF, lock all other items
-VERSION=1.0 # first workings
-VERSION=1.1 # bugfixes: -W option was not correctly implemented, NROF_ITEM fixes
+VERSION=1.0 # first workings, taken from cf_throw.sh
 
 LOGGING=1
 
-#THROW_WEAPON='throwing dagger'
-THROW_WEAPON='silver coin'
+#WEAPON_MISSILE='throwing dagger'
+WEAPON_MISSILE='bow'
 
 # Log file path in /tmp
 MY_SELF=`realpath "$0"` ## needs to be in main script
@@ -27,8 +26,8 @@ cd "$MY_DIR"
 
 _say_help_stdalone(){
 _draw_stdalone 6  "$MY_BASE"
-_draw_stdalone 7  "Script to throw weapon to kill monsters"
-_draw_stdalone 7  "by skill throwing."
+_draw_stdalone 7  "Script to fire missiles to kill monsters"
+_draw_stdalone 7  "by skill missile weapon."
 _draw_stdalone 2  "To be used in the crossfire roleplaying game client."
 _draw_stdalone 6  "Syntax:"
 _draw_stdalone 7  "$0 <<NUMBER>> <<Options>>"
@@ -52,8 +51,8 @@ exit ${1:-2}
 
 _say_help(){
 _draw 6  "$MY_BASE"
-_draw 7  "Script to throw weapon to kill monsters"
-_draw 7  "by skill throwing."
+_draw 7  "Script to fire missiles to kill monsters"
+_draw 7  "by skill missile weapon."
 _draw 2  "To be used in the crossfire roleplaying game client."
 _draw 6  "Syntax:"
 _draw 7  "$0 <<NUMBER>> <<Options>>"
@@ -331,7 +330,7 @@ _is_stdalone 1 1 fire center
 _is_stdalone 1 1 fire_stop
 ;;
 *scroll*) _is_stdalone 1 1 apply ${lRETURN_ITEM};;
-*) _is_stdalone 1 1 invoke "$lRETURN_ITEM";; # assuming spell
+*) invoke "$lRETURN_ITEM";; # assuming spell
 esac
 
 _draw_stdalone 3 "Emergency Exit $0 !"
@@ -673,12 +672,8 @@ _watch $DRAWINFO
 for i in `seq 1 1 ${lATTACKS:-1}`; do
 _is_stdalone 1 1 fire $DIRN
 _is_stdalone 1 1 fire_stop
-
-if test "$NROF_ITEM_ATTACK"; then
- NROF_ITEM_ATTACK=$((NROF_ITEM_ATTACK-1))
- test "$NROF_ITEM_ATTACK" -le 0 && break 1
-fi
-
+NROF_ITEM=$((NROF_ITEM-1))
+test "$NROF_ITEM" -le 0 && break 1
 done
 
 _unwatch $DRAWINFO
@@ -1037,7 +1032,7 @@ B) DO_BRACE=1;;
 C) NUMBER=$OPTARG;;
 D) DIRECTION_OPT=$OPTARG;;
 L) LOGGING=$((LOGGING+1));;
-W) THROW_WEAPON="$OPTARG";;
+W) WEAPON_MISSILE="$OPTARG";;
 Z) DO_CLOCKWISE=1;;
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
 h) _say_help_stdalone 0;;
@@ -1082,7 +1077,7 @@ B) DO_BRACE=1;;
 C) NUMBER=$OPTARG;;
 D) DIRECTION_OPT=$OPTARG;;
 L) LOGGING=$((LOGGING+1));;
-W) THROW_WEAPON="$OPTARG";;
+W) WEAPON_MISSILE="$OPTARG";;
 Z) DO_CLOCKWISE=1;;
 d) DEBUG=$((DEBUG+1)); MSGLEVEL=7;;
 h) _say_help 0;;
@@ -1167,7 +1162,6 @@ _log_stdalone   "_lock_all_items_stdalone:$*"
 _debug_stdalone "_lock_all_items_stdalone:$*"
 
 local lEMPTY_LINE=0
-local lreq litm linv lTAG lNROF lWEIGHT lFLAGS lTYPE lD_NAME
 
 unset INVENTORY_LIST
 
@@ -1175,7 +1169,7 @@ echo request items inv
 usleep 1000
 
 while :; do
-unset  lreq litm linv lTAG lNROF lWEIGHT lFLAGS lTYPE lD_NAME
+unset  req itm inv TAG NROF WEIGHT FLAGS TYPE D_NAME
 
 #flags=it->magical;                      1
 #   flags= (flags<<1)|it->cursed;        2
@@ -1195,12 +1189,12 @@ unset  lreq litm linv lTAG lNROF lWEIGHT lFLAGS lTYPE lD_NAME
 # flags,
 # it->type,
 # it->d_name);
-read -t ${TMOUT:-1} lreq litm linv lTAG lNROF lWEIGHT lFLAGS lTYPE lD_NAME
+read -t ${TMOUT:-1} req itm inv TAG NROF WEIGHT FLAGS TYPE D_NAME
 # 72605606 1 19 17 0 flower
-_log_stdalone "$INV_LIST_FILE" "_lock_all_items_stdalone:$lreq $litm $linv $lTAG $lNROF $lWEIGHT $lFLAGS $lTYPE $lD_NAME"
-_debug_stdalone "$lreq $litm $linv $lTAG $lNROF $lWEIGHT $lFLAGS $lTYPE $lD_NAME"
+_log_stdalone "$INV_LIST_FILE" "_lock_all_items_stdalone:$req $itm $inv $TAG $NROF $WEIGHT $FLAGS $TYPE $D_NAME"
+_debug_stdalone "$req $itm $inv $TAG $NROF $WEIGHT $FLAGS $TYPE $D_NAME"
 
-case $lreq in
+case $req in
 '') lEMPTY_LINE=$((lEMPTY_LINE+1));
     if test $lEMPTY_LINE -ge 5; then
      _log_stdalone "$INV_LIST_FILE" "WARNING: Inventory has too many items to request them all!"
@@ -1210,12 +1204,12 @@ case $lreq in
  ;;
 esac
 
-case $lTAG in end) break 1;; esac
+case $TAG in end) break 1;; esac
 
 INVENTORY_LIST="$INVENTORY_LIST
-$lNROF:$lD_NAME"
+$NROF:$D_NAME"
 
-test $lFLAGS -lt 16 && _toggle_lock_stdalone
+test $FLAGS -lt 16 && _toggle_lock_stdalone
 
 
 usleep 1000
@@ -1232,7 +1226,7 @@ _unlock_stdalone(){
 _log_stdalone   "_unlock_stdalone:$*"
 _debug_stdalone "_unlock_stdalone:$*"
 
-local lITEM=${*:-"$THROW_WEAPON"}
+local lITEM=${*:-"$WEAPON_MISSILE"}
 test "$lITEM" || return 254
 
 local lreq litm linv lTAG lNROF lWEIGHT lFLAGS lTYPE lD_NAME
@@ -1248,7 +1242,7 @@ read -t ${TMOUT:-1} lreq litm linv lTAG lNROF lWEIGHT lFLAGS lTYPE lD_NAME
 _log_stdalone "$INV_LIST_FILE" "_unlock_stdalone:$lreq $litm $linv $lTAG $lNROF $lWEIGHT $lFLAGS $lTYPE $lD_NAME"
 _debug_stdalone "$lreq $litm $linv $lTAG $lNROF $lWEIGHT $lFLAGS $lTYPE $lD_NAME"
 
-case $lreq in
+case $req in
 '') lEMPTY_LINE=$((lEMPTY_LINE+1));
     if test $lEMPTY_LINE -ge 5; then
      _log_stdalone "$INV_LIST_FILE" "WARNING: Inventory has too many items to request them all!"
@@ -1315,12 +1309,7 @@ local lEAT_FOOD="${@:-$EAT_FOOD}"
 lEAT_FOOD=${lEAT_FOOD:-"$FOOD_DEF"}
 test "$lEAT_FOOD" || return 254
 
-if _check_have_item_in_inventory_stdalone $lEAT_FOOD; then
-     unset NROF_ITEM
- _is_stdalone 1 1 apply $lEAT_FOOD
-else unset NROF_ITEM
-     false
-fi
+_check_have_item_in_inventory_stdalone $lEAT_FOOD && _is_stdalone 1 1 apply $lEAT_FOOD
 }
 
 _request_stat_hp_stdalone(){
@@ -1341,7 +1330,7 @@ read -t ${TMOUT:-1} r s hp HP MHP SP MSP GR MGR FOOD_LVL REST
 MAXHP=$MHP
 MAXSP=$MSP
 MAXGR=$MGR
-test "$HP" -a "$MHP" -a "$SP" -a "$MSP" -a "$GR" != "" -a "$MGR" -a "$FOOD_LVL"
+test "$HP" -a "$MHP" -a "$SP" -a "$MSP" -a "$GR" -a "$MGR" -a "$FOOD_LVL"
 }
 
 _check_mana_for_create_food_stdalone(){
@@ -1436,15 +1425,9 @@ _log_stdalone   "_heal_stdalone:$*"
 local lITEM=${*:-"$HEAL_ITEM"}
 
 case $lITEM in
-*rod*|*staff*|*wand*|*horn*|*scroll*)
- if _check_have_item_in_inventory_stdalone $lITEM; then
-      unset NROF_ITEM
- else unset NROF_ITEM
-      return 1
- fi;;
+*rod*|*staff*|*wand*|*horn*|*scroll*) _check_have_item_in_inventory_stdalone $lITEM || return 1;;
 *) :;;
 esac
-
 
 case $lITEM in
 *rod*|*staff*|*wand*|*horn*)
@@ -1674,7 +1657,7 @@ one=$((one+1))
 
 _kill_monster_stdalone $ATTACKS_SPOT
 
-test "$NROF_ITEM_ATTACK" -le 0 && break 1
+test "$NROF_ITEM" -le 0 && break 1
 case $NUMBER in $one) break 1;; esac
 #case $PUNCH_ATTEMPTS in $PUNCH_ATTEMPTS_DONE) break;; esac
 
@@ -1682,7 +1665,7 @@ if _check_counter_stdalone; then
 _check_food_level_stdalone
 _check_hp_stdalone
 _check_hp_and_return_home_stdalone $HP
-_check_skill_available_stdalone "throwing" || return 1
+_check_skill_available_stdalone "missile weapon" || return 1
 fi
 
 _say_script_time_stdalone
@@ -1704,14 +1687,11 @@ test "$PL_SPEED1" && __set_sync_sleep_stdalone ${PL_SPEED1} || _set_sync_sleep_s
 _direction_to_number_stdalone $DIRECTION_OPT
 
 STATUS=0
-       _check_skill_available_stdalone throwing        || STATUS=$((STATUS+1))
-_check_have_item_in_inventory_stdalone "$THROW_WEAPON" || STATUS=$((STATUS+2))
-NROF_ITEM_ATTACK=$NROF_ITEM
-unset NROF_ITEM
-
+       _check_skill_available_stdalone "missile weapon"  || STATUS=$((STATUS+1))
+_check_have_item_in_inventory_stdalone "$WEAPON_MISSILE" || STATUS=$((STATUS+2))
 _lock_all_items_stdalone         || STATUS=$((STATUS+4))
-_unlock_stdalone "$THROW_WEAPON" || STATUS=$((STATUS+8))
-_is_stdalone 1 1 mark "$THROW_WEAPON"
+_unlock_stdalone "$WEAPON_MISSILE" || STATUS=$((STATUS+8))
+_is_stdalone 1 1 mark "$WEAPON_MISSILE"
 
 #DEBUG:
 #_draw_stdalone 3 "STATUS=$STATUS"
@@ -1752,14 +1732,11 @@ test "$PL_SPEED1" && __set_sync_sleep ${PL_SPEED1} || _set_sync_sleep "$PL_SPEED
 _direction_to_number $DIRECTION_OPT
 
 STATUS=0
-       _check_skill_available throwing        || STATUS=$((STATUS+1))
-_check_have_item_in_inventory "$THROW_WEAPON" || STATUS=$((STATUS+2))
-NROF_ITEM_ATTACK=$NROF_ITEM
-unset NROF_ITEM
-
-_lock_all_items         || STATUS=$((STATUS+4))
-_unlock "$THROW_WEAPON" || STATUS=$((STATUS+8))
-_is 1 1 mark "$THROW_WEAPON"
+       _check_skill_available "missile weapon"  || STATUS=$((STATUS+1))
+_check_have_item_in_inventory "$WEAPON_MISSILE" || STATUS=$((STATUS+1))
+_lock_all_items           || STATUS=$((STATUS+1))
+_unlock "$WEAPON_MISSILE" || STATUS=$((STATUS+1))
+_is 1 1 mark "$WEAPON_MISSILE"
 
 if test "$STATUS" = 0; then
 [ "$DO_BRACE" ] && _brace
@@ -1772,8 +1749,8 @@ _say_end_msg
 
 #while :; do
 
- _main_throw_stdalone "$@"
-# _main_throw_func "$@"
+# _main_throw_stdalone "$@"
+ _main_throw_func "$@"
 
 #test "$NUMBER" && break
 #sleep 5

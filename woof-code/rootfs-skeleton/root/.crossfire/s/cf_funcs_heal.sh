@@ -4,6 +4,7 @@
 
 # depends :
 [ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
+[ "$HAVE_FUNCS_REQUESTS" ] || . cf_funcs_requests.sh
 
 __check_hp(){
 _debug "__check_hp:$*"
@@ -30,7 +31,13 @@ _log   "_heal:$*"
 local lITEM=${*:-"$HEAL_ITEM"}
 
 case $lITEM in
-*rod*|*staff*|*wand*|*horn*|*scroll*) _check_have_item_in_inventory $lITEM || return 1;;
+*rod*|*staff*|*wand*|*horn*|*scroll*)
+ if _check_have_item_in_inventory $lITEM; then
+      unset NROF_ITEM
+ else unset NROF_ITEM
+      return 1
+ fi
+ ;;
 *) :;;
 esac
 
