@@ -7,6 +7,8 @@
 # Added case switch for drawextinfo/drawinfo sending
 # different amounts of pre-pet number values
 
+VERSION=1.6
+
 LOGGING=1
 
 MY_SELF=`realpath "$0"`
@@ -29,7 +31,7 @@ _draw 5 "Script to kill pets except the ones"
 _draw 5 "given on parameter line."
 _draw 2  "To be used in the crossfire roleplaying game client."
 _draw 2 "Syntax:"
-_draw 2 "$0 pet1 pet2 .."
+_draw 2 "script $0 pet1 pet2 .."
 _draw 5 ":space: ( ) needs to be replaced by underscore (_)"
 _draw 5 "for ex. green slime to green_slime ."
 _draw 2 "Options:"
@@ -50,6 +52,9 @@ while [ "$1" ];
 do
 case $1 in
 -h|*-help) _say_help_and_exit;;
+-d) DEBUG=$((DEBUG+1));;
+-L) LOGGING=$((LOGGING+1));;
+-V) _say_version;;
 -w|*-word)  GREP_PARAM="$GREP_PARAM $1";;
 *) keepPETS="$keepPETS $1";;
 esac

@@ -438,6 +438,77 @@ usleep 1000
 done
 }
 
+_mark_item(){
+_debug "_mark_item:$*"
+_log   "_mark_item:$*"
+
+local lITEM=${*:-"$MARK_ITEM"}
+
+lITEM=${lITEM:-"$ITEM"}
+lITEM=${lITEM:-icecube}
+
+test "$lITEM" || return 254
+
+local lRV=0
+
+_is 1 1 mark "$lITEM"
+
+ while :; do
+  unset REPLY
+ read -t $TMOUT
+  _log "_mark_item:$REPLY"
+  _debug "$REPLY"
+ case $REPLY in
+  *Could*not*find*an*object*that*matches*) lRV=1;break 1;;
+  *scripttell*break*) break ${REPLY##*?break};;
+  *scripttell*exit*)  _exit 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit;;
+  '') break;;
+ esac
+ sleep 0.1
+ done
+
+return ${lRV:-0}
+}
+
+_apply_item_flint_and_steel(){
+_debug "_apply_item_flint_and_steel:$*"
+_log   "_apply_item_flint_and_steel:$*"
+
+local lITEM=${*:-"$ITEM"}
+
+lITEM=${lITEM:-"flint and steel"}
+
+test "$lITEM" || return 254
+
+local lRV=0
+
+_is 1 1 apply "$lITEM"
+
+ while :; do
+  unset REPLY
+ read -t $TMOUT
+  _log "_apply_item_flint_and_steel:$REPLY"
+  _debug "$REPLY"
+ case $REPLY in
+  *You*light*the*icecube*with*the*flint*and*steel.*) lRV=0; SUCC=$((SUCC+1)); break 1;;
+  *fail*)                                            lRV=1; FAIL=$((FAIL+1)); break 1;;
+  *used*up*flint*and*steel*)                         lRV=5; break 1;;
+  *Could*not*find*any*match*to*the*flint*and*steel*) lRV=6; break 1;;
+  *You*need*to*mark*a*lightable*object.*)            lRV=7; break 1;;
+
+  *scripttell*break*) break ${REPLY##*?break};;
+  *scripttell*exit*)  _exit 1 $REPLY;;
+  *'YOU HAVE DIED.'*) _just_exit;;
+
+  '')     lRV=1; break 1;;
+  *) :;;
+ esac
+ sleep 0.1
+ done
+
+return ${lRV:-0}
+}
 
 
 ###END###

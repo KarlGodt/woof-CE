@@ -64,6 +64,7 @@ done
 # functions:
 _mark_item(){
 _debug "_mark_item:$*"
+_log   "_mark_item:$*"
 
 local lITEM=${*:-"$MARK_ITEM"}
 
@@ -96,6 +97,7 @@ return ${lRV:-0}
 
 _apply_item(){
 _debug "_apply_item:$*"
+_log   "_apply_item:$*"
 
 local lITEM=${*:-"$ITEM"}
 

@@ -17,6 +17,20 @@ test -f "$MY_DIR"/cf_funcs_alchemy.sh && . "$MY_DIR"/cf_funcs_alchemy.sh
 # *** Override any VARIABLES in cf_functions.sh *** #
 test -f "$MY_DIR"/"${MY_BASE}".conf && . "$MY_DIR"/"${MY_BASE}".conf
 
+_usage(){
+_draw 5 "$MY_BASE"
+_draw 5 "Script to produce water of the wise."
+_draw 2  "To be used in the crossfire roleplaying game client."
+_draw 7 "Syntax:"
+_draw 7 "script $0 <-version VERSION> NUMBER"
+_draw 5 "Allowed NUMBER will loop for"
+_draw 5 "NUMBER times to produce NUMBER of"
+_draw 5 "Balm of First Aid ."
+_draw 2  "Option -version 1.12.0 and lesser"
+_draw 2  "turns on some compatibility switches."
+        exit 0
+}
+
 # *** Here begins program *** #
 _say_start_msg "$@"
 
@@ -30,25 +44,18 @@ case "$1" in
 esac
 done
 
-[ "$*" ] && {
+
+until [ "$#" = 0 ];
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help"*)
-
-_draw 5 "$MY_BASE"
-_draw 5 "Script to produce water of the wise."
-_draw 2  "To be used in the crossfire roleplaying game client."
-_draw 7 "Syntax:"
-_draw 7 "$0 <-version VERSION> NUMBER"
-_draw 5 "Allowed NUMBER will loop for"
-_draw 5 "NUMBER times to produce NUMBER of"
-_draw 5 "Balm of First Aid ."
-_draw 2  "Option -version 1.12.0 and lesser"
-_draw 2  "turns on some compatibility switches."
-        exit 0
-;; esac
-
+case "$PARAM_1" in
+-h|*"help"*) _usage;;
+-d) DEBUG=$((DEBUG+1));;
+-L) LOGGING=$((LOGGING+1));;
+-V) _say_version;;
+*)
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
 _draw 3 "Only :digit: numbers as option allowed."
@@ -56,16 +63,22 @@ _draw 3 "Only :digit: numbers as option allowed."
         }
 
 NUMBER=$PARAM_1
+;;
+esac
 
-} || {
-_draw 3 "Script needs number of alchemy attempts as argument."
-        exit 1
-}
+shift
+sleep 0.1
+done
 
-test "$1" || {
-_draw 3 "Need <number> ie: script $0 4 ."
-        exit 1
-}
+#} || {
+#_draw 3 "Script needs number of alchemy attempts as argument."
+#        exit 1
+#}
+#
+#test "$1" || {
+#_draw 3 "Need <number> ie: script $0 4 ."
+#        exit 1
+#}
 
 _draw 7 "OK."
 

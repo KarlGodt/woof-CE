@@ -29,11 +29,11 @@ cd "$MY_DIR"
 
 _say_help_stdalone(){
 _draw_stdalone 6  "$MY_BASE"
-_draw_stdalone 7  "Script to fire killing monsters"
+_draw_stdalone 7  "Script to fire skill to kill monsters"
 _draw_stdalone 7  "by skill given as parameter."
 _draw_stdalone 2  "To be used in the crossfire roleplaying game client."
 _draw_stdalone 6  "Syntax:"
-_draw_stdalone 7  "$0 <<NUMBER>> <<Options>>"
+_draw_stdalone 7  "script $0 <<NUMBER>> <<Options>>"
 _draw_stdalone 8  "Options:"
 _draw_stdalone 10 "Simple number as first parameter:Just make NUMBER loop rounds."
 _draw_stdalone 10 "-C # :like above, just make NUMBER loop rounds."
@@ -57,11 +57,11 @@ exit ${1:-2}
 
 _say_help(){
 _draw 6  "$MY_BASE"
-_draw 7  "Script to fire killing monsters"
+_draw 7  "Script to fire skill to kill monsters"
 _draw 7  "by skill given as parameter."
 _draw 2  "To be used in the crossfire roleplaying game client."
 _draw 6  "Syntax:"
-_draw 7  "$0 <<NUMBER>> <<Options>>"
+_draw 7  "script $0 <<NUMBER>> <<Options>>"
 _draw 8  "Options:"
 _draw 10 "Simple number as first parameter:Just make NUMBER loop rounds."
 _draw 10 "-C # :like above, just make NUMBER loop rounds."

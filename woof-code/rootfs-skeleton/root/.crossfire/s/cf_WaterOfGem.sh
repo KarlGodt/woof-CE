@@ -20,6 +20,22 @@ NUMBER=0 #set zero as default
 # *** Override any VARIABLES in cf_functions.sh *** #
 test -f "$MY_DIR"/"${MY_BASE}".conf && . "$MY_DIR"/"${MY_BASE}".conf
 
+_usage(){
+_draw 5 "$MY_BASE"
+_draw 5 "Script to produce water of GEM."
+_draw 5  "To be used in the crossfire roleplaying game client."
+_draw 7 "Syntax:"
+_draw 7 "$0 <-version VERSION> GEM NUMBER"
+_draw 2 "Allowed GEM are diamond, emerald,"
+_draw 2 "pearl, ruby, sapphire ."
+_draw 5 "Allowed NUMBER will loop for"
+_draw 5 "NUMBER times to produce NUMBER of"
+_draw 5 "Water of GEM ."
+_draw 2  "Option -version 1.12.0 and lesser"
+_draw 2  "turns on some compatibility switches."
+        exit 0
+}
+
 # *** PARAMETERS *** #
 while :;
 do
@@ -33,27 +49,25 @@ done
 # *** Here begins program *** #
 _say_start_msg "$@"
 _debug "$@"
-[ "$*" ] && {
+
+until [ "$#" = 0 ];
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help"*)
+case "$PARAM_1" in
+-h|*"help"*) _usage;;
+-d) DEBUG=$((DEBUG+1));;
+-L) LOGGING=$((LOGGING+1));;
+-V) _say_version;;
+*) break;;
+esac
 
-_draw 5 "$MY_BASE"
-_draw 5 "Script to produce water of GEM."
-_draw 5  "To be used in the crossfire roleplaying game client."
-_draw 7 "Syntax:"
-_draw 7 "$0 <-version VERSION> GEM NUMBER"
-_draw 2 "Allowed GEM are diamond, emerald,"
-_draw 2 "pearl, ruby, sapphire ."
-_draw 5 "Allowed NUMBER will loop for"
-_draw 5 "NUMBER times to produce NUMBER of"
-_draw 5 "Water of GEM ."
-_draw 2  "Option -version 1.12.0 and lesser"
-_draw 2  "turns on some compatibility switches."
+shift
+sleep 0.1
+done
 
-        exit 0
-;; esac
+esac
 
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:alpha:]]/}"

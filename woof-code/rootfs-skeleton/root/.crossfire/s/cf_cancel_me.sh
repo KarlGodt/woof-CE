@@ -26,6 +26,18 @@ test -f "$MY_DIR"/"${MY_BASE}".conf  && . "$MY_DIR"/"${MY_BASE}".conf
 
 unset DIRB DIRF
 
+_usage(){
+_draw 5 "$MY_BASE"
+_draw 5 "Script to "
+_draw 5 "apply $CANCEL_ITEM"
+_draw 5 "and then to fire center on oneself."
+_draw 2  "To be used in the crossfire roleplaying game client."
+_draw 2 "Syntax:"
+_draw 2 "script $0 NUMBER"
+_draw 7 "$0 5 would fire center 5 times."
+        exit 0
+}
+
 # *** Here begins program *** #
 _say_start_msg "$@"
 
@@ -35,19 +47,10 @@ do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help"*)
-
-_draw 5 "$MY_BASE"
-_draw 5 "Script to "
-_draw 5 "apply $CANCEL_ITEM"
-_draw 5 "and then to fire center on oneself."
-_draw 2  "To be used in the crossfire roleplaying game client."
-_draw 2 "Syntax:"
-_draw 2 "$0 NUMBER"
-_draw 7 "$0 5 would fire center 5 times."
-        exit 0
-;;
+case "$PARAM_1" in
+-h|*"help"*) _usage;;
 -d) DEBUG=$((DEBUG+1));;
+-L) LOGGING=$((LOGGING+1));;
 -V) _say_version;;
 *)
 # *** testing parameters for validity *** #

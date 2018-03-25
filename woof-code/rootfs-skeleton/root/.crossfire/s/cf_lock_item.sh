@@ -288,7 +288,7 @@ esac
 # -N --not
 # -I --item
 
-until [ $# -gt 0 ]; do
+until [ $# = 0 ]; do
 case $1 in
 -A|-*all) SFLAGS="$SFLAGS ALL";;
 -L|-lock|--lock) SFLAGS="$SFLAGS LOCK";;
