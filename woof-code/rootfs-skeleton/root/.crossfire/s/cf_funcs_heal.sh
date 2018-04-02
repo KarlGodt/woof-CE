@@ -5,6 +5,7 @@
 # depends :
 [ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
 [ "$HAVE_FUNCS_REQUESTS" ] || . cf_funcs_requests.sh
+[ "$HAVE_FUNCS_ITEMS" ]    || . cf_funcs_items.sh
 
 __check_hp(){
 _debug "__check_hp:$*"

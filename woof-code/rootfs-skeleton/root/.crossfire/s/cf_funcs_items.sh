@@ -492,11 +492,10 @@ _is 1 1 apply "$lITEM"
   _debug "$REPLY"
  case $REPLY in
   *You*light*the*icecube*with*the*flint*and*steel.*) lRV=0; SUCC=$((SUCC+1)); break 1;;
+  *fail*used*up*flint*and*steel*)                    lRV=5; break 1;;
   *fail*)                                            lRV=1; FAIL=$((FAIL+1)); break 1;;
-  *used*up*flint*and*steel*)                         lRV=5; break 1;;
   *Could*not*find*any*match*to*the*flint*and*steel*) lRV=6; break 1;;
   *You*need*to*mark*a*lightable*object.*)            lRV=7; break 1;;
-
   *scripttell*break*) break ${REPLY##*?break};;
   *scripttell*exit*)  _exit 1 $REPLY;;
   *'YOU HAVE DIED.'*) _just_exit;;

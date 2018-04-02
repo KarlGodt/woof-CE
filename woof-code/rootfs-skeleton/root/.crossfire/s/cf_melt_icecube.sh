@@ -8,8 +8,8 @@ VERSION=2.1 # 2018-02-17 more code overhauling
 MARK_ITEM='icecube'
 ITEM='flint and steel'
 
-DEBUG=1
-MSGLEVEL=7
+DEBUG='' #1
+MSGLEVEL=6 #7
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
@@ -17,6 +17,7 @@ MY_DIR=${MY_SELF%/*}
 
 test -f "$MY_DIR"/cf_funcs_common.sh && . "$MY_DIR"/cf_funcs_common.sh
 _set_global_variables "$@"
+
 
 # *** Override any VARIABLES in cf_functions.sh *** #
 test -f "$MY_DIR"/"${MY_BASE}".conf && . "$MY_DIR"/"${MY_BASE}".conf
@@ -116,8 +117,8 @@ _is 1 1 apply "$lITEM"
   _debug "$REPLY"
  case $REPLY in
   *You*light*the*icecube*with*the*flint*and*steel.*) lRV=0; SUCC=$((SUCC+1)); break 1;;
+  *fail*used*up*flint*and*steel*)                    lRV=5; break 1;;
   *fail*)                                            lRV=1; FAIL=$((FAIL+1)); break 1;;
-  *used*up*flint*and*steel*)                         lRV=5; break 1;;
   *Could*not*find*any*match*to*the*flint*and*steel*) lRV=6; break 1;;
   *You*need*to*mark*a*lightable*object.*)            lRV=7; break 1;;
 
