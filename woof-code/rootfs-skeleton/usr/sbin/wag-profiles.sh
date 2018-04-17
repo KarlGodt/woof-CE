@@ -502,7 +502,7 @@ _debug "showProfilesWindow:'$*' start"
          zd1211|zd1211b|zd1211rw)                   CARD_WPA_DRV="wext" ;;
          #libertas_cs|libertas_sdio|libertas_tf_usb|mwl8k|usb8xxx) CARD_WPA_DRV="wext" ;; #v430
          #rt2800pci) CARD_WPA_DRV="wext" ;;  # KRG: Joy-IT GreatWall 310
-	'') :;;
+        '') :;;
          *) # doesn't support WPA encryption
            # add an option to add modules to file
            if [ -f "$Extra_WPA_Modules_File" ] &&\
@@ -539,7 +539,7 @@ _debug "showProfilesWindow:'$*' start"
 
                 case "$EXIT" in
                         "abort" | "19" ) # Back or close window
-				RV=255
+                                RV=255
                                 break
                                 ;; # Do Nothing, It will exit the while loop
                         "11" ) # Scan
@@ -568,7 +568,7 @@ _debug "showProfilesWindow:'$*' start"
                                    loadProfileData "${CURRENT_PROFILE}"
 
                                     if test "$CURRENT_CONTEXT" = 'wag-profiles.sh'; then
-					 setupDHCP
+                                         setupDHCP
                                          RV=$?
                                     else RV=0
                                     fi
@@ -581,7 +581,7 @@ _debug "showProfilesWindow:'$*' start"
                                 ;;
                         "23" ) # Stop interface
                                 _closeCONNECTION
-				;;
+                                ;;
                         "40" ) # Advanced fields
                                 if [ "$ADVANCED" ] ; then
                                         unset -v ADVANCED
@@ -736,8 +736,8 @@ giveNoWPADialog(){
 #=============================================================================
 refreshProfilesWindowInfo()
 {
-	_debug "showProfilesWindow:$*"
-	#called by showProfilesWindow
+        _debug "showProfilesWindow:$*"
+        #called by showProfilesWindow
         PROFILE_TITLES=$(grep -F 'TITLE=' ${PROFILES_DIR}/*.conf | cut -d= -f2 | tr -d '"' | tr " " "_" )
         # KRG: check duplicate tiltles and emit warning
         PROFILE_TITLES=`echo "$PROFILE_TITLES" | sed '/^$/d'`
@@ -746,7 +746,7 @@ refreshProfilesWindowInfo()
         FILES=`grep -l "^TITLE=\"$TITLE\"" ${PROFILES_DIR}/*.conf`
         NR=`echo "$FILES" | wc -l`
          if test "$NR" -gt 1; then
-	(
+        (
          echo "WARNING: $TITLE is same in"
          echo "$FILES"
          ) >&2
@@ -851,11 +851,11 @@ buildProfilesWindow()
         fi
         echo "dlg_wl_TEXT='$dlg_wl_TEXT'"
 
-        dlg_WL_FRAME="	<frame Recognized Wireless Device>
-	<text width-chars=\"60\" selectable=\"true\">
-	<label>\"$dlg_wl_TEXT\"</label>
-	</text>
-	</frame>"
+        dlg_WL_FRAME="  <frame Recognized Wireless Device>
+        <text width-chars=\"60\" selectable=\"true\">
+        <label>\"$dlg_wl_TEXT\"</label>
+        </text>
+        </frame>"
 
 _debug "exporting NETWIZ_Profiles_Window..."
         export NETWIZ_Profiles_Window="<window title=\"$L_TITLE_Puppy_Network_Wizard\" icon-name=\"gtk-network\" window-position=\"1\">
@@ -1003,7 +1003,7 @@ _debug "exporting NETWIZ_Profiles_Window..."
                                         <input file stock=\"gtk-apply\"></input>
                                         <action>EXIT:22</action>
                                 </button>
-				$BUTTON_SD_IF
+                                $BUTTON_SD_IF
                         </hbox>
                 </vbox>
         </frame>
@@ -1370,7 +1370,7 @@ assembleProfileData()
         PROFILE_TITLE="$(echo "$PROFILE_TITLE" | tr ' ' '_')"
         # (BASHISM!)
         #PROFILE_TITLE=${PROFILE_TITLE// /_}
-	_check_if_title_in_use && return 1
+        _check_if_title_in_use && return 1
 
         if [ "$PROFILE_MODE_A" = "true" ] ; then
                 PROFILE_MODE="ad-hoc"
@@ -1479,12 +1479,12 @@ saveWpaProfile(){
         STATUS=$?
         # need to change ap_scan, ssid and psk
         sed -i "s/ap_scan=.*/ap_scan=$PROFILE_WPA_AP_SCAN/" "$WPA_CONF"
-	STATUS=$((STATUS+$?))
-        sed -i "s/\Wssid=.*/	ssid=\"$PROFILE_ESSID\"/" "$WPA_CONF"    #TAB
-	STATUS=$((STATUS+$?))
-        sed -i "s/\Wpsk=.*/	#psk=\"$ESCAPED_PHRASE\"\n	psk=$PSK/" "$WPA_CONF" #TAB
-	STATUS=$((STATUS+$?))
-        #sed -i "s/	psk=.*/ psk=\"$PSK\"/" "$WPA_CONF"    #TAB
+        STATUS=$((STATUS+$?))
+        sed -i "s/\Wssid=.*/    ssid=\"$PROFILE_ESSID\"/" "$WPA_CONF"    #TAB
+        STATUS=$((STATUS+$?))
+        sed -i "s/\Wpsk=.*/     #psk=\"$ESCAPED_PHRASE\"\n      psk=$PSK/" "$WPA_CONF" #TAB
+        STATUS=$((STATUS+$?))
+        #sed -i "s/     psk=.*/ psk=\"$PSK\"/" "$WPA_CONF"    #TAB
         #STATUS=$((STATUS+$?))
         _debug "saveWpaProfile:'$*' end"
         return $STATUS
@@ -1609,7 +1609,7 @@ killWpaSupplicant ()
         # If there are supplicant processes for the current interface, kill them
         [ -d /var/run/wpa_supplicant ] || return 0
         INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 3
+        [ "$INTERFACE" ] || return 3
         #SUPPLICANT_PIDS=$( ps -e | grep -v "grep" | grep -E "wpa_supplicant.+${INTERFACE}" | grep -oE "^ *[0-9]+")
         #if [ -n "$SUPPLICANT_PIDS" ]; then
         #       rm /var/run/wpa_supplicant/$INTERFACE* >$OUT 2>&1
@@ -1631,7 +1631,7 @@ killDhcpcd()
 {
         _debug "killDhcpcd '$*'"
         INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 3
+        [ "$INTERFACE" ] || return 3
         # release dhcpcd
         #dhcpcd -k "$INTERFACE" 2>$ERR
         # dhcpcd -k caused problems with instances of dhcpcd running on other interfaces...
@@ -1734,8 +1734,8 @@ clean_up_gtkdialog(){
 useIwconfig ()
 {
 _debug "useIwconfig:'$*' start"
-	INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 3
+        INTERFACE=${INTERFACE:-"$1"}
+        [ "$INTERFACE" ] || return 3
   #(
         # Dougal: give the text message even when using dialog (for debugging)
         echo "Configuring interface $INTERFACE to network $PROFILE_ESSID with iwconfig..."
@@ -1785,9 +1785,9 @@ _debug "useIwconfig:'$*' start"
 #=============================================================================
 # Dougal: add this for the prism2_usb module
 useWlanctl(){
-	_debug "useWlanctl:'$*' start"
-	INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 3
+        _debug "useWlanctl:'$*' start"
+        INTERFACE=${INTERFACE:-"$1"}
+        [ "$INTERFACE" ] || return 3
   #(
         # Dougal: give the text message even when using dialog (for debugging)
         echo "Configuring interface $INTERFACE to network $PROFILE_ESSID with wlanctl-ng..."
@@ -2106,8 +2106,8 @@ $L_MESSAGE_No_Wpaconfig_p2"
 
 #=============================================================================
 checkIsPCMCIA(){
-	INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 3
+        INTERFACE=${INTERFACE:-"$1"}
+        [ "$INTERFACE" ] || return 3
   IsPCMCIA=""
   if PciSlot=$(grep -F 'PCI_SLOT_NAME=' /sys/class/net/$INTERFACE/device/uevent) ; then
     if [ -d /sys/class/pcmcia_socket/pcmcia_socket[0-9]/device/${PciSlot#PCI_SLOT_NAME=} ]
@@ -2140,8 +2140,8 @@ waitForPCMCIA(){
 #=============================================================================
 showScanWindow()
 {
-	INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 3
+        INTERFACE=${INTERFACE:-"$1"}
+        [ "$INTERFACE" ] || return 3
         # do the cleanup here, so devices have a chance to "settle" before scanning
         cleanUpInterface "$INTERFACE" >> $DEBUG_OUTPUT 2>&1
         sleep 1
@@ -2202,8 +2202,8 @@ showScanWindow()
 buildScanWindow()
 {
         _debug "buildScanWindow:'$*' INTERFACE='$INTERFACE' start"
-	INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 3
+        INTERFACE=${INTERFACE:-"$1"}
+        [ "$INTERFACE" ] || return 3
         SCANWINDOW_BUTTONS=""
 
         (
@@ -2216,18 +2216,18 @@ buildScanWindow()
                 rm -f /tmp/net-setup_scan*.tmp >$OUT 2>&1
 
                 #iwlist "$INTERFACE" scan >/tmp/net-setup_scan1.tmp 2>>$DEBUG_OUTPUT
-		#iwlist scan might contain escaped hex \xNN0\xNN1
+                #iwlist scan might contain escaped hex \xNN0\xNN1
                 IWLIST_SCAN1=`iwlist "$INTERFACE" scan 2>>$DEBUG_OUTPUT`
                 echo -e "$IWLIST_SCAN1" >/tmp/net-setup_scan1.tmp
 
                 echo "X"
 
                 SCANALL=$(iwlist "$INTERFACE" scan 2>>$DEBUG_OUTPUT)
-		SCANALL`echo -e "$SCANALL"`
+                SCANALL=`echo -e "$SCANALL"`
                 sleep 1
 
                 #iwlist "$INTERFACE" scan >/tmp/net-setup_scan2.tmp 2>>$DEBUG_OUTPUT
-		#iwlist scan might contain escaped hex \xNN0\xNN1
+                #iwlist scan might contain escaped hex \xNN0\xNN1
                 IWLIST_SCAN2=`iwlist "$INTERFACE" scan 2>>$DEBUG_OUTPUT`
                 echo -e "$IWLIST_SCAN2" >/tmp/net-setup_scan2.tmp
 
@@ -2288,7 +2288,7 @@ buildScanWindow()
 #                                if test "$SCANWINDOW_BUTTONS"; then SCANWINDOW_BUTTONS="$SCANWINDOW_BUTTONS \\
 #\"$CELL\" \"$CELL_ESSID (${CELL_MODE}; ${L_SCANWINDOW_Encryption}$CELL_ENC_TYPE)\" off \"${L_SCANWINDOW_Channel}${CELL_CHANNEL}; ${L_SCANWINDOW_Frequency}${CELL_FREQ}; ${L_SCANWINDOW_AP_MAC}${CELL_AP_MAC}; ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
 #else SCANWINDOW_BUTTONS="\"$CELL\" \"$CELL_ESSID (${CELL_MODE}; ${L_SCANWINDOW_Encryption}$CELL_ENC_TYPE)\" off \"${L_SCANWINDOW_Channel}${CELL_CHANNEL}; ${L_SCANWINDOW_Frequency}${CELL_FREQ}; ${L_SCANWINDOW_AP_MAC}${CELL_AP_MAC}; ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
-#				fi
+#                               fi
 # build list and sort
 SCANWINDOW_BUTTONS="$SCANWINDOW_BUTTONS
 \"$CELL\" \"$CELL_ESSID (${CELL_MODE}; ${L_SCANWINDOW_Encryption}$CELL_ENC_TYPE)\" off \"${L_SCANWINDOW_Channel}${CELL_CHANNEL}; ${L_SCANWINDOW_Frequency}${CELL_FREQ}; ${L_SCANWINDOW_AP_MAC}${CELL_AP_MAC}; ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
@@ -2505,8 +2505,8 @@ cp /tmp/net-setup_scanwindow /tmp/net-setup_scanwindow_createRetryPCMCIAScanDial
 runPrismScan()
 {
         _debug "runPrismScan:'$*' start"
-	INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 3
+        INTERFACE=${INTERFACE:-"$1"}
+        [ "$INTERFACE" ] || return 3
         # enable interface
         wlanctl-ng "$INTERFACE" lnxreq_ifstate ifstate=enable >/tmp/wlan-up 2>&1
         # scan (first X echoed only afterwards!
@@ -2539,9 +2539,9 @@ _debug "runPrismScan:'$*' end 0"
 buildPrismScanWindow()
 {
         _debug "buildPrismScanWindow:'$*' start"
-	INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 3
-	SCANWINDOW_BUTTONS=""
+        INTERFACE=${INTERFACE:-"$1"}
+        [ "$INTERFACE" ] || return 3
+        SCANWINDOW_BUTTONS=""
   (
         # do a cleanup first (raises interface, so need to put it down after)
         cleanUpInterface "$INTERFACE" >> $DEBUG_OUTPUT 2>&1
@@ -2651,7 +2651,7 @@ getCellParameters()
         CELL_ENCRYPTION=$(echo "$SCAN_CELL" | grep -F 'Encryption key:' | cut -d: -f2 | tr -d ' ')
         CELL_ENC_TYPE="$CELL_ENCRYPTION"
 
-	__set_enc_type__(){
+        __set_enc_type__(){
         # comment out all below code: IE: output isn't reliable (reports WPA as WPA2 at times)
         # Dougal: add this to let the user know the type of encryption
         CELL_ENC_TYPE=$(echo "${SCAN_CELL}" | grep -F 'IE: ') # | grep -o 'WPA2\|WPA')
@@ -2674,7 +2674,7 @@ getCellParameters()
         else
           CELL_ENC_TYPE="off"
         fi
-	}
+        }
 
 _debug "getCellParameters:'$*' end"
 } # end of getCellParameters
@@ -2747,18 +2747,18 @@ getPrismCellParameters()
 # If ran by itself it shows the interface, Otherwise it's only used as a function library
 CURRENT_CONTEXT=$(expr "$0" : '.*/\(.*\)$' )
 if [ "${CURRENT_CONTEXT}" = "wag-profiles.sh" ] ; then
-	#test "$1" || _exit 1 "Need network INTERFACE ( wlan0, ra0, ..) as parameter."
+        #test "$1" || _exit 1 "Need network INTERFACE ( wlan0, ra0, ..) as parameter."
         INTERFACE=${INTERFACE:-"$1"}
-	#[ "$INTERFACE" ] || { _notice "No parameter, defaulting to wlan0"; INTERFACE=wlan0; }
+        #[ "$INTERFACE" ] || { _notice "No parameter, defaulting to wlan0"; INTERFACE=wlan0; }
 
         MAYBE_WIRELESS=`iwconfig 2>&1| grep -vi 'no wireless extensions' | sed '/^[[:blank:]]*$/d ; /^$/d ; s/"//g'`
         INTERFACE=${INTERFACE:-`echo "$MAYBE_WIRELESS" | grep '^[[:alnum:]]\+' | awk '{print $1}' | head -n1`}
         [ "$INTERFACE" ] || { _notice "No active wireless, defaulting to wlan0"; INTERFACE=wlan0; }
-	_debug "INTERFACE='$INTERFACE'"
+        _debug "INTERFACE='$INTERFACE'"
 
-	if test "$DISPLAY" && pidof X >>$OUT; then
-	HAVEX=${HAVEX:-yes}
-	fi
+        if test "$DISPLAY" && pidof X >>$OUT; then
+        HAVEX=${HAVEX:-yes}
+        fi
         DEBUG_OUTPUT="/dev/stderr"
         SHORT_LANG="${LANG%%_*}"
         if [ -f /usr/share/locale/$SHORT_LANG/LC_MESSAGES/net-setup.mo ] ; then
@@ -2773,9 +2773,9 @@ if [ "${CURRENT_CONTEXT}" = "wag-profiles.sh" ] ; then
         fi
 while :; do
         showProfilesWindow "$INTERFACE"
-	case $? in
-	255) break;; #Cancel or back button
-	esac
+        case $? in
+        255) break;; #Cancel or back button
+        esac
 done
 fi
 #DEBUG_OUTPUT="/dev/stdout"
