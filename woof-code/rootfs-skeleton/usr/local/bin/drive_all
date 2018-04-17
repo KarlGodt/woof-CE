@@ -36,7 +36,7 @@ eventmanager : Starts eventmanager GUI
 unmount      : Unmounts partition
 unmountall   : Unmounts all partitions
 pmount_      : Starts pmount drive manager
-[ without any parameters also pmount ]
+[ without any parameters falls back to launch pmount ]
 Drive category : See /etc/rc.d/functions4puppy4
 File System type : See /proc/filesystems"
 
@@ -60,8 +60,16 @@ unmount_func() {
 
  rox -D "$MNTPT"
  _sync
+ devNODE=`mount | grep " on $MNTPT type " | tail -n1 | awk '{print $1}'`
+ devNODE=${devNODE:-/dev/$oneDRVNAME}
+ 
  while :;do
+  #rare ocassion, partition got unmounted before umount runs below...
+  umPATTERN=" ${MNTPT} "
+  [ "`busybox mount | grep "$umPATTERN"`" ] || return 0
+  
   /bin/umount "$MNTPT" ; umVAL=$?
+
   #fix zombie process prevents partition unmount, invisible to fuser...
   if [ "$umVAL" -ne 0 ];then
    ZOMBIES="`/bin/ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | awk '{print $1}'`"
@@ -70,22 +78,24 @@ unmount_func() {
     echo "Killing parentless zombie process '$oneZOMBIE'"
     kill $oneZOMBIE
    done
-   [ -n "`busybox mount | grep "$MNTPT"`" ] && /bin/umount "$MNTPT" ; umVAL=$?
+   [ -n "`busybox mount | grep "$umPATTERN"`" ] && /bin/umount "$MNTPT" ; umVAL=$?
   fi
+  
   #rare ocassion, partition got unmounted before umount runs above...
-  umPATTERN="${MNTPT} "
+  umPATTERN=" ${MNTPT} "
   [ "`busybox mount | grep "$umPATTERN"`" ] || umVAL=0
   if [ "$umVAL" != 0 ];then
    #EXTRAMSG0="`_command fuser -v -m $MNTPT 2>&1`"
    fsUSERS=`fuser -m "$MNTPT"`
    EXTRAMSG0=`for i in $fsUSERS; do ps | grep -w $i | grep -vE 'grep|message|splash';done`
    if [ "$EXTRAMSG0" = "" ];then
-    xmessage -bg "#ff8080" -title "Puppy drive manager: ERROR" -center "FAILURE! In the case of removable media, the most
-common reason is the media is not currently inserted.
+    xmessage -bg "#ff8080" -title "Puppy drive manager: ERROR" -center "FAILURE! In the case of removable media
+in drive $devNODE, the most common reason is
+the media is not currently inserted.
 If so, please remedy."
    else
-    xmessage -bg "#ff00ff" -title "KILL, KILL..." -center -buttons KILL:10,EXIT:20 "FAILURE! One or more processes (programs) are currently
-using /dev/${oneDRVNAME}. Here they are:
+    xmessage -bg "#ff00ff" -title "KILL, KILL..." -center -buttons KILL:10,EXIT:20 "FAILURE! One or more processes (programs)
+are currently using $devNODE . Here they are:
 $EXTRAMSG0
 
 If you press the \"KILL\" button, Puppy will attempt to
@@ -98,11 +108,14 @@ PLEASE PRESS THE \"EXIT\" BUTTON!"
      continue
     fi
    fi
+   
   else
-   case "$oneDRVNAME" in sr[0-9]*|scd[0-9]*|hd[a-z]) eject $VERB /dev/$oneDRVNAME;; esac
+   case "$devNODE" in /dev/sr[0-9]*|/dev/scd[0-9]*|/dev/hd[a-z]) eject $VERB $devNODE;; esac
   fi
+
   break
  done
+return ${umVAL:-0}
 }
 
 _exec_pmount(){
