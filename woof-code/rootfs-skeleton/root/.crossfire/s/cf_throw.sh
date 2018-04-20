@@ -1779,6 +1779,8 @@ _say_end_msg
 #sleep 5
 #done
 
+_is 1 1 fire_stop
+
 ###END###
 
 

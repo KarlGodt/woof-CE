@@ -121,7 +121,7 @@ esac
 ;;
 esac
 
-COUNT_CHECK_FOOD=${COUNT_CHECK_FOOD:-10} # number between attempts to check foodlevel.
+COUNT_CHECK_FOOD=${COUNT_CHECK_FOOD:-1000} # number between attempts to check foodlevel.
                     #  1 would mean check every single time, which is too much
 EAT_FOOD=${EAT_FOOD:-waybread}   # set to desired food to eat ie food, mushroom, booze, .. etc.
 FOOD_DEF=haggis     # default
@@ -1698,5 +1698,6 @@ test "$NUMBER" && break
 sleep 5
 done
 
+_is 1 1 fire_stop
 
 ###END###

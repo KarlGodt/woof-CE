@@ -1632,8 +1632,8 @@ _debug "_main_claw_func:$*"
 _log   "_main_claw_func:$*"
 
 _set_global_variables $*
-_say_start_msg $*
 _do_parameters $*
+_say_start_msg $*
 
 _get_player_speed
 test "$PL_SPEED1" && __set_sync_sleep ${PL_SPEED1} || _set_sync_sleep "$PL_SPEED"
@@ -1651,11 +1651,14 @@ _say_end_msg
 }
 
 while :; do
- _main_claw_stdalone "$@"
-#_main_claw_func "$@"
+ 
+  _main_claw_stdalone "$@"
+# _main_claw_func "$@"
 
 test "$NUMBER" && break
 sleep 5
 done
+
+_is 1 1 fire_stop
 
 ###END###

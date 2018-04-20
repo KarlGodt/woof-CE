@@ -215,7 +215,7 @@ _sleep
 echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
 while :;
 do
-unset HP MHP SP MSP GR MGR FOOD_LVL
+unset Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
 read -t ${TMOUT:-1} Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
    _log "__check_food_level:HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL"
  _msg 7 "HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL" #DEBUG

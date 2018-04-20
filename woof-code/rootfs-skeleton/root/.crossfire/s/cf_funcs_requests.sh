@@ -68,7 +68,7 @@ _request_player(){
 
 _empty_message_stream
 
-unset TAG TITLE REST
+unset r pl TAG TITLE REST
 echo request player
 read -t ${TMOUT:-1} r pl TAG TITLE REST
 #request player %d %s\n", cpl.ob->tag, cpl.title
@@ -102,7 +102,7 @@ _request_range(){
 
 _empty_message_stream
 
-unset RANGE REST
+unset r ra RANGE REST
 echo request range
 read -t ${TMOUT:-1} r ra RANGE REST
 #request range %s\n",cpl.range
@@ -137,7 +137,7 @@ _request_stat_stats(){
 
 _empty_message_stream
 
-unset STR CON DEX INT WIS POW CHA
+unset r s st STR CON DEX INT WIS POW CHA
 echo request stat stats
 read -t ${TMOUT:-1} r s st STR CON DEX INT WIS POW CHA
 #request stat stats %d %d %d %d %d %d %d\n",
@@ -173,7 +173,7 @@ _request_stat_cmbt(){
 
 _empty_message_stream
 
-unset WC AC DAM SPEED WP_SPEED REST
+unset r s c WC AC DAM SPEED WP_SPEED REST
 echo request stat cmbt
 read -t ${TMOUT:-1} r s c WC AC DAM SPEED WP_SPEED REST
 #request stat cmbt %d %d %d %d %d\n",
@@ -210,7 +210,7 @@ _request_stat_hp(){
 
 _empty_message_stream
 
-unset HP MHP SP MSP GR MGR FOOD_LVL REST
+unset r s hp HP MHP SP MSP GR MGR FOOD_LVL REST
 echo request stat hp
 read -t ${TMOUT:-1} r s hp HP MHP SP MSP GR MGR FOOD_LVL REST
 #request stat hp %d %d %d %d %d %d %d\n",
@@ -250,7 +250,7 @@ _request_stat_xp(){
 
 _empty_message_stream
 
-unset LEVEL EXPERIENCE REST
+unset r s xp LEVEL EXPERIENCE REST
 echo request stat xp
 read -t ${TMOUT:-1} r s xp LEVEL EXPERIENCE REST
 #request stat xp %d %" FMT64 ,cpl.stats.level,cpl.stats.exp)
@@ -288,6 +288,7 @@ _request_stat_resists(){
 
 _empty_message_stream
 
+unset r s res
 unset R0  R1  R2  R3  R4  R5  R6  R7  R8  R9
 unset R10 R11 R12 R13 R14 R15 R16 R17 R18 R19
 unset R20 R21 R22 R23 R24 R25 R26 R27 R28 R29
@@ -334,7 +335,7 @@ _request_stat_paths(){
 
 _empty_message_stream
 
-unset ATTUNED REPELLED DENIED REST
+unset r s pa ATTUNED REPELLED DENIED REST
 echo request stat paths
 read -t ${TMOUT:-1} r s pa ATTUNED REPELLED DENIED REST
 #request stat paths %d %d %d\n", cpl.stats.attuned, cpl.stats.repelled, cpl.stats.denied)
@@ -368,7 +369,7 @@ _request_weight(){
 
 _empty_message_stream
 
-unset MAXWEIGHT OBJWEIGHT REST
+unset r w MAXWEIGHT OBJWEIGHT REST
 echo request weight
 read -t ${TMOUT:-1} r w MAXWEIGHT OBJWEIGHT REST
 #request weight %d %d\n",cpl.stats.weight_limit,(int)(cpl.ob->weight*1000)
@@ -402,7 +403,7 @@ _request_flags(){
 
 _empty_message_stream
 
-unset FL_FLAGS FL_FIRE_ON FL_RUN_ON FL_NO_ECHO REST
+unset f fl FL_FLAGS FL_FIRE_ON FL_RUN_ON FL_NO_ECHO REST
 echo request flags
 read -t ${TMOUT:-1} r fl FL_FLAGS FL_FIRE_ON FL_RUN_ON FL_NO_ECHO REST
 #request flags %d %d %d %d\n",cpl.stats.flags,cpl.fire_on,cpl.run_on,cpl.no_echo)
@@ -454,7 +455,7 @@ INV_LIST_FILE=${INV_LIST_FILE:-"$TMP_DIR"/"$MY_BASE".$$.inv}
 
 local lEMPTY_LINE=0
 
-unset INVENTORY_LIST
+unset INVENTORY_LIST ANSWER
 
 echo request items inv
 usleep 1000
@@ -520,8 +521,10 @@ _request_items_actv(){
 
 _empty_message_stream
 
-unset ANSWER
+unset ANSWERS
 echo request items actv
+
+while :; do   unset ANSWER
 read -t ${TMOUT:-1} ANSWER
 #while (it) {
 # if (it->applied) script_send_item(i,"request items actv ",it)
@@ -529,6 +532,15 @@ read -t ${TMOUT:-1} ANSWER
  _log "$REQUEST_LOG" "_request_items_actv $*:$ANSWER"
  _msg 7 "$ANSWER"
 
+case $ANSWER in
+''|*request*items*actv*end*) break 1;;
+*) ANSWERS="$ANSWERS
+$ANSWER";;
+esac
+
+done
+
+ANSWER=`echo "$ANSWERS" | sed 's/^$/d'`
 test "$ANSWER"
 }
 
@@ -539,8 +551,10 @@ _request_items_on(){
 
 _empty_message_stream
 
-unset ANSWER
+unset ANSWERS
 echo request items on
+
+while :; do   unset ANSWER
 read -t ${TMOUT:-1} ANSWER
 #while (it) {
 # script_send_item(i,"request items on ",it)
@@ -548,6 +562,15 @@ read -t ${TMOUT:-1} ANSWER
  _log "$REQUEST_LOG" "_request_items_on $*:$ANSWER"
  _msg 7 "$ANSWER"
 
+case $ANSWER in
+''|*request*items*on*end*) break 1;;
+*) ANSWERS="$ANSWERS
+$ANSWER";;
+esac
+
+done
+
+ANSWER=`echo "$ANSWERS" | sed '/^$/d'`
 test "$ANSWER"
 }
 
@@ -558,13 +581,43 @@ _request_items_cont(){
 
 _empty_message_stream
 
-unset ANSWER
+unset ANSWERS
 echo request items cont
+
+while :; do   unset ANSWER
 read -t ${TMOUT:-1} ANSWER
 #while (it) {
 # script_send_item(i,"request items cont ",it)
 #request items cont end\n
  _log "$REQUEST_LOG" "_request_items_cont $*:$ANSWER"
+ _msg 7 "$ANSWER"
+
+case $ANSWER in
+''|*request*items*on*end*) break 1;;
+*) ANSWERS="$ANSWERS
+$ANSWER";;
+esac
+
+done
+
+ANSWER=`echo "$ANSWERS" | sed '/^$/d'`
+
+test "$ANSWER"
+}
+
+_request_map_pos_(){
+#Return the players x,y within the current map
+
+#test "$*" || return 254
+
+_empty_message_stream
+
+unset ANSWER
+echo request map pos
+read -t ${TMOUT:-1} ANSWER
+#request map pos %d %d\n", pl_pos.x,pl_pos.y)
+#request map pos %d %d\n", pl_pos.x+use_config[CONFIG_MAPWIDTH]/2, pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2)
+ _log "$REQUEST_LOG" "_request_map_pos $*:$ANSWER"
  _msg 7 "$ANSWER"
 
 test "$ANSWER"
@@ -577,14 +630,15 @@ _request_map_pos(){
 
 _empty_message_stream
 
-unset ANSWER
+unset r m p MAP_X MAP_Y REST
 echo request map pos
-read -t ${TMOUT:-1} ANSWER
-#request map pos %d %d\n",pl_pos.x,pl_pos.y)
- _log "$REQUEST_LOG" "_request_map_pos $*:$ANSWER"
- _msg 7 "$ANSWER"
+read -t ${TMOUT:-1} r m p MAP_X MAP_Y REST
+#request map pos %d %d\n", pl_pos.x,pl_pos.y)
+#request map pos %d %d\n", pl_pos.x+use_config[CONFIG_MAPWIDTH]/2, pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2)
+ _log "$REQUEST_LOG" "_request_map_pos $*:$r $m $p $MAP_X $MAP_Y $REST"
+ _msg 7 "X=$MAP_X Y=$MAP_Y"
 
-test "$ANSWER"
+test "$MAP_X" -a "$MAP_Y"
 }
 
 _request_map_near(){
@@ -594,8 +648,10 @@ _request_map_near(){
 
 _empty_message_stream
 
-unset ANSWER
+unset ANSWERS
 echo request map near
+
+while :; do   unset ANSWER
 read -t ${TMOUT:-1} ANSWER
 #request map %d %d unknown\n", x, y)
 #request map %d %d  %d %c %c %c %c"
@@ -616,6 +672,15 @@ read -t ${TMOUT:-1} ANSWER
  _log "$REQUEST_LOG" "_request_map_near $*:$ANSWER"
  _msg 7 "$ANSWER"
 
+case $ANSWER in
+''|*request*map*near*end) break 1;;
+*) ANSWERS="$ANSWERS
+$ANSWER";;
+esac
+
+done
+
+ANSWER=`echo "$ANSWERS" | sed '/^$/d'`
 test "$ANSWER"
 }
 
@@ -626,8 +691,10 @@ _request_map_all(){
 
 _empty_message_stream
 
-unset ANSWER
+unset ANSWERS
 echo request map all
+
+while :; do   unset ANSWER
 read -t ${TMOUT:-1} ANSWER
 #for(y=0;y<the_map.y;++y)
 #              for(x=0;x<the_map.x;++x)
@@ -636,10 +703,20 @@ read -t ${TMOUT:-1} ANSWER
  _log "$REQUEST_LOG" "_request_map_all $*:$ANSWER"
  _msg 7 "$ANSWER"
 
+case $ANSWER in
+''|*request*map*end*) break 1;;
+*) ANSWERS="$ANSWERS
+$ANSWER";;
+esac
+done
+
+ANSWER=`echo "$ANSWERS" | sed '/^$/d'`
+#ANSWER=`echo "$ANSWER" | sort -n -k3,4 -t' '`
+
 test "$ANSWER"
 }
 
-_request_map_x_y(){
+_request_map_x_y_(){
 #Return the information about square x,y in the current map
 
 test "$*" || return 254
@@ -661,14 +738,53 @@ read -t ${TMOUT:-1} ANSWER
 test "$ANSWER"
 }
 
-_request_skills(){
+_request_map_x_y(){
+#Return the information about square x,y in the current map
+
+test "$*" || return 254
+test "$1" || return 253
+test "$2" || return 252
+
+_empty_message_stream
+
+# server/include/map.h
+unset r m MAP_X MAP_Y Dark \
+ NupD Hdark NreS CLRD SMOOTH SM0 SM1 SM2 \
+ HEAD HEAD_MAP_LAYER_FLOOR_FACE HEAD_MAP_LAYER_NO_PICK1_FACE HEAD_MAP_LAYER_NO_PICK2_FACE \
+ TAIL TAIL_MAP_LAYER_FLOOR_FACE TAIL_MAP_LAYER_NO_PICK1_FACE TAIL_MAP_LAYER_NO_PICK2_FACE REST
+
+echo request map $@
+read -t ${TMOUT:-1} r m MAP_X MAP_Y Dark \
+ NupD Hdark NreS CLRD SMOOTH SM0 SM1 SM2 \
+ HEAD HEAD_MAP_LAYER_FLOOR_FACE HEAD_MAP_LAYER_NO_PICK1_FACE HEAD_MAP_LAYER_NO_PICK2_FACE \
+ TAIL TAIL_MAP_LAYER_FLOOR_FACE TAIL_MAP_LAYER_NO_PICK1_FACE TAIL_MAP_LAYER_NO_PICK2_FACE REST
+
+#if ( !*c ) return  /* No x specified */
+#if ( !*c ) return; /* No y specified */
+#send_map(i,x,y)
+
+ _log "$REQUEST_LOG" "_request_map_x_y $*:$r $m $MAP_X $MAP_Y $Dark \
+ $NupD $Hdark $NreS $CLRD $SMOOTH $SM0 $SM1 $SM2 \
+ $HEAD $HEAD_MAP_LAYER_FLOOR_FACE $HEAD_MAP_LAYER_NO_PICK1_FACE $HEAD_MAP_LAYER_NO_PICK2_FACE \
+ $TAIL $TAIL_MAP_LAYER_FLOOR_FACE $TAIL_MAP_LAYER_NO_PICK1_FACE $TAIL_MAP_LAYER_NO_PICK2_FACE $REST"
+ _msg 7 "$ANSWER"
+
+test "$MAP_X" -a "$MAP_Y" -a "$Dark" || return 9
+test "$NupD" -a "$Hdark" -a "$NreS" -a "$CLRD" -a "$SM0" -a "$SM1" -a "$SM2" || return 8
+test "$HEAD_MAP_LAYER_FLOOR_FACE" -a "$HEAD_MAP_LAYER_NO_PICK1_FACE" -a "$HEAD_MAP_LAYER_NO_PICK2_FACE" || return 7
+test "$TAIL_MAP_LAYER_FLOOR_FACE" -a "$TAIL_MAP_LAYER_NO_PICK1_FACE" -a "$TAIL_MAP_LAYER_NO_PICK2_FACE" || return 6
+}
+
+_request_skills_(){
 
 #test "$*" || return 254
 
 _empty_message_stream
 
-unset ANSWER
+unset ANSWERS
 echo request skills
+
+while :; do   unset ANSWER
 read -t ${TMOUT:-1} ANSWER
 #for (s = 0; s < CS_NUM_SKILLS; s++) {
 #if (skill_names[s]) {
@@ -677,17 +793,67 @@ read -t ${TMOUT:-1} ANSWER
  _log "$REQUEST_LOG" "_request_skills $*:$ANSWER"
  _msg 7 "$ANSWER"
 
+case $ANSWER in
+'') break 1;;
+*) ANSWERS="$ANSWERS
+$ANSWER" ;;
+esac
+
+done
+
+ANSWER=`echo "$ANSWERS" | sed '/^$/d'`
 test "$ANSWER"
 }
 
-_request_spells(){
+
+_request_skills(){
+
+# Parameters for sort:
+# N
+# without param sorts skill names
+PARAM="$*"
+
+_empty_message_stream
+
+unset ANSWERS
+echo request skills
+
+while :; do   unset r s SKILL_NR SKILL_NAME REST
+read -t ${TMOUT:-1} r s SKILL_NR SKILL_NAME REST
+#for (s = 0; s < CS_NUM_SKILLS; s++) {
+#if (skill_names[s]) {
+#sprintf(buf, "request skills %d %s\n", CS_STAT_SKILLINFO + s, skill_names[s])
+#request skills end\n
+ _log "$REQUEST_LOG" "_request_skills $*:$ANSWER"
+ _msg 7 "$ANSWER"
+
+case $SKILL_NR in
+''|*end) break 1;;
+*) ANSWERS="$ANSWERS
+$SKILL_NR $SKILL_NAME $REST";;
+esac
+done
+
+ANSWER=`echo "$ANSWERS" | sed '/^$/d'`
+
+case $PARAM in
+N) :;;
+*) ANSWER=`echo "$ANSWER" | sort -d -k2 -t' '`;;
+esac
+test "$ANSWER"
+}
+
+
+_request_spells_(){
 
 #test "$*" || return 254
 
 _empty_message_stream
 
-unset ANSWER
+unset ANSWERS
 echo request spells
+
+while :; do   unset ANSWER
 read -t ${TMOUT:-1} ANSWER
 #for (spell = cpl.spelldata; spell; spell = spell->next) {
 #sprintf(buf, "request spells %d %d %d %d %d %d %d %d %s\n",
@@ -698,6 +864,90 @@ read -t ${TMOUT:-1} ANSWER
  _log "$REQUEST_LOG" "_request_spells $*:$ANSWER"
  _msg 7 "$ANSWER"
 
+case $ANSWER in
+''|*request*spells*end) break 1;;
+*) ANSWERS="$ANSWERS
+$ANSWER" ;;
+esac
+done
+
+ANSWER=`echo "$ANSWERS" | sed '/^$/d'`
+test "$ANSWER"
+}
+
+_request_spells(){
+# Parameters for sort:
+# L sp gr D T P S
+# without param sorts spell names
+PARAM="$*"
+
+_empty_message_stream
+
+unset ANSWERS
+echo request spells
+
+while :; do   unset r s SP_TAG SP_LVL SP_SPP SP_GRP SP_SK_NR SP_PATH_NR SP_TIME SP_DAM SP_NAME
+read -t ${TMOUT:-1} r s SP_TAG SP_LVL SP_SPP SP_GRP SP_SK_NR SP_PATH_NR SP_TIME SP_DAM SP_NAME # no REST since spell names may consist of several words
+#for (spell = cpl.spelldata; spell; spell = spell->next) {
+#sprintf(buf, "request spells %d %d %d %d %d %d %d %d %s\n",
+#spell->tag, spell->level, spell->sp, spell->grace,
+#spell->skill_number, spell->path, spell->time,
+#spell->dam, spell->name)
+#request spells end\n
+ _log "$REQUEST_LOG" "_request_spells $*:$r $s $SP_TAG $SP_LVL $SP_SPP $SP_GRP $SP_SK_NR $SP_PATH_NR $SP_TIME $SP_DAM $SP_NAME"
+ _msg 7 "$SP_TAG $SP_LVL $SP_SPP $SP_GRP $SP_SK_NR $SP_PATH_NR $SP_TIME $SP_DAM $SP_NAME"
+
+case $SP_TAG in
+''|end) break 1;;
+*) case $SP_SK_NR in
+   170) SP_SK=Praying;;
+   173) SP_SK=Summoning;;
+   174) SP_SK=Pyromancy;;
+   175) SP_SK=Evokation;;
+   176) SP_SK=Sorcery;;
+   *)   SP_SK=Skill_Unknown;;
+   esac
+   case $SP_PATH_NR in
+   0) SP_PATH=Null;;
+   1) SP_PATH=Protection;;
+   2) SP_PATH=Fire;;
+   4) SP_PATH=Ice;;
+   8) SP_PATH=Electricity;;
+   16) SP_PATH=Missile;;
+   32) SP_PATH=Self;;
+   64) SP_PATH=Summoning;;
+   128) SP_PATH=Abjuration;;
+   256) SP_PATH=Restoration;;
+   512) SP_PATH=Detonation;;
+   1024) SP_PATH=Mind;;
+   2048) SP_PATH=Creation;;
+   4096) SP_PATH=Teleportation;;
+   8192) SP_PATH=Information;;
+   16384) SP_PATH=Transmutation;;
+   32768) SP_PATH=Transference;;
+   65536) SP_PATH=Turning;;
+   131072) SP_PATH=Wounding;;
+   262144) SP_PATH=Death;;
+   524288) SP_PATH=Light;;
+   *) SP_PATH=Path_Unknown;;
+   esac
+
+ANSWERS="$ANSWERS
+$SP_LVL $SP_SPP $SP_GRP $SP_DAM $SP_TIME $SP_PATH $SP_SK $SP_NAME" ;;
+esac
+done
+
+ANSWER=`echo "$ANSWERS" | sed '/^$/d'`
+case $PARAM in
+L)  ANSWER=`echo "$ANSWER" | sort -n -k1 -t' '`;;
+sp) ANSWER=`echo "$ANSWER" | sort -n -k2 -t' '`;;
+gr) ANSWER=`echo "$ANSWER" | sort -n -k3 -t' '`;;
+D)  ANSWER=`echo "$ANSWER" | sort -n -k4 -t' '`;;
+T)  ANSWER=`echo "$ANSWER" | sort -n -k5 -t' '`;;
+P)  ANSWER=`echo "$ANSWER" | sort -d -k6 -t' '`;;
+S)  ANSWER=`echo "$ANSWER" | sort -d -k7 -t' '`;;
+*)  ANSWER=`echo "$ANSWER" | sort -d -k8 -t' '`;;
+esac
 test "$ANSWER"
 }
 

@@ -3,7 +3,9 @@
 [ "$HAVE_FUNCS_CHEST" ] && return 0
 
 # depends :
-[ "$HAVE_FUNCS_COMMON"   ] || . cf_funcs_common.sh
+[ "$HAVE_FUNCS_COMMON" ] || . cf_funcs_common.sh
+[ "$HAVE_FUNCS_MOVE"   ] || . cf_funcs_move.sh
+[ "$HAVE_FUNCS_FOOD"   ] || . cf_funcs_food.sh
 
 __open_chests(){
 _debug "__open_chests:$*"

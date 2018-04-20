@@ -164,7 +164,7 @@ _debug "NUMBER='$NUMBER'"
 
 SUCC=0  # count the successful attempts
 FAIL=0  # count the failure attempts
-# *** Actual script to pray multiple times *** #
+# *** Actual script to melt icecubes multiple times *** #
 
 # MAIN
 _watch $DRAWINFO

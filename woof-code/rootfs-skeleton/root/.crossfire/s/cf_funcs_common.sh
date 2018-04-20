@@ -136,7 +136,8 @@ return ${lRV:-2}
 
 _check_if_already_running_ps(){
 
-local lPROGS=`ps -o pid,ppid,args | grep "$PPID " | grep -v "$$ "`
+#local lPROGS=`ps -o pid,ppid,args | grep "$PPID " | grep -v "$$ "`
+local lPROGS=`ps -o pid,ppid,args | grep -w "$PPID" | grep -v -w "$$"`
 __debug "$lPROGS"
 lPROGS=`echo "$lPROGS" | grep -vE "^$PPID[[:blank:]]+|^[[:blank:]]+$PPID[[:blank:]]+" | grep -vE '<defunct>|grep|cfsndserv'`
 __debug "$lPROGS"

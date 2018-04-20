@@ -51,9 +51,35 @@ _empty_message_stream
 return ${lRV:-3}
 }
 
+_issue_skills(){
 
+_watch $DRAWINFO
+_is 1 1 skills
+usleep 10000
 
+while :; do unset REPLY
+read -t ${TMOUT:-1}
+_log "$REPLY"
+_msg 7 "$REPLY"
 
+case $REPLY in '') break 1;;
+*worship*)    _debug 3 $REPLY
+              GOD=`echo "$REPLY" | awk '{print $NF}' | sed 's/\.$//'` ;;
+*item*power*) _debug 3 $REPLY
+       ITEM_POWER=`    echo "$REPLY" | awk '{print $9}'`
+       ITEM_POWER_MAX=`echo "$REPLY" | awk '{print $NF}' | sed 's/\.$//'`;;
+*handle*improvements*) _debug 3 $REPLY
+       AVAIL_IMPR=`    echo "$REPLY" | awk '{print $7}'`;;
+esac
+
+done
+
+_unwatch $DRAWINFO
+
+_debug $GOD $ITEM_POWER $ITEM_POWER_MAX $AVAIL_IMPR
+test "$GOD" = 'none' && unset GOD
+test "$GOD" -a "$AVAIL_IMPR" -a "$ITEM_POWER" -a "$ITEM_POWER_MAX"
+}
 
 
 ###END###
