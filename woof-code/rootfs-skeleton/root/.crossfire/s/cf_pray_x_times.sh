@@ -2,7 +2,7 @@
 
 # 2018-01-10 : Code overhaul.
 # No real changes,
-# except to support infinte looping.
+# except to support infinite looping.
 
 export LC_NUMERIC=de_DE
 export LC_ALL=de_DE
@@ -14,12 +14,15 @@ VERSION=2.0 # refine the setting of sleep values
 VERSION=3.0 # add a check for food level and to eat
 VERSION=3.1 # recognize -V and -d options
 VERSION=3.2 # use cf_funcs_requests.sh
+VERSION=3.3 # check if praying skill is available
 
 # Global variables
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 MY_DIR=${MY_SELF%/*}
+
+cd "$MY_DIR"
 
 #test -f "$MY_DIR"/cf_functions.sh   && . "$MY_DIR"/cf_functions.sh
 #_set_global_variables $*
@@ -29,6 +32,8 @@ _set_global_variables $*
 
 test -f "$MY_DIR"/cf_funcs_food.sh     && . "$MY_DIR"/cf_funcs_food.sh
 test -f "$MY_DIR"/cf_funcs_requests.sh && . "$MY_DIR"/cf_funcs_requests.sh
+test -f "$MY_DIR"/cf_funcs_skills.sh   && . "$MY_DIR"/cf_funcs_skills.sh
+
 
 # *** Override any VARIABLES in cf_functions.sh *** #
 test -f "$MY_DIR"/"${MY_BASE}".conf && . "$MY_DIR"/"${MY_BASE}".conf
@@ -69,7 +74,7 @@ case "$PARAM_1" in
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
 _draw 3 "Only :digit: numbers as first option allowed."
-        exit 1 #exit if other input than letters
+        exit 1 #exit if other input like letters, puncts
         }
 
 NUMBER=$PARAM_1;;
@@ -116,13 +121,6 @@ __get_player_speed_and_set_usleep(){
 _empty_message_stream
 
 _request_stat_cmbt
-#echo request stat cmbt
-##read REQ_CMBT
-##snprintf(buf, sizeof(buf), "request stat cmbt %d %d %d %d %d\n",
-## cpl.stats.wc, cpl.stats.ac, cpl.stats.dam, cpl.stats.speed, cpl.stats.weapon_sp);
-#read -t 1 Req Stat Cmbt WC AC DAM PL_SPEED W_SPEED
-#_log "__get_player_speed_and_set_usleep: $WC $AC $DAM $PL_SPEED $W_SPEED"
-#_msg 7 "wc=$WC:ac=$AC:dam=$DAM:speed=$PL_SPEED:weaponspeed=$W_SPEED"
 
 case ${#PL_SPEED} in
 1) MAL=1000000000;;
@@ -141,7 +139,8 @@ USLEEP=$(( MAL * MUL ))
 _msg 7 "USLEEP=$USLEEP:PL_SPEED=$PL_SPEED"
 
 USLEEP=$(( USLEEP - ( (PL_SPEED/10000) * 1000 ) ))
-_msg 6 "Sleeping $USLEEP usleep micro-seconds between praying"
+SLEEP=`dc $USLEEP 1000000 \/ p`
+_msg 6 "Sleeping $USLEEP usleep micro-sec. / $SLEEP sec. between praying."
 }
 
 _get_player_speed_and_set_usleep(){
@@ -149,42 +148,6 @@ _get_player_speed_and_set_usleep(){
 _empty_message_stream
 
 _request_stat_cmbt
-#echo request stat cmbt
-#read -t 1 Req Stat Cmbt WC AC DAM PL_SPEED W_SPEED
-#_log "_get_player_speed_and_set_usleep: $WC $AC $DAM $PL_SPEED $W_SPEED"
-#_msg 7 "wc=$WC:ac=$AC:dam=$DAM:speed=$PL_SPEED:weaponspeed=$W_SPEED"
-
-#06:29 DEBUG:wc=-33:ac=-16:dam=1:speed=34588:weaponspeed=9526
-#06:29 DEBUG:VAL1=0.289118
-#06:29 DEBUG:VAL2=0.167178
-#06:29 DEBUG:SLEEP=1.44559
-#06:29 DEBUG:VAL3=8.64701
-#06:29 DEBUG:SLEEP=2.08973:PL_SPEED=34588
-#06:29 INFO:Sleeping 2.08973 sleep seconds between praying
-
-#06:31 DEBUG:wc=-33:ac=-16:dam=1:speed=50860:weaponspeed=13723
-#06:31 DEBUG:VAL1=0.196618
-#06:31 DEBUG:VAL2=0.0773173
-#06:31 DEBUG:SLEEP=0.983091
-#06:31 DEBUG:VAL3=12.715
-#06:31 DEBUG:SLEEP=0.966466:PL_SPEED=50860
-#06:31 INFO:Sleeping 0.966466 sleep seconds between praying
-
-#06:33 DEBUG:wc=-33:ac=-16:dam=1:speed=85033:weaponspeed=22003
-#06:33 DEBUG:VAL1=0.117601
-#06:33 DEBUG:VAL2=0.02766
-#06:33 DEBUG:SLEEP=0.588007
-#06:33 DEBUG:VAL3=21.2584
-#06:33 DEBUG:SLEEP=0.345752:PL_SPEED=85033
-#06:33 INFO:Sleeping 0.345752 sleep seconds between praying
-
-#06:34 DEBUG:wc=-33:ac=-16:dam=1:speed=103671:weaponspeed=26240
-#06:34 DEBUG:VAL1=0.096459
-#06:34 DEBUG:VAL2=0.0186087
-#06:34 DEBUG:SLEEP=0.482295
-#06:34 DEBUG:VAL3=25.9177
-#06:34 DEBUG:SLEEP=0.232608:PL_SPEED=103671
-#06:34 INFO:Sleeping 0.232608 sleep seconds between praying
 
 VAL1=`dc 10000 ${PL_SPEED:-50000} \/ p`
 _debug "VAL1=$VAL1"
@@ -198,13 +161,6 @@ _debug "VAL3=$VAL3"
 SLEEP=`dc $SLEEP $VAL2 \* $VAL3 \* p`
 
 _msg 7 "SLEEP=$SLEEP:PL_SPEED=$PL_SPEED"
-
-#SLEEP_P=`dc $PL_SPEED 100 \* 50000 \/ 100 \/p`
-
-##SLEEP=$(( SLEEP - ( (PL_SPEED/10000) * 1000 ) ))
-#SLEEP_T=`dc $SLEEP 10 \/p`
-#SLEEP=`dc $SLEEP $SLEEP_T \- p`
-
 
 USLEEP=`dc $SLEEP 1000000 \* p`
 SLEEP=${SLEEP//,/.}  # _check_food_level uses _sleep and sleep does not like 1,2 but 1.2
@@ -220,14 +176,53 @@ case $NUMBER in
 esac
 }
 
+ _check_skill_available "praying" #+++2018-04-19
 
 #   __get_player_speed_and_set_usleep
      _get_player_speed_and_set_usleep
 
+__issue_skills(){
+
+_watch $DRAWINFO
+_is 1 1 skills
+usleep 10000
+
+while :; do unset REPLY
+read -t ${TMOUT:-1}
+_log "$REPLY"
+_msg 7 "$REPLY"
+
+case $REPLY in '') break 1;;
+*worship*)    _debug 3 $REPLY
+              GOD=`echo "$REPLY" | awk '{print $NF}' | sed 's/\.$//'` ;;
+*item*power*) _debug 3 $REPLY
+       ITEM_POWER=`    echo "$REPLY" | awk '{print $9}'`
+       ITEM_POWER_MAX=`echo "$REPLY" | awk '{print $NF}' | sed 's/\.$//'`;;
+*handle*improvements*) _debug 3 $REPLY
+       AVAIL_IMPR=`    echo "$REPLY" | awk '{print $7}'`;;
+esac
+
+done
+
+_unwatch $DRAWINFO
+
+_debug $GOD $ITEM_POWER $ITEM_POWER_MAX $AVAIL_IMPR
+test "$GOD" = 'none' && unset GOD
+test "$GOD" -a "$AVAIL_IMPR" -a "$ITEM_POWER" -a "$ITEM_POWER_MAX"
+}
+
+_issue_skills
+_request_items_on
+case $ANSWER in
+*"Altar of"*)
+if test "$GOD"; then
+ case $ANSWER in *$GOD*) :;; *) _exit 1 "Altar of wrong god.";; esac
+fi;;
+esac
+
+
 # *** Actual script to pray multiple times *** #
  test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
-#case $NUMBER in *[0-9]*) test $NUMBER -ge 1 || NUMBER=1;; esac #paranoid precaution
-#case $NUMBER in [1-9]*) :;; *) NUMBER=1;; esac
 
 c=0; one=0
 while :
