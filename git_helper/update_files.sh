@@ -37,14 +37,14 @@ AUTO_UPDATE_GIT=
 
 # Am I at the right branch ?
 BRANCH=Fox3-Dell755
-git branch | grep '^\*' | grep -Fw "$BRANCH" || exit 5
+git branch | grep '^\*' | grep -Fw "$BRANCH" || _exit 5 "Not in branch '$BRANCH' ."
 
 
-cd .././woof-code/rootfs-skeleton || exit 6
-pwd
+cd .././woof-code/rootfs-skeleton || _exit 6 "Could not cd into .././woof-code/rootfs-skeleton ."
+pwd #DEBUG
 
 TTY=`tty`
-[ "$TTY" == "not a tty" ] && exit 7
+[ "$TTY" == "not a tty" ] && _exit 7 "Need controlling terminal."
 
 while read oneGITF
 do
@@ -101,7 +101,7 @@ test -e "$oneOSF" || {
     continue
 }
 
-echo OK files are there .. comparing ...
+echo OK both files are there .. comparing diff ...
 diff -qs "$oneGITF" "$oneOSF" && continue
 
 

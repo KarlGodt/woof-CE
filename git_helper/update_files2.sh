@@ -37,27 +37,27 @@ AUTO_UPDATE_GIT=
 
 # Am I at the right branch ?
 BRANCH=Fox3-Dell755
-git branch | grep '^\*' | grep -Fw "$BRANCH" || exit 5
+git branch | grep '^\*' | grep -Fw "$BRANCH" || _exit 5 "Not in branch '$BRANCH' ."
 
 
-cd .././woof-code/rootfs-skeleton || exit 6
-pwd
+cd .././woof-code/rootfs-skeleton || _exit 6 "Could not cd into .././woof-code/rootfs-skeleton ."
+pwd #DEBUG
 
 TTY=`tty`
-[ "$TTY" == "not a tty" ] && exit 7
+[ "$TTY" == "not a tty" ] && _exit 7 "Need controlling terminal."
 
 while read oneGITF
 do
 
 test "$oneGITF" || break
-echo "$oneGITF"
+echo "$oneGITF"  #DEBUG
 
 case $oneGITF in
 ./*) oneOSF=${oneGITF#*.};;
 *)   oneOSF=${oneGITF#*rootfs-skeleton};;
 esac
 
-echo "$oneOSF"
+echo "$oneOSF"   #DEBUG
 
 test -e "$oneOSF" || {
     # REM: What to do if Files does not exist...
@@ -72,8 +72,8 @@ test -e "$oneOSF" || {
 
     # copy file into OS
     Y|y|Yes|YES|yes)
-     test -d "${oneOSF%/*}" || mkdir -p "${oneOSF%/*}"
-     cp -v -a "$oneGITF" "$oneOSF" || break
+     test -d "${oneOSF%/*}" || mkdir $VERB -p "${oneOSF%/*}"
+     cp ${VERB} -a "$oneGITF" "$oneOSF" || break
 ;;
 
     # ask to remove file from git repository (.gitignore and such)
@@ -102,13 +102,13 @@ test -e "$oneOSF" || {
 }
 
 
-#echo OK files are there .. comparing -ot older than ...
+#echo OK both files are there .. comparing -ot older than ...
 #test "$oneGITF" -ot "$oneOSF" || continue
 
- echo OK files are there .. comparing -nt newer than ...
+ echo OK both files are there .. comparing -nt newer than ...
  test "$oneOSF" -nt "$oneGITF" || continue
 
- echo OK files are there .. comparing diff ...
+ echo OK both files are there .. comparing diff ...
  diff -qs "$oneGITF" "$oneOSF" && { touch "$oneGITF" "$oneOSF"; continue; }
 
 
@@ -130,16 +130,16 @@ echo confirmKEZ2=$confirmKEZ2
 __update_os__(){
     # copy file into OS
     #Y|y|Yes|YES|yes)
-     test -d "${oneOSF%/*}" || mkdir -p "${oneOSF%/*}"
-     cp -v -a "$oneGITF" "$oneOSF"
+     test -d "${oneOSF%/*}" || mkdir $VERB -p "${oneOSF%/*}"
+     cp ${VERB} -a "$oneGITF" "$oneOSF"
 }
 
 __update_git__(){
     # copy OS file into git
     #Y|y|Yes|YES|yes)
      rm "$oneGITF" || break
-     test -d "${oneGITF%/*}" || mkdir -p "${oneGITF%/*}"
-     cp -v -a  "$oneOSF" "$oneGITF" || break
+     test -d "${oneGITF%/*}" || mkdir $VERB -p "${oneGITF%/*}"
+     cp ${VERB} -a  "$oneOSF" "$oneGITF" || break
 
      # update git
      git add "$oneGITF" || break
@@ -158,8 +158,8 @@ case $confirmKEZ2 in
     # copy OS file into git
     Y|y|Yes|YES|yes)
      rm "$oneGITF" || break
-     test -d "${oneGITF%/*}" || mkdir -p "${oneGITF%/*}"
-     cp -v -a  "$oneOSF" "$oneGITF" || break
+     test -d "${oneGITF%/*}" || mkdir $VERB -p "${oneGITF%/*}"
+     cp ${VERB} -a  "$oneOSF" "$oneGITF" || break
 
      # update git
      git add "$oneGITF" || break
@@ -183,8 +183,8 @@ case $confirmKEZ2 in
     case $confirmKEZ3 in
 
    Y|y|Yes|YES|yes)
-     test -d "${oneOSF%/*}" || mkdir -p "${oneOSF%/*}"
-     cp -v -a "$oneGITF" "$oneOSF"
+     test -d "${oneOSF%/*}" || mkdir $VERB -p "${oneOSF%/*}"
+     cp ${VERB} -a "$oneGITF" "$oneOSF"
 
     ;;
 
