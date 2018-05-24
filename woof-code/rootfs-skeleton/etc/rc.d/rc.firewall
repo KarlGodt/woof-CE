@@ -42,7 +42,7 @@
 # Format:<host or network address>[/<netmask>]:<port or port-range>[/<protocol>]
 # Example: PERMIT="198.82.0.0/16:80/tcp" -- (Allow web traffic from 198.82.*.*)
 
-
+_old_header(){
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
 trap "exit 1" HUP INT QUIT KILL TERM
@@ -70,6 +70,41 @@ exit $1
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+}
++# Set version information.
+
+VERSION="2.0rc9"
+COMPATIBLE_VERSIONS="2.0rc9"
+
+Version=1.2
+
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
+
+. /etc/rc.d/f4puppy5
+
+_usage(){
+cat >&1 <<EoI
+
+$MY_SELF
+Syntax: $MY_BASE [OPTIONS] [CONFIGFILE]
+Options:
+    check
+    cleanup
+    clear
+    fast
+    load
+    save
+    stop
+    update
+Configfile default:/etc/firewall.conf
+
+EoI
+exit 0
+}
+
+case $* in *help*|*-h*) _usage;; esac
+
 
 PERMIT=""
 
@@ -136,10 +171,6 @@ LOG_LEVEL="notice"
 # -- Nothing below this point should need modification -- #
 ###########################################################
 
-# Set version information.
-
-VERSION="2.0rc9"
-COMPATIBLE_VERSIONS="2.0rc9"
 
 # Welcome!
 
@@ -181,11 +212,13 @@ echo -n "-> Performing sanity checks."
 
 # Make sure we are running the script with root privileges.
 
+_check_user_root(){
 #BK commented out...
-#if [ "$EUID" != "0" ]; then
-#  FAILURE="You must have root privileges to configure the firewall."
-#  exit_failure $1
-#fi
+if [ "$EUID" != "0" ]; then
+  FAILURE="You must have root privileges to configure the firewall."
+  exit_failure $1
+fi
+}
 
 # Make sure we have iptables installed.
 
@@ -198,30 +231,32 @@ fi
 
 if [ "$1" == "stop" ] || [ "$1" == "clear" ]; then
   echo " [ PASSED ]"
-  iptables -t filter -F > /dev/null 2>&1
-  iptables -t filter -X > /dev/null 2>&1
-  iptables -t nat -F    > /dev/null 2>&1
-  iptables -t nat -X    > /dev/null 2>&1
-  iptables -t mangle -F > /dev/null 2>&1
-  iptables -t mangle -X > /dev/null 2>&1
-  iptables -t filter -P INPUT ACCEPT    > /dev/null 2>&1
-  iptables -t filter -P OUTPUT ACCEPT   > /dev/null 2>&1
-  iptables -t filter -P FORWARD ACCEPT  > /dev/null 2>&1
-  iptables -t nat -P PREROUTING ACCEPT  > /dev/null 2>&1
-  iptables -t nat -P POSTROUTING ACCEPT > /dev/null 2>&1
-  iptables -t nat -P OUTPUT ACCEPT      > /dev/null 2>&1
-  iptables -t mangle -P POSTROUTING ACCEPT > /dev/null 2>&1
-  iptables -t mangle -P OUTPUT ACCEPT     > /dev/null 2>&1
-  iptables -t mangle -P PREROUTING ACCEPT > /dev/null 2>&1
-  iptables -t mangle -P INPUT ACCEPT      > /dev/null 2>&1
-  iptables -t mangle -P FORWARD ACCEPT    > /dev/null 2>&1
+  (
+  iptables -t filter -F
+  iptables -t filter -X
+  iptables -t nat -F
+  iptables -t nat -X
+  iptables -t mangle -F
+  iptables -t mangle -X
+  iptables -t filter -P INPUT ACCEPT
+  iptables -t filter -P OUTPUT ACCEPT
+  iptables -t filter -P FORWARD ACCEPT
+  iptables -t nat -P PREROUTING ACCEPT
+  iptables -t nat -P POSTROUTING ACCEPT
+  iptables -t nat -P OUTPUT ACCEPT
+  iptables -t mangle -P POSTROUTING ACCEPT
+  iptables -t mangle -P OUTPUT ACCEPT
+  iptables -t mangle -P PREROUTING ACCEPT
+  iptables -t mangle -P INPUT ACCEPT
+  iptables -t mangle -P FORWARD ACCEPT
+  ) 1>>$OUT 2>>$ERR
   if !(( `which modprobe 2>&1 | grep -c "which: no modprobe in"` )) && [ -a "/proc/modules" ]; then
     for MODULE in ipt_TTL iptable_mangle ipt_mark ipt_MARK ipt_MASQUERADE \
                   ip_nat_irc ip_nat_ftp ipt_LOG ipt_limit ipt_REJECT \
           ip_conntrack_irc ip_conntrack_ftp ipt_state iptable_nat \
           iptable_filter ip_tables; do
       if (( `lsmod | grep -c "$MODULE"` )); then
-    rmmod $MODULE > /dev/null 2>&1
+    rmmod $MODULE 1>>$OUT 2>>$ERR
       fi
     done
   fi
@@ -262,7 +297,7 @@ if [ "$1" == "update" ] || [ "$1" == "load" ] || [ "$1" == "fast" ] || \
     else
       CONFIG=" $CONFIG"
     fi
-    FAILURE="Configuration file outdated.  Please run '$0 update$CONFIG'."
+    FAILURE="Configuration file outdated.  Please run '$0 update $CONFIG'."
     exit_failure $1
       fi
     else
@@ -810,8 +845,10 @@ fi
 
 for INTERFACE in $STATIC_INTERNAL_INTERFACES; do
   if !(( `ifconfig | grep -c "^$INTERFACE\ "` )); then
-    FAILURE="A static internal interface is down.  Did you forgot to configure interfaces before running the firewall?"
-    exit_failure $1
+    #FAILURE="A static internal interface is down.  Did you forgot to configure interfaces before running the firewall?"
+    #exit_failure $1
+    _color_echo red "\nStatic internal interface $INTERFACE is down."
+    _color_echo red "Did you forgot to configure interfaces before running the firewall?"
   fi
 done
 
@@ -871,7 +908,7 @@ echo -n "."
 
 if !(( `which modprobe 2>&1 | grep -c "which: no modprobe in"` )) && [ -a "/proc/modules" ]; then
   if (( `lsmod | grep -c "ipchains"` )); then
-    rmmod ipchains > /dev/null 2>&1
+    rmmod ipchains 1>>$OUT 2>>$ERR
   fi
   REQUIRED_MODULES="ip_tables ip_conntrack ipt_state iptable_filter ip_conntrack_irc ip_conntrack_ftp"
   if [ "$RFC_1122_COMPLIANT" == "yes" ]; then
@@ -906,7 +943,7 @@ if !(( `which modprobe 2>&1 | grep -c "which: no modprobe in"` )) && [ -a "/proc
     #is fetched from the zdrv file. The following modprobe -l only lists actual
     #module names not aliases. Fix: comment out the if...
     #if (( `modprobe -l | grep -c "$MODULE"` )); then
-      modprobe $MODULE > /dev/null 2>&1
+      modprobe $MODULE 1>>$OUT 2>>$ERR
     #fi
   done
 fi
@@ -1446,13 +1483,15 @@ if !(( `iptables -t nat -F 2>&1 | grep -c "Table does not exist"` )); then
 fi
 
 if !(( `iptables -t mangle -F 2>&1 | grep -c "Table does not exist"` )); then
+  (
   iptables -t mangle -F
   iptables -t mangle -X
   iptables -t mangle -P PREROUTING ACCEPT
   iptables -t mangle -P OUTPUT ACCEPT
-  iptables -t mangle -P POSTROUTING ACCEPT > /dev/null 2>&1 # New 2.4.18 builtin mangle chains
-  iptables -t mangle -P INPUT ACCEPT       > /dev/null 2>&1
-  iptables -t mangle -P FORWARD ACCEPT     > /dev/null 2>&1
+  iptables -t mangle -P POSTROUTING ACCEPT  # New 2.4.18 builtin mangle chains
+  iptables -t mangle -P INPUT ACCEPT
+  iptables -t mangle -P FORWARD ACCEPT
+  ) 1>>$OUT 2>>$ERR
 fi
 
 # Drop traffic to and from blacklisted networks.
@@ -1892,7 +1931,7 @@ for FORWARD in $PORT_FORWARDS; do
   fi
   DPORTS=`echo "$PORTS" | cut -d- -f1,2 --output-delimiter=":"`
   # Support DNAT for locally generated connections, new in iptables 1.2.6a and kernel 2.4.19
-  iptables -t nat -A OUTPUT -o lo -p $PROTOCOL --dport $IN_PORTS -j DNAT --to-destination $DEST:$PORTS > /dev/null 2>&1
+  iptables -t nat -A OUTPUT -o lo -p $PROTOCOL --dport $IN_PORTS -j DNAT --to-destination $DEST:$PORTS 1>>$OUT 2>>$ERR
   COUNT="0"
   while (( `echo "${INTERFACE_TAB[$((COUNT + 1))]}" | grep -c "."` )); do
     COUNT=$((COUNT + 1))

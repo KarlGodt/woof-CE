@@ -32,7 +32,7 @@ PARAMIN="$@"
 #note, do not cd to directory this app is located in.
 CDIR=`pwd`
 
-WHOLE_FILE_NAME="$1"
+WHOLE_FILE_NAME="$*"
 DIRECTORY_OF_FILE="${WHOLE_FILE_NAME%/*}"
 #[ "$WHOLE_FILE_NAME" = "${WHOLE_FILE_NAME%/*}" ] && DIRECTORY_OF_FILE='.'
 [ "$WHOLE_FILE_NAME" = "${WHOLE_FILE_NAME%/*}" ] && DIRECTORY_OF_FILE="$PWD"
@@ -48,7 +48,7 @@ echo 'CDIR' "$CDIR"
 fi
 
 #checks
-if [ "${0%/*}" = "${1%/*}" ]; then
+if [ "${0%/*}" = "${PARAMIN%/*}" ]; then
  echo "Not changing into '${0%/*}' . Exiting ."
  exit 1
 else
@@ -68,12 +68,12 @@ elif [[ "$1" =~ '.pet$' ]] ; then exe=petget
 elif [ "`echo "$1" |grep -E '\.bz2$|\.gz$|\.Z$|\.lzo$|\.lzma$|\.xz$'`" ];then
   if [[ ! "$1" =~ '.tar.' ]];then
    case "${1##*\.}" in
-   gz) exe=gunzip;;
-   bz2)exe=bunzip2;;
-   lzo)exe=lzop;OPT=-d;;
-   lzma)exe=lzma;OPT=-d;;
-   xz) exe=xz;OPT=-d;;
-   Z)  exe=uncompress;;
+   gz)   exe=gunzip;;
+   bz2)  exe=bunzip2;;
+   lzo)  exe=lzop;OPT=-d;;
+   lzma) exe=lzma;OPT=-d;;
+   xz)   exe=xz;OPT=-d;;
+   Z)    exe=uncompress;;
    esac
   fi
 fi
@@ -90,16 +90,21 @@ case $PARAMIN in
 *.lzma)  exe=lzma;OPT=-d;;
 *.xz)    exe=xz;OPT=-d;;
 *.Z)     exe=uncompress;;
+*.Z.*)   exe=uncompress #;; # busybox uncompress Decompress .Z file[s] -c Write to stdout -f  Overwrite
+         test -e "${PARAMIN%.*}" || cp -af "$PARAMIN" "${PARAMIN%.*}"
+         test $? = 0 && PARAMIN="${PARAMIN%.*}" || _exit 1 "Error on *.Z.* file"
+         #set -- "$PARAMIN"
+         ;;
 esac
 
 
 if [ "$exe" ];then
 #which "$exe" || { xmessage -bg red "'$exe' not installed (in PATH) ";exit 1; }
-type "$exe" || { xmessage -bg red "'$exe' not installed (in PATH) ";exit 1; }
+type "$exe" >>$OUT || { xmessage -bg red "'$exe' not installed (in PATH) ";exit 1; }
 
  case "$exe" in
  xdelta_gui|bcrypt_gui|petget)
- exec "$exe" "$1";;
+ exec "$exe" "$PARAMIN";;
  *)
  xmessage -buttons "Yes:101,No:105" "Do you want to decompress
 $PARAMIN ?
@@ -108,10 +113,10 @@ $PARAMIN ?
  [ "$A" -eq 105 ] && { xmessage -timeout 6 "Not done. ";exit 0; }
  #alt to xmessage :    yaf-splash -timeout 6 -text "Not done."
  if [ "$A" -eq 101 ] ; then
- [ "$exe" = 'lzop' ] || { cp "$1" "${DOF}"/tmp-"${1##*/}";RV=$?; }
- "$exe" $OPT "$1" ;RV=$((RV+$?))
- sync
- [ "$exe" = 'lzop' ] || { mv "${DOF}"/tmp-"${1##*/}" "$1";RV=$((RV+$?)); }
+ [ "$exe" = 'lzop' ] || { cp "$PARAMIN" "${DOF}"/tmp-"${PARAMIN##*/}";RV=$?; }
+ "$exe" $OPT "$PARAMIN" ;RV=$((RV+$?))
+ _sync
+ [ "$exe" = 'lzop' ] || { mv "${DOF}"/tmp-"${PARAMIN##*/}" "$PARAMIN";RV=$((RV+$?)); }
  exit $RV
  fi #xmessage
  ;;
@@ -120,36 +125,32 @@ $PARAMIN ?
 fi # exe
 
 ##simple .lz extension:
-if [ "`echo "$1" |grep '\.lz$'`" ];then
- cp "$1" "${DOF}"/tmp-"${1##*/}"
- lzma -S .lz -d "$1"
+if [ "`echo "$PARAMIN" |grep '\.lz$'`" ];then
+ cp "$PARAMIN" "${DOF}"/tmp-"${PARAMIN##*/}"
+ lzma -S .lz -d "$PARAMIN"
  if [ $? = 0 ] ; then
- mv "${DOF}"/tmp-"${1##*/}" "$1"
+ mv "${DOF}"/tmp-"${PARAMIN##*/}" "$PARAMIN"
  else
-  lzop -S.lz -d "$1"
-  rm "${DOF}"/tmp-"${1##*/}"
+  lzop -S.lz -d "$PARAMIN"
+  rm "${DOF}"/tmp-"${PARAMIN##*/}"
  fi
  exit $?
 fi
 
 #in order of preference...
-if [ ! "`type xarchive`" = "" ];then
-echo XARCHIVE FILE
+if [ "`type xarchive`" != "" ];then
+ echo XARCHIVE FILE
  XARCHIVE="xarchive"
-else
- if [ ! "`type TkZip`" = "" ];then
+elif [ "`type TkZip`" != "" ];then
  echo TKZIP FILE
   XARCHIVE="TkZip"
- else
-  if [ ! "`type guitar`" = "" ];then
-  echo GUITAR FILE
-   XARCHIVE="guitar"
-  else
-  echo ERROR
-   exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "No archive GUI program found.
+elif [ "`type guitar`" != "" ];then
+ echo GUITAR FILE
+ XARCHIVE="guitar"
+else
+ echo ERROR
+ exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "No archive GUI program found.
 Please install XArchive."
-  fi
- fi
 fi
 
 #the full alternatives, dotpups by GuestToo...
@@ -222,7 +223,7 @@ if [ "$NORMFILE" = "" ];then
  #it is an archive file...
  echo NORMFILE is empty
 
- _get_absolute_path(){
+ _get_absolute_path(){ # unused
  #get absolute path of file...
  if [ "`echo -n "$PARAMIN" | cut -b 1`" = "/" ];then
   FULLSPEC="$PARAMIN"
@@ -260,8 +261,8 @@ echo "FULLSPEC='$FULLSPEC'"
   done
  fi
 
- echo "AFILE='$AFILE'"
- echo "AEXT='$AEXT'"
+ echo -n "AFILE='$AFILE'"
+ echo    " AEXT='$AEXT'"
 
  #drops here with AEXT=extension.
  case $AEXT in
@@ -276,7 +277,7 @@ echo "FULLSPEC='$FULLSPEC'"
 Suggestion: install unrpm.pup DotPup package, which contains an alternative
 RPM extraction program, that PupZip will automatically use if present."
    fi
-   sync
+   _sync
    # REM: No error, so continue
    #      with creating a temp tar file outside the extraction directory
    #tar -c -f /tmp/temprpm.tar .
@@ -306,34 +307,39 @@ RPM extraction program, that PupZip will automatically use if present."
    exit $xarRV
    ;;
 
-#v4.00 remove...
-#  deb|DEB)
-#   mkdir -p /tmp/tempdeb
-#   cd /tmp/tempdeb || exit 1
-#   $DPKGDEB -x "$FULLSPEC"
-#   if [ ! $? -eq 0 ];then
-#    exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "An error has occurred opening the DEB file."
-#   fi
-#   tar -c -f /tmp/tempdeb.tar .
-#   test $? = 0 && rm -rf /tmp/tempdeb
-#   cd /
-#   $XARCHIVE /tmp/tempdeb.tar
-#   test $? = 0 && rm -f /tmp/tempdeb.tar
-#   cd $CDIR
-#   exit
-#   ;;
+   *)
+_handle_deb(){
+case $* in
+  *deb|*DEB)
+   mkdir -p /tmp/tempdeb
+   cd /tmp/tempdeb || exit 1
+   $DPKGDEB -x "$FULLSPEC"
+   if [ ! $? -eq 0 ];then
+    exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "An error has occurred opening the DEB file."
+   fi
+   tar -c -f /tmp/tempdeb.tar .
+   test $? = 0 && rm -rf /tmp/tempdeb
+   cd /
+   $XARCHIVE /tmp/tempdeb.tar
+   test $? = 0 && rm -f /tmp/tempdeb.tar
+   cd $CDIR
+   exit
+   ;;
+esac
+}
+  #_handle_deb $PARAMIN
+  true || false
+  ;;
 
  esac
  echo "$0: $LINENO about to exec
  '$XARCHIVE' '$PARAMIN'"
  export PARAMIN
  exec $XARCHIVE "$PARAMIN"
-else
- if [ "$XARCHIVE" = "xarchive" ];then
+elif [ "$XARCHIVE" = "xarchive" ];then
   exec xarchive --add=ask "$NORMFILE"
- else
+else
   exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "Not an archive file"
- fi
 fi
 
 ###END###

@@ -112,12 +112,20 @@ mkdir -p "$tmpDIR"
 mo=net-setup.mo
 #lng=${LANG%.*}
 # always start by sourceing the English version (to fill in gaps)
-. "/usr/share/locale/en/LC_MESSAGES/$mo"
+
+if test -s "/usr/share/locale/en/LC_MESSAGES/$mo"; then
+ . "/usr/share/locale/en/LC_MESSAGES/$mo"
+else
+ _warn "/usr/share/locale/en/LC_MESSAGES/$mo not avaiable."
+ _warn "gtkdialog GUI building may not work ..."
+fi
+
 if [ -f "/usr/share/locale/${LANG%.*}/LC_MESSAGES/$mo" ];then
   . "/usr/share/locale/${LANG%.*}/LC_MESSAGES/$mo"
 elif [ -f "/usr/share/locale/${LANG%_*}/LC_MESSAGES/$mo" ];then
   . "/usr/share/locale/${LANG%_*}/LC_MESSAGES/$mo"
 fi
+
 
 # basic configuration info for interface
 # named $HWADDRESS.conf (assuming the HWaddress is more unique than interface name...)
@@ -157,7 +165,7 @@ showMainWindow()
 
         I=$IFS; IFS=""
         for STATEMENT in  $(gtkdialog3 --program NETWIZ_Main_Window); do
-            eval $STATEMENT 2>$ERR
+            eval $STATEMENT 2>>$ERR
         done
         IFS=$I
         clean_up_gtkdialog NETWIZ_Main_Window
@@ -296,7 +304,7 @@ buildMainWindow()
     </frame>
     <hbox>
         <button help>
-            <action>$HELP_COMMAND >$OUT 2>&1 &</action>
+            <action>$HELP_COMMAND >>$OUT 2>&1 &</action>
         </button>
         <button>
              <label>$L_BUTTON_Exit</label>
@@ -402,7 +410,7 @@ showLoadModuleWindow()
 
   I=$IFS; IFS=""
   for STATEMENT in  $(gtkdialog3 --program NETWIZ_LOAD_MODULE_DIALOG); do
-    eval $STATEMENT 2>$ERR
+    eval $STATEMENT 2>>$ERR
   done
   IFS=$I
   clean_up_gtkdialog NETWIZ_LOAD_MODULE_DIALOG
@@ -534,7 +542,7 @@ showLoadModuleWindow()
     # Run new dialog
     I=$IFS; IFS=""
     for STATEMENT in  $(gtkdialog3 --program NETWIZ_NEW_MODULE_DIALOG); do
-      eval $STATEMENT 2>$ERR
+      eval $STATEMENT 2>>$ERR
     done
     IFS=$I
     clean_up_gtkdialog NETWIZ_NEW_MODULE_DIALOG
@@ -799,7 +807,7 @@ loadSpecificModule(){
 
   I=$IFS; IFS=""
   for STATEMENT in  $(gtkdialog3 --program NETWIZ_Load_Specific_Module_Window); do
-    eval $STATEMENT 2>$ERR
+    eval $STATEMENT 2>>$ERR
   done
   IFS=$I
   clean_up_gtkdialog NETWIZ_Load_Specific_Module_Window
@@ -960,7 +968,7 @@ unloadSpecificModule(){
 
   I=$IFS; IFS=""
   for STATEMENT in  $(gtkdialog3 --program NETWIZ_Unload_Module_Window); do
-    eval $STATEMENT 2>$ERR
+    eval $STATEMENT 2>>$ERR
   done
   IFS=$I
   clean_up_gtkdialog NETWIZ_Unload_Module_Window
@@ -991,7 +999,7 @@ findLoadedModules()
   echo -n " " > "$tmpDIR"/loadedeth.txt
 
   LOADED_MODULES="$(lsmod | cut -f1 -d' ' | sort)"
-  NETWORK_MODULES=" $(cat /etc/networkmodules /etc/networkusermodules 2>$ERR | cut -f1 -d' ' | tr '\n' ' ') "
+  NETWORK_MODULES=" $(cat /etc/networkmodules /etc/networkusermodules 2>>$ERR | cut -f1 -d' ' | tr '\n' ' ') "
 
   COUNT_MOD=0
   for MOD in $LOADED_MODULES
@@ -1159,6 +1167,12 @@ showConfigureInterfaceWindow()
 $L_TOPMSG_Configuration_Offer_Try_Again"
       else
         RETVALUE=1
+        if _check_have_conf $INTERFACE; then
+        #<text> <height> <width> [<timeout>]
+        Xdialog --infobox	"$(eval echo $L_TOPMSG_Configuration_Successful)" 0 0 9000
+        TOPMSG="$(eval echo $L_TOPMSG_Configuration_Successful)
+$L_TOPMSG_Configuration_Offer_To_Finish"
+        else
         Xdialog --yesno "$(eval echo $L_TOPMSG_Configuration_Successful)
 $L_TOPMSG_Configuration_Offer_To_Save" 0 0
         if [ $? -eq 0 ] ; then
@@ -1169,6 +1183,7 @@ $L_TOPMSG_Configuration_Offer_To_Finish"
         else
           TOPMSG="$(eval echo $L_TOPMSG_Configuration_Successful)
 $L_TOPMSG_Configuration_Not_Saved"
+        fi
         fi
       fi
     fi
@@ -1224,7 +1239,7 @@ buildConfigureInterfaceWindow()
     <hbox>
         $DONEBUTTON
         <button help>
-            <action>$HELP_COMMAND >$OUT 2>$ERR &</action>
+            <action>$HELP_COMMAND >>$OUT 2>>$ERR &</action>
         </button>
         ${SAVE_SETUP_BUTTON}
         <button>
@@ -1458,7 +1473,7 @@ buildStaticIPWindow()
     </frame>
     <hbox>
         <button help>
-            <action>$HELP_COMMAND >$OUT 2>$ERR &</action>
+            <action>$HELP_COMMAND >>$OUT 2>>$ERR &</action>
         </button>
         <button ok></button>
         <button cancel></button>
@@ -1567,7 +1582,7 @@ setupStaticIP()
         # we will try to back up.
         if [ "$DNS_SERVER1" != "0.0.0.0" ] ; then
             # remove old backups
-            rm /etc/resolv.conf.[0-9][0-9]* 2>$ERR
+            rm /etc/resolv.conf.[0-9][0-9]* 2>>$ERR
             # backup previous one
             mv -f /etc/resolv.conf /etc/resolv.conf.old
             echo "nameserver $DNS_SERVER1" > /etc/resolv.conf
@@ -1725,8 +1740,8 @@ findInterfaceInfo()
      __deprecated_find_usbif__(){
      # need to try and find info from both /proc/bus/usb/devices and lsusb
      # 1) find device and vendor:
-     DEVICE=`cat /sys/class/net/$INT/device/device 2>$ERR`
-     local VENDOR=`cat /sys/class/net/$INT/device/vendor 2>$ERR`
+     DEVICE=`cat /sys/class/net/$INT/device/device 2>>$ERR`
+     local VENDOR=`cat /sys/class/net/$INT/device/vendor 2>>$ERR`
      # those files might not exist...try getting by module name
      if [ -z "$DEVICE" -o -z "$VENDOR" ] ; then
        local DEVINFO=`grep -F -B5 "Driver=$FI_DRIVER" /proc/bus/usb/devices | grep  '^P' | tr ' ' '\n' | grep -E 'Vendor|ProdID' | tr '\n' ' '`
@@ -1749,7 +1764,7 @@ findInterfaceInfo()
          esac
        else
          # 3) try looking is lsusb output:
-         INFO=`lsusb -d $VENDOR:$DEVICE 2>$ERR| head -n1 | cut -d' ' -f7-`
+         INFO=`lsusb -d $VENDOR:$DEVICE 2>>$ERR| head -n1 | cut -d' ' -f7-`
        fi
      fi
     }  ##__deprecated_find_usbif__(){
@@ -1788,6 +1803,49 @@ findInterfaceInfo()
   esac
 } # end findInterfaceInfo
 
+
+_get_ifconfig_hwaddress(){
+	_debug "_get_ifconfig_hwaddress:$*"
+INTERFACE="${INTERFACE:-$1}"
+test "$INTERFACE" || return 3
+HWADDRESS=$(ifconfig "$INTERFACE" | grep -w "^$INTERFACE" | tr -s ' ' | cut -d' ' -f5 | tail -n1)
+test "$HWADDRESS"
+}
+
+_check_have_conf(){
+	_debug "_check_have_conf:$*"
+INTERFACE="${INTERFACE:-$1}"
+test "$INTERFACE" || return 3
+#HWADDRESS=$(ifconfig "$INTERFACE" | grep -w "^$INTERFACE" | tr -s ' ' | cut -d' ' -f5 | tail -n1)
+#test "$HWADDRESS" || return 4
+_get_ifconfig_hwaddress $INTERFACE || return 4
+test -s ${NETWORK_INTERFACES_DIR}/$HWADDRESS.conf
+}
+
+_check_conf_changed(){
+	_debug "_check_conf_changed:$*"
+INTERFACE="${INTERFACE:-$1}"
+test "$INTERFACE" || return 3
+_get_ifconfig_hwaddress $INTERFACE || return 4
+test -e ${NETWORK_INTERFACES_DIR}/$HWADDRESS.conf || return 5
+
+if test "$MODECOMMANDS"; then
+ echo -e "${MODECOMMANDS}\nIS_WIRELESS=''" > $tmpDIR/$HWADDRESS.conf
+else
+ echo "IS_WIRELESS=''" > $tmpDIR/$HWADDRESS.conf
+fi
+
+if test "$DEBUG"; then
+ diff -up $tmpDIR/$HWADDRESS.conf ${NETWORK_INTERFACES_DIR}/$HWADDRESS.conf
+fi
+
+if test "$VERBOSE" -o "$DEBUG"; then
+ diff -qs $tmpDIR/$HWADDRESS.conf ${NETWORK_INTERFACES_DIR}/$HWADDRESS.conf
+else
+ diff -q  $tmpDIR/$HWADDRESS.conf ${NETWORK_INTERFACES_DIR}/$HWADDRESS.conf >>$OUT
+fi
+}
+
 #=============================================================================
 saveInterfaceSetup()
 {
@@ -1817,7 +1875,11 @@ saveInterfaceSetup()
   else
     #echo -e "${MODECOMMANDS}" > /etc/${INTERFACE}mode
     # Dougal: maybe append? in case used both for dhcp and static.
-    echo -e "${MODECOMMANDS}\nIS_WIRELESS=''" > ${NETWORK_INTERFACES_DIR}/$HWADDRESS.conf
+    if test "$MODECOMMANDS"; then
+     echo -e "${MODECOMMANDS}\nIS_WIRELESS=''" > ${NETWORK_INTERFACES_DIR}/$HWADDRESS.conf
+    else
+     echo "IS_WIRELESS=''" > ${NETWORK_INTERFACES_DIR}/$HWADDRESS.conf
+    fi
   fi
 
 } # end saveInterfaceSetup
@@ -1826,25 +1888,25 @@ saveInterfaceSetup()
 # Dougal: a little function to clean up /tmp when we're done...
 cleanUpTmp(){
     [ "$DEBUG" -o "$VERBOSE" ] && return 0
-    rm -f "$tmpDIR"/ethmoduleyesload.txt 2>$ERR
-    rm -f "$tmpDIR"/loadedeth.txt 2>$ERR
-#   rm -f "$tmpDIR"/wag-profiles_iwconfig.sh 2>$ERR
-    rm -f "$tmpDIR"/net-setup_* 2>$ERR
-    rm -f "$tmpDIR"/wpa_status.txt 2>$ERR
-    rm -f "$tmpDIR"/net-setup_scan*.tmp 2>$ERR
+    rm -f "$tmpDIR"/ethmoduleyesload.txt 2>>$ERR
+    rm -f "$tmpDIR"/loadedeth.txt 2>>$ERR
+#   rm -f "$tmpDIR"/wag-profiles_iwconfig.sh 2>>$ERR
+    rm -f "$tmpDIR"/net-setup_* 2>>$ERR
+    rm -f "$tmpDIR"/wpa_status.txt 2>>$ERR
+    rm -f "$tmpDIR"/net-setup_scan*.tmp 2>>$ERR
 }
 
 #=============================================================================
 # HELP_COMMAND stub ( no help available yet )
 test "$HELP_COMMAND" && {
-timeout -t2 $HELP_COMMAND
+timeout -t2 ${HELP_COMMAND//"'"/} # HELP_COMMAND found in the locale .mo file ...
 test $? = 0 || unset HELP_COMMAND
                      }
 test "$HELP_COMMAND" || HELP_COMMAND="yaf-splash -bg red -text 'Sorry, no help available yet'"
 
 showHelp()
 {
-  pman "net_setup" &> /dev/null &
+  pman "net_setup" & #&> /dev/null &
 }
 
 #=============================================================================

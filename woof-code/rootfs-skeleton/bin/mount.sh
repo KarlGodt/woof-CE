@@ -2,7 +2,7 @@
 
 IS_MULTICALL=1
 FSTAB_FILE=/etc/fstab
-VERSION=2.5.0
+VERSION=2.5.1
 . /etc/rc.d/f4puppy5
 
 __debugt__(){  #$1 label #$2 time
@@ -298,7 +298,13 @@ _debugt 9e $_DATE_
  while read -r oneUPDATE oneMOUNTPOINT REST  #REST ist just in case since it is reduced to $1 and $2 above
  do
  _debug "_update_partition_icon:'$oneUPDATE' '$oneMOUNTPOINT' '$REST'"
+
  test "$oneUPDATE" || continue
+ case $oneMOUNTPOINT in
+ *\\011*) oneMOUNTPOINT=`echo "$oneMOUNTPOINT" | sed -r 's!(\\\011)!\t!g'`;;
+ *\\012*) oneMOUNTPOINT=`echo "$oneMOUNTPOINT" | sed -r 's!(\\\012)!\n!g'`;;
+ *\\040*) oneMOUNTPOINT=`echo "$oneMOUNTPOINT" | sed -r 's!(\\\040)! !g'`;;
+ esac
  eoneMOUNTPOINT=`echo -e "$oneMOUNTPOINT"`
  _debug "_update_partition_icon:'$oneUPDATE' '$eoneMOUNTPOINT' '$REST'"
 _debugt 9d $_DATE_
@@ -700,9 +706,8 @@ o_posPAR="$posPAR"
    _debug "c=$c \$#=$# ""$posPAR"
 
    if test ! "`grep 'nodev' /proc/filesystems | grep "$posPAR"`"; then
-   gPATTERN="${posPAR// /\\040}";gPATTERN="${gPATTERN//	/\\011}" #TAB
-   gPATTERN="${gPATTERN//
-/\\012}"
+   gPATTERN="${posPAR// /\\040}";gPATTERN="${gPATTERN//\\t/\\011}" #TAB
+   gPATTERN="${gPATTERN//\\n/\\012}"
    _debugx "gPATTERN=$gPATTERN"
    grep -Fw "${gPATTERN}" /proc/mounts | grep $Q -vi fuse && {
        test "`echo "$opMO" | grep 'remount'`" ||  _exit 3 "not fuse: $posPAR already mounted. Use -o remount."; }
@@ -774,11 +779,17 @@ _debugt 84 $_DATE_
 case $WHAT in
 umount)
 if test "$deviceORpoint"; then
-grepP=${deviceORpoint// /\\040};grepP=${grepP//	/\\011}; #TAB
-grepP="${grepP//
-/\\012}"
+grepP=${deviceORpoint// /\\040};grepP=${grepP//\\t/\\011}; #TAB
+grepP="${grepP//\\n/\\012}"
 _debug "grepP='$grepP'"
 mountPOINT=`echo "$mountBEFORE" | grep -Fw "$grepP" | cut -f 2 -d' '`
+_debug "mountPOINT='$mountPOINT'"
+case $mountPOINT in
+*\\011*) mountPOINT=`echo "$mountPOINT" | sed -r 's!(\\\011)!\t!g'`;;
+*\\012*) mountPOINT=`echo "$mountPOINT" | sed -r 's!(\\\012)!\n!g'`;;
+*\\040*) mountPOINT=`echo "$mountPOINT" | sed -r 's!(\\\040)! !g'`;;
+esac
+_debug "mountPOINT='$mountPOINT'"
 mountPOINT=`busybox echo -e "$mountPOINT"`
 _debug "mountPOINT='$mountPOINT'"
 fi
