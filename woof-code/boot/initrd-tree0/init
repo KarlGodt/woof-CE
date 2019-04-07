@@ -50,7 +50,7 @@
 #w460 bugfix, boot usb, 1st shutdown was not offering to save session sometimes.
 #w464 tidyup, make sure /etc/puppyversion is history.
 #w468 load nls_cp850, now default for fat f.s. (2.6.29.2 kernel).
-#w476 mntfunc() rewritten, support 'pkeys' boot param (work in progress).
+#w476 mnt_func() rewritten, support 'pkeys' boot param (work in progress).
 #w478 modify sfs exclusion rules.
 #w479 fix finding optical drive for kernel with old ide drivers.
 #w481 record fast partitions, used by rc.shutdown.
@@ -211,10 +211,11 @@ IDSTRING="$DISTRO_IDSTRING" #from DISTRO_SPECS, string appended to kernel.qky, v
 
 [ $loglevel ] && LOGLEVEL=$loglevel #v2.22
 
+
 #100318 perform a f.s. check...
 fsckme_func() { #passed params: partition filesystem [pupsavefile]
  if [ ! -e /bin/e2fsck ];then #111120
-  echo -e -n "\\033[1;31m SORRY, cannot check filesystem \\033[0;39m" > /dev/console #31=red
+  echo -e -n "\\033[1;31m SORRY, cannot check filesystem \\033[0;39m" >/dev/console #31=red
   return
  fi
  case $2 in
@@ -244,7 +245,7 @@ fsckme_func() { #passed params: partition filesystem [pupsavefile]
  fi
 }
 
-mntfunc() {
+mnt_func() {
  MNT_T="$1"    #ex: vfat
  MNT_DEV="$2"  #ex: /dev/sda1
  MNT_DIR="$3"  #ex: /mnt/sda1
@@ -257,9 +258,11 @@ mntfunc() {
    [ $ntfsRETVAL -eq 0 ] && return 0
    if [ $ntfsRETVAL -eq 14 ];then
     #ntfs-3g $MNTPRMS -o umask=0,no_def_opts,noatime,rw,remove_hiberfile 2>/dev/null
-    echo -e "\\033[1;31m" >/dev/console #31=red
-    echo -n "ERROR: Windows NTFS hibernated partition, cannot mount" > /dev/console
-    echo -e "\\033[0;39m" >/dev/console
+    (
+    echo -e "\\033[1;31m" #31=red
+    echo -n "ERROR: Windows NTFS hibernated partition, cannot mount"
+    echo -e "\\033[0;39m"
+    ) >/dev/console
     return 14
    else
     ntfs-3g $MNT_DEV $MNT_DIR -o umask=0,no_def_opts,noatime,rw,force,silent 2>/dev/null #130211 add silent.
@@ -279,9 +282,9 @@ mntfunc() {
  return $?
 }
 
-umntfunc() {
+umnt_func() {
  #111120 note, this code is not needed anymore for ntfs-3g. normal 'umount' can unmount it.
- #warning umntfunc call must have mntpt param, not device name.
+ #warning umnt_func call must have mntpt param, not device name.
  LASTPARAM="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/mnt/'`"
  if [ "`mount | grep "$LASTPARAM" | grep -E 'ntfs|fuse'`" = "" ];then
   umount $@
@@ -295,27 +298,32 @@ check_status()
 {
   if [ $1 -eq 0 ]
   then
-    /bin/echo -en "\\033[74G" >/dev/console #move to column 72. 110426: 74
-    /bin/echo -en "\\033[1;32m" >/dev/console
-    /bin/echo -en "done" >/dev/console
-    /bin/echo -e "\\033[0;39m" >/dev/console
+  (
+    echo -en "\\033[74G"  #move to column 72. 110426: 74
+    echo -en "\\033[1;32m"
+    echo -en "done"
+    echo -e "\\033[0;39m"
+  ) >/dev/console
   else
-    /bin/echo -en "\\033[72G" >/dev/console #110426 move to column 72.
-    /bin/echo -en "\\033[1;31m" >/dev/console
-    /bin/echo -en "failed" >/dev/console
-    /bin/echo -e "\\033[0;39m" >/dev/console
-    echo -en "\\033[1;35m" >/dev/console #35=purple
-    echo -n "Dumping last lines of /tmp/bootinit.log..." >/dev/console
-    /bin/echo -e "\\033[0;39m" >/dev/console
-    echo -en "\\033[1;31m" >/dev/console #31=red
-    cat /tmp/bootinit.log | tail -n 4 >/dev/console
-    /bin/echo -en "\\033[0;39m" >/dev/console
-    echo -en "\\033[1;35m" >/dev/console #35=purple
-    echo -n "Dumping last lines of kernel log..." >/dev/console
-    /bin/echo -e "\\033[0;39m" >/dev/console
-    echo -en "\\033[1;31m" >/dev/console #31=red
-    dmesg | tail -n 4 >/dev/console
-    /bin/echo -en "\\033[0;39m" >/dev/console
+  (
+    echo -en "\\033[72G"  #110426 move to column 72.
+    echo -en "\\033[1;31m"
+    echo -en "failed"
+    echo -e "\\033[0;39m"
+    echo -en "\\033[1;35m"  #35=purple
+    echo -n "Dumping last lines of /tmp/bootinit.log..."
+    echo -e "\\033[0;39m"
+    echo -en "\\033[1;31m"  #31=red
+    cat /tmp/bootinit.log | tail -n 4
+    echo -en "\\033[0;39m"
+    echo -en "\\033[1;35m"  #35=purple
+    echo -n "Dumping last lines of kernel log..."
+    echo -e "\\033[0;39m"
+    echo -en "\\033[1;31m"  #31=red
+    dmesg | tail -n 4
+    echo -en "\\033[0;39m"
+    ) >/dev/console
+
     #exit to initial ramdisk shell...
     [ "$RDSH" != "" ] && exec /bin/sh >/dev/console 2>&1
     echo "Pausing for 60 seconds..." >/dev/console
@@ -350,7 +358,7 @@ search_func() { #110425
  LESSPARTS="`echo "$LESSPARTS0" | tr '\n' ' '`"
  echo "$PCPARTSALL" > /tmp/PCPARTSALL_${1} #for debugging.
  echo "$LESSPARTS0" > /tmp/LESSPARTS0_${1} #for debugging.
- 
+
  #130513 want to give preference to write pupdesk.flg to a linux partition...
  LINUXFS="$(echo "$LESSPARTS0" | grep -E 'ext2|ext3|ext4|reiserfs|minix|f2fs' | head -n 1)"
 
@@ -367,23 +375,23 @@ search_func() { #110425
   if [ "$IGNORE" = "optical" ];then #110126 ignore optical if boot partition found.
    [ "`echo -n "$ONEDRV" | grep -f /tmp/OPTICALDRIVES0`" != "" ] && continue #110205
   fi
-  
+
   #v403 nasty bug: usb optical drive showing as /sys/block/sr0, but won't mount, needs more delay...
-  mntfunc $ONEFS /dev/$ONEDEV /mnt/data #-t $ONEFS /dev/$ONEDEV /mnt/data
+  mnt_func $ONEFS /dev/$ONEDEV /mnt/data #-t $ONEFS /dev/$ONEDEV /mnt/data
   if [ $? -ne 0 ];then
    echo "PAUSE 5SEC: tried to mount /dev/${ONEDEV}, ${ONEFS} f.s." #101005 boot param loglevel=7 will show this.
-   echo -e -n " \\033[1;31mpausing\\033[0;39m" > /dev/console #31=red
+   echo -e -n " \\033[1;31mpausing\\033[0;39m" >/dev/console #31=red
    sleep 5 #2 wasn't enough.
-   mntfunc $ONEFS /dev/$ONEDEV /mnt/data #-t $ONEFS /dev/$ONEDEV /mnt/data
+   mnt_func $ONEFS /dev/$ONEDEV /mnt/data #-t $ONEFS /dev/$ONEDEV /mnt/data
    if [ $? -ne 0 ];then
     echo "RETRY FAILED: mounting /dev/${ONEDEV}, ${ONEFS} f.s." #101005
     continue
    fi
   fi
   echo "ONEDEV=$ONEDEV ONEFS=$ONEFS ONEDRV=$ONEDRV PSUBDIR=$PSUBDIR" >> /tmp/puppy-file-search.log #101127 for debugging.
-  
+
   if [ -d /mnt/data${PSUBDIR} ];then
-  
+
    if [ "$VMLINUZ" = "" ];then #search for kernel.qky and vmlinuz...
     if [ "$ONEFS" != "iso9660" -a "$PMEDIA" = "cd" -a "$ONEFS" != "udf" ];then #101021 avoid finding vmlinuz on hd. 110204. 130128 also udf.
      echo "Bypass looking for vmlinuz on $ONEDEV"
@@ -421,9 +429,9 @@ search_func() { #110425
      done
     fi
    fi
-   
+
    [ "$PSUBDIR" ] && SEARCHDEPTH=1
-   
+
    if [ "$PUPSFS" = "" ];then
     FND_FILES="`find /mnt/data${PSUBDIR} -maxdepth ${SEARCHDEPTH} -xdev -type f -iname ${PUPXXXSFS} | grep -v ' ' | sed -e 's%^/mnt/data%%' | tr '\n' ' '`"
     for ONEPUPFILE in $FND_FILES
@@ -441,7 +449,7 @@ search_func() { #110425
      fi
     done
    fi
-   
+
    if [ "$ZDRV" = "" ];then
     FND_FILES="`find /mnt/data${PSUBDIR} -maxdepth ${SEARCHDEPTH} -xdev -type f -iname ${ZDRVSFS} | grep -v ' ' | sed -e 's%^/mnt/data%%' | tr '\n' ' '`"
     for ONEPUPFILE in $FND_FILES
@@ -459,10 +467,10 @@ search_func() { #110425
      fi
     done
    fi
-   
+
   fi #101103 moved up.
   echo "  IGNORE=$IGNORE PSUBDIR=$PSUBDIR SAVEPART=$SAVEPART VMLINUZ=$VMLINUZ PDEV1=$PDEV1 PUPSFS=$PUPSFS" >> /tmp/puppy-file-search.log #101127 for debugging.
-  
+
   FND_PUPSAVES=""
   if [ "$SAVEPART" ];then #see SAVEMARK above. 101103 modified logic.
    if [ "$SAVEPART" = "$ONEDEV" ];then
@@ -504,7 +512,7 @@ search_func() { #110425
 #   fi
 #  fi
   [ "$FND_PUPSAVES" ] && echo "$ONEDEV $ONEFS $FND_PUPSAVES" >> /tmp/PUPSAVES
-  
+
   #130513 if we find a rw f.s., create pupdesk.flg. only needed in PUPMODE=5, see /usr/sbin/quicksetup.
   if [ "$PRAMONLY" != "yes" -a $PUPDESKFLG -eq 1 ];then #130514 exclude. 130515
    if [ ! -f /tmp/RWPART ];then
@@ -519,12 +527,12 @@ search_func() { #110425
     [ "$RWPARTFLG" ] && echo -n "${ONEDEV}|${ONEFS}" > /tmp/RWPART #where we intend to create pupdesk.flg, see further down.
    fi
   fi
-  
+
   #fix any improper shutdowns... fsckme.flg format: sda7,ext3,[/pupsave.2fs] (see rc.shutdown)
   FSCKME=""
   [ -f /mnt/data/fsckme.flg ] && FSCKME="`cat /mnt/data/fsckme.flg | tr ',' ' ' | tr '\n' ' '`"
   rm -f /mnt/data/fsckme.flg
-  umntfunc /mnt/data
+  umnt_func /mnt/data
   [ "$FSCKME" ] && fsckme_func $FSCKME
  done
 } #search_func
@@ -654,7 +662,7 @@ fi
 [ "$RDSH" = "0" ] && exec /bin/sh >/dev/console 2>&1 #w091222
 
 ###################LOAD MODULES TO ACCESS DRIVES#####################
-echo -n "Loading drivers needed to access disk drives" > /dev/console #STEP ONE
+echo -n "Loading drivers needed to access disk drives" >/dev/console #STEP ONE
 
 #100214 one config of 2.6.33 has base floppy and ps/2 mouse support not builtin...
 [ "`modinfo floppy 2>/dev/null`" != "" ] && modprobe floppy > /dev/null 2>&1
@@ -669,7 +677,7 @@ if [ "`echo "$ELSPCI" | grep '060700'`" != "" ];then
  modprobe yenta_socket
  #...may have to add on a couple of seconds, need to test with a pcmcia drive.
  #v412 yeah, my pccard-usb adaptor needs delay before elspci recognises 0C0310 (ohci-hcd) interface...
- echo -n "." > /dev/console
+ echo -n "." >/dev/console
  sleep 2
 fi
 #v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid...
@@ -681,12 +689,12 @@ do
  [ "`modinfo $ONEFSMOD 2>/dev/null`" != "" ] && modprobe $ONEFSMOD
 done
 
-echo -n "." > /dev/console
+echo -n "." >/dev/console
 MODALIASES="`cat /sys/bus/pci/devices/*/modalias`" #important, save to variable before loop.
 for ONEMODALIAS in $MODALIASES
 do
   modprobe $ONEMODALIAS 2>/dev/null #-v means verbose.
-  #[ $? -eq 0 ] && echo -n "." > /dev/console
+  #[ $? -eq 0 ] && echo -n "." >/dev/console
 done
 
 #091222 some mmc/sd interfaces need this...
@@ -753,7 +761,7 @@ check_status 0 #END STEP ONE
 ##############END MODULE LOADING TO ACCESS DRIVES####################
 
 #######################FINDING PUPPY FILES###########################
-echo -n "Searching for Puppy files..." > /dev/console #STEP TWO
+echo -n "Searching for Puppy files..." >/dev/console #STEP TWO
 
 PUPMODE=0
 touch /tmp/PUPSAVES
@@ -796,7 +804,7 @@ if [ -s /tmp/flag-usb-ready ];then #110710 has stuff in it if usb drives exist.
  [ -e /proc/ide ] && ALLDRVS="${ALLDRVS}`ls -1 /proc/ide | grep '^hd' | tr '\n' ' '`" #110204 ex: sda sdb sr0 hda
  ALLDRVS0="`echo -n "$ALLDRVS" | tr -s ' ' | tr ' ' '\n'`" #110205
  echo "$ALLDRVS0" > /tmp/ALLDRVS0 #110205
- 
+
  PCPARTSALL="`probepart_init -k`"
  PCPARTS0="`echo "$PCPARTSALL" | grep '^/dev/' | cut -f 1-2 -d '|'  | grep -E 'f2fs|udf|iso9660|ext2|ext3|ext4|reiserfs|msdos|vfat|minix|ntfs' | sed -e 's%/dev/%%'`" #ex: sda1|vfat  130128 add udf. 130216 add f2fs.
  LESSPARTS0="$PCPARTS0"
@@ -817,9 +825,11 @@ cp -f /tmp/PUPSAVES /tmp/PUPSAVES-complete #101127 for debugging.
 #[ "$PDEV1" = "" ] && DROPOUT="Boot partition"
 [ "$PUPSFS" = "" ] && DROPOUT="${PUPXXXSFS}"
 if [ "$DROPOUT" ];then
- echo -en "\\033[1;31m" >/dev/console #31=red
- echo -n "${DROPOUT} not found. Dropping out to initial-ramdisk console..." >/dev/console
- /bin/echo -e "\\033[0;39m" >/dev/console
+(
+ echo -en "\\033[1;31m" #31=red
+ echo -n "${DROPOUT} not found. Dropping out to initial-ramdisk console..."
+ echo -e "\\033[0;39m"
+ ) >/dev/console
  exec /bin/sh >/dev/console 2>&1
 fi
 
@@ -847,7 +857,7 @@ if [ ! "$PUPSAVE" ];then
     grep "${PDEV1} " /tmp/PUPSAVES2 > /tmp/PUPSAVES
    fi
   fi
-  
+
   if [ -s /tmp/PUPSAVES ];then #100922
    cat /tmp/PUPSAVES |
    while read ONELINE
@@ -865,14 +875,16 @@ if [ ! "$PUPSAVE" ];then
     PUPSAVE="`cat /tmp/PUPSAVE2SFSS`"
    else
     CNTSAVE=1
-    echo -e "\\033[1;36m" >/dev/console #36=aquablue
-    echo "Type a number to choose which personal file to use:" > /dev/console
-    echo "0  none" > /dev/console
+    (
+    echo -e "\\033[1;36m" #36=aquablue
+    echo "Type a number to choose which personal file to use:"
+    echo "0  none"
+    ) >/dev/console
     for ONECHOICE in `cat /tmp/PUPSAVE2SFSS | tr '\n' ' '`
     do
      ONEFILE="`echo -n "$ONECHOICE" | cut -f 3 -d ','`"
      ONEPART="`echo -n "$ONECHOICE" | cut -f 1 -d ','`"
-     echo -e "${CNTSAVE}  ${ONEPART}\\033[10G${ONEFILE}" > /dev/console #10 means move to that column.
+     echo -e "${CNTSAVE}  ${ONEPART}\\033[10G${ONEFILE}" >/dev/console #10 means move to that column.
      CNTSAVE=`expr $CNTSAVE + 1`
     done
     echo -en "\\033[0;39m" >/dev/console
@@ -880,7 +892,7 @@ if [ ! "$PUPSAVE" ];then
     [ $NUMSAVE -ne 0 ] && PUPSAVE="`cat /tmp/PUPSAVE2SFSS | tr '\n' ' ' | cut -f $NUMSAVE -d ' '`"
    fi
   fi
-  
+
  fi
  [ "$PUPSAVE" ] && PUPMODE=`expr $PUPMODE + 8`
 fi
@@ -986,14 +998,14 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
  PUPSAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
  PUPSAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
  #normal ${DISTRO_FILE_PREFIX}save.2fs file. just mount it from where it is...
- echo -n "Loading personal file $PUPSAVEFILE ($PUPSAVEDEV)..." > /dev/console 
+ echo -n "Loading personal file $PUPSAVEFILE ($PUPSAVEDEV)..." >/dev/console
  [ "`echo "$PUPSAVEFS" | grep 'ext[234]'`" != "" ] && echo "/dev/$PUPSAVEDEV /mnt/dev_save $PUPSAVEFS defaults  1 1" >> /etc/fstab #v2.21
- mntfunc $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_save noatime #-t $PUPSAVEFS -o noatime /dev/$PUPSAVEDEV /mnt/dev_save
+ mnt_func $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_save noatime #-t $PUPSAVEFS -o noatime /dev/$PUPSAVEDEV /mnt/dev_save
  if [ $? -eq 0 ];then
   SMNTPT="/mnt/dev_save"
   #is the ${DISTRO_FILE_PREFIX}save encrypted?...
   if [ ! "`echo "$PUPSAVEFILE" | grep '_crypt'`" = "" ];then
-   case $PUPSAVEFILE in 
+   case $PUPSAVEFILE in
     *cryptx*) #see /etc/rc.d/rc.shutdown.
      CRYPTO='-E 1' #v2.16final '-e xor' --bug, loads xor.ko which is something else.
      modprobe cryptoloop
@@ -1010,39 +1022,45 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
    esac
   fi
   if [ "$CRYPTO" != "" ] ; then
-   echo "" >/dev/console
-   echo "Mounting encrypted $PUPSAVEFILE..." > /dev/console
+  (
+   echo ""
+   echo "Mounting encrypted $PUPSAVEFILE..." ) >/dev/console
    while true; do
     #note, cryptoloop does not work with jounalled fs, hence have to use ext2 only.
 
     if [ -f /mnt/dev_save/pupsaveresize.txt ];then #111120
      if [ ! -e /bin/e2fsck ];then
-      echo -e -n "\\033[1;31m SORRY, cannot resize $PUPSAVEFILE \\033[0;39m" > /dev/console #31=red
+      echo -e -n "\\033[1;31m SORRY, cannot resize $PUPSAVEFILE \\033[0;39m" >/dev/console #31=red
       rm -f /mnt/dev_save/pupsaveresize.txt
      fi
     fi
-    
+
     #v3.01 will take this out as a func later (similar code below)...
     #about to mount ${DISTRO_FILE_PREFIX}save.2fs, but before that check if need to resize it...
     if [ -f /mnt/dev_save/pupsaveresize.txt ];then #created by /usr/sbin/resizepfile.sh
      KILOBIG=`cat /mnt/dev_save/pupsaveresize.txt`
      rm -f /mnt/dev_save/pupsaveresize.txt
-     echo > /dev/console
-     echo -n "Increasing $PUPSAVEFILE by $KILOBIG Kbytes, please wait..." >/dev/console
+     (
+     echo
+     echo -n "Increasing $PUPSAVEFILE by $KILOBIG Kbytes, please wait..." ) >/dev/console
      dd if=/dev/zero bs=1024 count=$KILOBIG >> /mnt/dev_save$PUPSAVEFILE
      sync
      if [ "$CRYPTO" = "-e aes" ];then #v3.98
-      echo "NOTICE: As you type your password nothing will be displayed on the screen."  >/dev/console
-      echo "This is a security measure. Just type it in then press ENTER key..." >/dev/console
-      echo -e "\\033[1;36m" >/dev/console #aqua-blue
-      echo -n "Password: " >/dev/console
-      echo -en "\\033[0;39m" >/dev/console
+     (
+      echo "NOTICE: As you type your password nothing will be displayed on the screen."
+      echo "This is a security measure. Just type it in then press ENTER key..."
+      echo -e "\\033[1;36m" #aqua-blue
+      echo -n "Password: "
+      echo -en "\\033[0;39m"
+      ) >/dev/console
       read -s MYPASS #< /dev/console v403
       echo "$MYPASS" | losetup -p 0 -e aes /dev/loop1 /mnt/dev_save$PUPSAVEFILE
      else
-      echo -e "\\033[1;36m" >/dev/console #aqua-blue
-      echo -n "Password: " >/dev/console
-      echo -en "\\033[0;39m" >/dev/console
+     (
+      echo -e "\\033[1;36m" #aqua-blue
+      echo -n "Password: "
+      echo -en "\\033[0;39m"
+      ) >/dev/console
       #losetup does not accept -p param for xor encryption... may not work...
       losetup $CRYPTO /dev/loop1 /mnt/dev_save$PUPSAVEFILE
      fi
@@ -1050,11 +1068,13 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
      resize2fs -pf /dev/loop1 #no size, will fill all of file.
      sync
      #check_status 0 #note, e2fsck gives an error even though it works. v2.21 maybe okay now.
-     echo -n "...continuing with loading $PUPSAVEFILE..." > /dev/console
+     echo -n "...continuing with loading $PUPSAVEFILE..." >/dev/console
     else
-     echo -e "\\033[1;36m" >/dev/console #aqua-blue
-     echo -n "Password: " >/dev/console
-     echo -en "\\033[0;39m" >/dev/console
+    (
+     echo -e "\\033[1;36m" #aqua-blue
+     echo -n "Password: "
+     echo -en "\\033[0;39m"
+     ) >/dev/console
      if [ "$CRYPTO" = "-e aes" ];then #v3.98
       read -s MYPASS #< /dev/console v403
       echo "$MYPASS" | losetup -p 0 -e aes /dev/loop1 /mnt/dev_save$PUPSAVEFILE
@@ -1071,15 +1091,17 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
     if [ "$MNTSTAT" = "0" ] ; then
      echo -n "...successfully mounted" >/dev/console
      break
-    else 
+    else
      [ ! -e /bin/e2fsck ] && break #111120
-     echo -en "\\033[1;31m" >/dev/console #31=red
-     echo "Can't mount file, press ENTER key to try again." >/dev/console
-     echo "Or, any other char then ENTER for f.s. check then try again." > /dev/console
-     echo -n "Or, for developers type 'quit' to drop out to console: " > /dev/console
-     echo -en "\\033[0;39m" >/dev/console
+     (
+     echo -en "\\033[1;31m" #31=red
+     echo "Can't mount file, press ENTER key to try again."
+     echo "Or, any other char then ENTER for f.s. check then try again."
+     echo -n "Or, for developers type 'quit' to drop out to console: "
+     echo -en "\\033[0;39m"
+     ) >/dev/console
      read crypttryagain
-     echo > /dev/console
+     echo >/dev/console
      [ "$crypttryagain" = "quit" ] &&  exec /bin/sh >/dev/console 2>&1 #v3.98
      [ "$crypttryagain" != "" ] && e2fsck -y -f /dev/loop1 >/dev/console
      losetup -d /dev/loop1
@@ -1089,24 +1111,25 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
 
    if [ -f /mnt/dev_save/pupsaveresize.txt ];then #111120
     if [ ! -e /bin/e2fsck ];then
-     echo -e -n "\\033[1;31m SORRY, cannot resize ${PUPSAVEFILE} \\033[0;39m" > /dev/console #31=red
+     echo -e -n "\\033[1;31m SORRY, cannot resize ${PUPSAVEFILE} \\033[0;39m" >/dev/console #31=red
      rm -f /mnt/dev_save/pupsaveresize.txt
     fi
    fi
-    
+
    #about to mount ${DISTRO_FILE_PREFIX}save.2fs, but before that check if need to resize it...
    if [ -f /mnt/dev_save/pupsaveresize.txt ];then #created by /usr/sbin/resizepfile.sh
     KILOBIG=`cat /mnt/dev_save/pupsaveresize.txt`
     rm -f /mnt/dev_save/pupsaveresize.txt
-    echo > /dev/console
-    echo -n "Increasing $PUPSAVEFILE by $KILOBIG Kbytes, please wait..." >/dev/console
+    (
+    echo
+    echo -n "Increasing $PUPSAVEFILE by $KILOBIG Kbytes, please wait..." ) >/dev/console
     dd if=/dev/zero bs=1024 count=$KILOBIG >> /mnt/dev_save$PUPSAVEFILE
     sync
     e2fsck -y -f /mnt/dev_save$PUPSAVEFILE
     resize2fs -pf /mnt/dev_save$PUPSAVEFILE #no size, will fill all of file.
     sync
     check_status 0 #note, e2fsck gives an error even though it works. v2.21 maybe okay now.
-    echo -n "...continuing with loading $PUPSAVEFILE..." > /dev/console
+    echo -n "...continuing with loading $PUPSAVEFILE..." >/dev/console
    fi
    losetup /dev/loop1 /mnt/dev_save${PUPSAVEFILE}
    SFFS='ext'`echo -n "$PUPSAVEFILE" | rev | cut -c 3`
@@ -1115,7 +1138,7 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
    mount -t $SFFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
    if [ $? -ne 0 ];then
     if [ -e /bin/e2fsck ];then #111120
-     e2fsck -y -f /dev/loop1 > /dev/console #-y answer yes to all repair questions.
+     e2fsck -y -f /dev/loop1 >/dev/console #-y answer yes to all repair questions.
      mount -t $SFFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
     fi
    fi
@@ -1132,16 +1155,20 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
    OLDDISTRO_VERSION="`grep '^DISTRO_VERSION' $CREATEPUPSAVE2FS/etc/DISTRO_SPECS | cut -f 2 -d '=' | cut -f 2 -d "'" | cut -f 2 -d '"' | cut -f 1 -d ' '`" #110422
    if vercmp ${DISTRO_VERSION} gt ${OLDDISTRO_VERSION} ;then #110422
     if [ "$NUMPUPSAVES" = "1" ];then #only one save-file was found.
-     echo -e "\\033[1;36m" >/dev/console #36=aquablue
-     echo "This save-file was last used with version $OLDDISTRO_VERSION of Puppy." >/dev/console
-     echo "Hit the ENTER key only if it is okay to upgrade this file, or to not use it and boot up in RAM only type any other printable character."  >/dev/console
-     echo -n "ENTER only to upgrade: "  >/dev/console
-     echo -en "\\033[0;39m" >/dev/console
+    (
+     echo -e "\\033[1;36m" #36=aquablue
+     echo "This save-file was last used with version $OLDDISTRO_VERSION of Puppy."
+     echo "Hit the ENTER key only if it is okay to upgrade this file, or to not use it and boot up in RAM only type any other printable character."
+     echo -n "ENTER only to upgrade: "
+     echo -en "\\033[0;39m"
+     ) >/dev/console
      read noupgradesf
      if [ "$noupgradesf" != "" ];then
-      echo -en "\\033[1;35m" >/dev/console #35=purple
-      echo "Backing off, not using save-file, booting in RAM only, PUPMODE=5..." >/dev/console
-      echo -en "\\033[0;39m" >/dev/console
+     (
+      echo -en "\\033[1;35m" #35=purple
+      echo "Backing off, not using save-file, booting in RAM only, PUPMODE=5..."
+      echo -en "\\033[0;39m"
+      ) >/dev/console
       sync
       umount $CREATEPUPSAVE2FS #unmount the save-file.
       PUPMODE=5
@@ -1163,20 +1190,24 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
       #if [ "`echo -n "$xPUPSFSDEV" | grep -F "$OPTICALDRIVES0"`" != "" ];then #110204
       if [ "`echo -n "$xPUPSFSDEV" | grep -f /tmp/OPTICALDRIVES0`" != "" ];then #110205
        #it is on the cd, so checkout copying it to hd...
-       echo -e "\\033[1;36m" >/dev/console #36=aquablue
-       echo "The main Puppy file '${basepupsfs}' is being loaded off the optical disc." >/dev/console
-       echo "Very slow! Type ENTER key only to copy it to the same partition as the save-file then on next boot it will load fast. Type any printable char not to copy it." >/dev/console
-       echo -n "ENTER key only to copy: " >/dev/console
-       echo -en "\\033[0;39m" >/dev/console
+       (
+       echo -e "\\033[1;36m" #36=aquablue
+       echo "The main Puppy file '${basepupsfs}' is being loaded off the optical disc."
+       echo "Very slow! Type ENTER key only to copy it to the same partition as the save-file then on next boot it will load fast. Type any printable char not to copy it."
+       echo -n "ENTER key only to copy: "
+       echo -en "\\033[0;39m"
+       ) >/dev/console
        read nocopysfs
        if [ "$nocopysfs" = "" ];then
-        echo -en "\\033[1;35m" >/dev/console #35=purple
-        echo "'${basepupsfs}' now copying to hard drive (but only available next boot)..." >/dev/console
-        echo -en "\\033[0;39m" >/dev/console
+       (
+        echo -en "\\033[1;35m" #35=purple
+        echo "'${basepupsfs}' now copying to hard drive (but only available next boot)..."
+        echo -en "\\033[0;39m"
+        ) >/dev/console
         PPATTERN="/dev/$xPUPSFSDEV "
         PUPSFSDEVMNTPT="`mount | grep "$PPATTERN" | cut -f 3 -d ' '`"
         if [ "$PUPSFSDEVMNTPT" = "" ];then
-         mntfunc $xPUPSFSFS /dev/$xPUPSFSDEV /mnt/dev_ro2 #-t $PUPSFSFS /dev/$PUPSFSDEV /mnt/dev_ro2
+         mnt_func $xPUPSFSFS /dev/$xPUPSFSDEV /mnt/dev_ro2 #-t $PUPSFSFS /dev/$PUPSFSDEV /mnt/dev_ro2
          PUPSFSDEVMNTPT="/mnt/dev_ro2"
          UMOUNTME="/mnt/dev_ro2" #mark for unmounting.
         fi
@@ -1194,7 +1225,7 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
       fi
      fi
     fi
-   
+
    fi
   fi
  fi
@@ -1303,14 +1334,16 @@ if [ "$CREATEFOLDERS" != "" ];then
     done
     check_status 0 #display 'done' for each folder loaded.
    else
-    echo -n -e "\\033[70G\\033[1;31m" >/dev/console #red text on column 70.
-    echo -n "RAM full" >/dev/console
-    echo -e "\\033[0;39m" >/dev/console
+   (
+    echo -n -e "\\033[70G\\033[1;31m" #red text on column 70.
+    echo -n "RAM full"
+    echo -e "\\033[0;39m"
+    ) >/dev/console
     break
    fi
   done
   sync
-  ####END LOAD FOLDERS####    
+  ####END LOAD FOLDERS####
  umount /mnt/dev_ro1 #unmount the cd.
 fi
 
@@ -1388,8 +1421,8 @@ if [ "$CREATEPUPXXXSFS" != "" ];then
  PUPSFSFS="`echo -n "$PUPSFS" | cut -f 2 -d ','`"
  PUPSFSFILE="`echo -n "$PUPSFS" | cut -f 3 -d ','`"
  basepupsfs="`basename $PUPSFSFILE`"
- 
- echo -n "Loading the '${basepupsfs}' main file..." > /dev/console
+
+ echo -n "Loading the '${basepupsfs}' main file..." >/dev/console
  if [ "$PUPSFSDEV" = "rootfs" ];then #humongous initrd.
   PUPSFSDEVMNTPT="" #actually it's '/'.
   COPY2RAM='yes' #actually it is already in ram, but code below puts it in a tmpfs.
@@ -1397,7 +1430,7 @@ if [ "$CREATEPUPXXXSFS" != "" ];then
   PPATTERN="/dev/$PUPSFSDEV "
   PUPSFSDEVMNTPT="`mount | grep "$PPATTERN" | cut -f 3 -d ' '`"
   if [ "$PUPSFSDEVMNTPT" = "" ];then
-   mntfunc $PUPSFSFS /dev/$PUPSFSDEV /mnt/dev_ro2 #-t $PUPSFSFS /dev/$PUPSFSDEV /mnt/dev_ro2
+   mnt_func $PUPSFSFS /dev/$PUPSFSDEV /mnt/dev_ro2 #-t $PUPSFSFS /dev/$PUPSFSDEV /mnt/dev_ro2
    PUPSFSDEVMNTPT="/mnt/dev_ro2"
    UMOUNTME="/mnt/dev_ro2" #mark for unmounting.
   fi
@@ -1407,9 +1440,9 @@ if [ "$CREATEPUPXXXSFS" != "" ];then
  SIZESFSK=`du -k ${PUPSFSDEVMNTPT}${PUPSFSFILE} | cut -f 1`
  SIZESFSK=$(($SIZESFSK + 1000)) #some slack.
  MINRAM2CPY=$(($SIZESFSK * 2)) #100222 technosaurus: in case of very big puppies.
- 
+
  #100920 decide whether to copy .sfs's to ram (see prior decision above)...
- pdPATTERN="`echo "$PUPSFSDEV" | sed -e 's/[0-9]*$//'` " 
+ pdPATTERN="`echo "$PUPSFSDEV" | sed -e 's/[0-9]*$//'` "
  if [ "$PNOCOPY" != "yes" ];then
   [ "`echo -n "$ATADRIVES" | grep "$pdPATTERN"`" = "" ] && COPYCONTENDER='yes' #test if not fast internal drive.
   [ $PUPMODE -eq 5 ] && COPYCONTENDER='yes'
@@ -1420,19 +1453,19 @@ if [ "$CREATEPUPXXXSFS" != "" ];then
  [ "$PCOPY" = "yes" ] && COPYCONTENDER='yes'
  #130728 bump minimum ram size... was 220000
  [ "$COPYCONTENDER" = "yes" ] && [ $RAMSIZE -gt 400000 ] && [ $RAMSIZE -gt $MINRAM2CPY ] && COPY2RAM="yes"
- 
+
  if [ "$COPY2RAM" = "yes" ];then
   mount -t tmpfs -o size=${SIZESFSK}k tmpfs /mnt/tmpfs
   if [ "${PUPSFSDEVMNTPT}" = "" ];then #v403 humongous initrd.
     mv -f ${PUPSFSDEVMNTPT}${PUPSFSFILE} /mnt/tmpfs/
   else
-   echo -e -n " \\033[1;35m${COPYMSG}\\033[0;39m" > /dev/console #purple.
+   echo -e -n " \\033[1;35m${COPYMSG}\\033[0;39m" >/dev/console #purple.
    cp -af ${PUPSFSDEVMNTPT}${PUPSFSFILE} /mnt/tmpfs/
   fi
   sync
   SFSBASENAME="`basename $PUPSFSFILE`"
   losetup /dev/loop0 /mnt/tmpfs/${SFSBASENAME}
-#101013 moved down  [ "$UMOUNTME" != "" ] && umntfunc $UMOUNTME
+#101013 moved down  [ "$UMOUNTME" != "" ] && umnt_func $UMOUNTME
  else
   losetup /dev/loop0 ${PUPSFSDEVMNTPT}${PUPSFSFILE}
  fi
@@ -1497,7 +1530,7 @@ if [ $PUPMODE -eq 5 ];then
   if [ ! "$pdMNTPT" ];then
    mkdir -p /mnt/$pdDEV
    #mount -t $pdFS /dev/$pdDEV /mnt/$pdDEV
-   mntfunc $pdFS /dev/$pdDEV /mnt/$pdDEV #130518
+   mnt_func $pdFS /dev/$pdDEV /mnt/$pdDEV #130518
    pdFLG=1
    pdMNTPT="/mnt/${pdDEV}"
   fi
@@ -1511,13 +1544,13 @@ if [ $PUPMODE -eq 5 ];then
    touch /pup_rw/root/.xorgwizard-reenter #see /root/.profile, will cause xorgwizard to run.
    #...see also /etc/rc.d/rc.sysinit
   fi
-  [ $pdFLG -eq 1 ] && umntfunc $pdMNTPT
+  [ $pdFLG -eq 1 ] && umnt_func $pdMNTPT
  fi
 else
  [ -f /tmp/RWPART ] && rm -f /tmp/RWPART
 fi
 
-[ "$UMOUNTME" != "" ] && umntfunc $UMOUNTME #101013 puppy.sfs was copied to tmpfs so can unmount partition.
+[ "$UMOUNTME" != "" ] && umnt_func $UMOUNTME #101013 puppy.sfs was copied to tmpfs so can unmount partition.
 
 check_status 0 #$?
 ########################END LOADING PUPPY FILES########################
@@ -1572,7 +1605,7 @@ echo "PSUBDIR='${zPSUBDIR}'" >> /pup_rw/etc/rc.d/PUPSTATE #120215
 
 
 ######################SETUP LAYERED FILESYSTEM########################
-echo -n "Setting up the layered filesystem..." > /dev/console #STEP FIVE
+echo -n "Setting up the layered filesystem..." >/dev/console #STEP FIVE
 #are there any other sfs files to load at bottom layers?...
 NEWUNIONRECORD=""
 CNTLOOP=4 ; UMNTRO=""
@@ -1591,7 +1624,7 @@ if [ "$PUPSAVE" != "" ];then
   touch /tmp/LOGONEBASES
   #v424 modified to only load selection made in BootManager...
   if [ "$EXTRASFSLIST" != "" ];then #in /etc/rc.d/BOOTCONFIG
-  
+
    #130514 shinobar: extra sfs in the order of EXTRASFSLIST, subdir first
    #ls -1 $SFSSDIR/*.sfs $xSFSSDIRx |
    #while read ONEEXTRA
@@ -1638,7 +1671,7 @@ if [ "$PUPSAVE" != "" ];then
   #120130 bring back Underdog Linux...
   [ ! "$UNDERDOG" ] && [ "$xPSUBDIR" ] && [ -f "${SMNTPT}${xPSUBDIR}/underdog.lnx" ] && UNDERDOG="`cat "${SMNTPT}${xPSUBDIR}/underdog.lnx"`"
   [ ! "$UNDERDOG" ] && [ -f $SFSSDIR/underdog.lnx ] && UNDERDOG="`cat ${SFSSDIR}/underdog.lnx`"
-  
+
  fi
 fi
 
@@ -1712,10 +1745,12 @@ if [ "$OLDFILESMNTPT" != "" ];then
  [ "$PPURGE" = "yes" ] && xOLDPVERSION='0.0' #110422
  #if [ $NEWPVERSION -gt $xOLDPVERSION ];then
  if vercmp ${NEWPVERSION} gt ${xOLDPVERSION} ; then #110422
-  echo -e "\\033[1;35m"  >/dev/console #35=purple.
-  echo "Version update, restoring 'official' files, please wait..." >/dev/console
-  echo -en "\\033[0;39m" >/dev/console
-  echo "(with a slow CPU this may take sometime, please be patient)" >/dev/console
+ (
+  echo -e "\\033[1;35m"  #35=purple.
+  echo "Version update, restoring 'official' files, please wait..."
+  echo -en "\\033[0;39m"
+  echo "(with a slow CPU this may take sometime, please be patient)"
+  ) >/dev/console
   #v2.16 do not overwrite rox desktop setup, as /etc/rc.d/rc.update now handles it...
   [ -f $OLDFILESMNTPT/root/Choices/ROX-Filer/PuppyPin ] && touch $OLDFILESMNTPT/root/Choices/ROX-Filer/PuppyPin
   [ -f $OLDFILESMNTPT/root/Choices/ROX-Filer/globicons ] && touch $OLDFILESMNTPT/root/Choices/ROX-Filer/globicons
@@ -1812,13 +1847,15 @@ if [ "$OLDFILESMNTPT" != "" ];then
   sync
   OLDstr='to'
   [ "$xOLDPVERSION" != "0.0" ] && OLDstr="from version $xOLDPVERSION to"
-  echo -e "\\033[1;35m"  >/dev/console #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
-  [ "$PCLEAN" = "yes" ] && echo "This is a simulated version upgrade, which performs a file cleanup." >/dev/console
-  [ "$PPURGE" = "yes" ] && echo "This is a radical file cleanup for broken systems, could alter some settings." >/dev/console
-  echo "You are upgrading Puppy ${OLDstr} ${NEWPVERSION}." >/dev/console #110122 mod
-  echo "Overwritten old files have been moved to /tmp/versioncleanup/" >/dev/console
-  echo "After bootup please examine this directory (before shutdown) for anything that you might like to recover. Pausing 30 secs so you can read this msg..." >/dev/console
-  echo -en "\\033[0;39m" >/dev/console
+  (
+  echo -e "\\033[1;35m"  #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
+  [ "$PCLEAN" = "yes" ] && echo "This is a simulated version upgrade, which performs a file cleanup."
+  [ "$PPURGE" = "yes" ] && echo "This is a radical file cleanup for broken systems, could alter some settings."
+  echo "You are upgrading Puppy ${OLDstr} ${NEWPVERSION}." #110122 mod
+  echo "Overwritten old files have been moved to /tmp/versioncleanup/"
+  echo "After bootup please examine this directory (before shutdown) for anything that you might like to recover. Pausing 30 secs so you can read this msg..."
+  echo -en "\\033[0;39m"
+  ) >/dev/console
   sleep 30 #so can see above messages.
  fi
 fi
@@ -1839,7 +1876,7 @@ check_status $? #END STEP FIVE
 #his description: "A precfg area for faster re-mastering, no need to regenerate a .SFS
 #every time you want to change the core, and no need for a hard drive to store customizations"
 if [ -d $PUPSFSDEVMNTPT/precfg ];then
- echo -n "Overlaying preconfig files..." > /dev/console
+ echo -n "Overlaying preconfig files..." >/dev/console
  SRC="$PUPSFSDEVMNTPT"/precfg
  DEST="/pup_new"
  cd $SRC
@@ -1861,7 +1898,7 @@ fi
 #END PRECONFIG STEP
 
 #######################SETUP SWITCH TO MAIN FILESYSTEM#######################
-echo -n "Performing a 'switch_root' to the layered filesystem..." > /dev/console
+echo -n "Performing a 'switch_root' to the layered filesystem..." >/dev/console
 #prepare everything for doing a switch_root...
 #cpio archive does switch_root, lose the initial-ramfs, so move all mntd...
 mkdir -p /pup_new/initrd
@@ -1905,14 +1942,14 @@ if [ "$CREATETMPFS" != "/pup_rw" ];then #test if no tmpfs on unionfs top layer.
  #mount -t tmpfs -o size=${ALLOCK}k tmpfs /pup_new/tmp
  #[ ! -e $OLDFILESMNTPT/tmp/versioncleanup ] && mount -t tmpfs -o size=${ALLOCK}k tmpfs /pup_new/tmp
  [ ! -e /pup_new/tmp/versioncleanup ] && mount -t tmpfs -o size=${ALLOCK}k tmpfs /pup_new/tmp
- 
+
  ##v412 bugfix, versioncleanup dir gets overwritten by this tmpfs on tmp...
  #if [ -d $OLDFILESMNTPT/tmp/versioncleanup ];then
  # cp -a $OLDFILESMNTPT/tmp/versioncleanup /pup_new/tmp/
  # [ $? -ne 0 ] && rm -rf /pup_new/tmp/versioncleanup #precaution, if tmpfs gets full.
  # rm -rf $OLDFILESMNTPT/tmp/versioncleanup
  #fi
- 
+
  ##want var to be in the tmpfs...
  #cp -a /pup_new/var /pup_new/tmp/
  #rm -rf /pup_new/var #note, this creates a .wh.var whiteout file in pup_rw.
@@ -1964,8 +2001,9 @@ fi
 
 #RDSH is a boot param. exit to initial ramdisk shell...
 if [ "$RDSH" = "yes" ];then
- echo > /dev/console
- echo "Dropped to initramfs shell. Type 'exec switch' to continue booting Puppy." > /dev/console
+ (
+ echo
+ echo "Dropped to initramfs shell. Type 'exec switch' to continue booting Puppy." ) >/dev/console
  exec /bin/sh >/dev/console 2>&1
 fi
 
