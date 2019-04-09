@@ -20,7 +20,13 @@
 SUNITS="$1" #allowed params are '-k' or '-m'.
 OUTPUT=""
 
-##devices that have partitions... 
+if [ -x /bin/guess_fstype ];then
+  _guess_fstype(){ guess_fstype $@; }
+ else
+  _guess_fstype(){ echo unknown; }
+fi
+
+##devices that have partitions...
 #([^k] is to eliminate mmcblk0 device -- allow mmcblk0p1 etc) v4.01 bugfix eliminate ram... 110126
 #130127 [^kr][0-9] screens out sr0-9... (note, unfortunately will also screen out sdr0-9)
 PARTITIONS="`grep -E '^ .*[^kr][0-9]$' /proc/partitions | tr -s ' ' | cut -f 4-5 -d ' ' | grep -vE ' loop| ram'`"
@@ -45,8 +51,7 @@ ${ALLDRVS}" | sort -u | tr '\n' ' '`"
 
 for ONEDEV in $ALLDEVS
 do
- MEDIATYPE="" #130128
- FSTYPE="unknown"
+unset FSTYPE xFSTYPE MEDIATYPE #130128
  DPATTERN=' '${ONEDEV}'$'
  SIZE=`echo "$PARTITIONS" | grep "$DPATTERN" | cut -f 1 -d ' '`
  DEVICE="`echo "$PARTITIONS" | grep "$DPATTERN" | cut -f 2 -d ' '`"
@@ -67,35 +72,35 @@ do
   if [ "$MEDIATYPE" != "optical" ];then #130128
    #for hd* or sd* superfloppy, determine size...
    BSIZE=`disktype /dev/$DEVICE 2>/dev/null | grep '^Block device' | cut -f 2 -d '(' | cut -f 1 -d ' '`
-   [ $BSIZE ] && SIZE=$(($BSIZE/1024)) #KB
+   [ $BSIZE ] && SIZE=$((BSIZE/1024)) #KB
   fi
  fi
- if [ -f /bin/guess_fstype ];then
-  FSTYPE="`guess_fstype /dev/$DEVICE 2>/dev/null`"
- else
+
+FSTYPE=`_guess_fstype /dev/$DEVICE`
+
+if [ "$FSTYPE" = "unknown" ];then
   #111109 replace guess_fstype with blkid (note, blkid very slow, not preferred)...
   #130526 Karl Godt reported this o/p from blkid, breaks parsing:
   # /dev/sdb1: UUID="5a126d47-065d-4eb6-baf9-dd7701bfe71a" TYPE="ext4" LABEL="boot"
-  FSTYPE="`blkid /dev/$DEVICE 2>/dev/null | grep -o ' TYPE=".*"' | cut -f 2 -d '"'`" #'geany 130526
+  FSTYPE=`blkid /dev/$DEVICE 2>/dev/null | grep "^/dev/$DEVICE:" | grep -o ' TYPE=".*"' | tail -n1 | cut -f 2 -d '"'` #'geany 130526
   [ `echo "$FSTYPE" | wc -l` -gt 1 ] && FSTYPE="unknown" #blkid may fallback to returning all partitions.
-  [ ! "$FSTYPE" ] && FSTYPE="unknown" #paranoid precaution.
+  [ "$FSTYPE" ] || FSTYPE="unknown" #paranoid precaution.
  fi
  echo "  SIZE=${SIZE} FSTYPE=${FSTYPE}" >> /tmp/probepart.log #101127 for debugging.
-  
+
  #v3.97 guess_fstype fails sometimes...
  #(using makebootfat to setup a USB-FLOPPY/-HDD/-ZIP combined bootable FAT drive).
- xFSTYPE=''
  if [ "$FSTYPE" = "unknown" ];then
   fsPATTERN='^/dev/'"$DEVICE"' '
   xDEVICE="`echo -n "$DEVICE" | sed -e 's/[0-9]*$//'`" #"${DEVICE/[0-9]/}" #remove partition number.
   xFSTYPE="`fdisk -l /dev/$xDEVICE 2>/dev/null | grep "$fsPATTERN" | head -n 1 | grep -o -E 'FAT12$|FAT16$|FAT32$'`"
-  [ "$xFSTYPE" != "" ] && FSTYPE='vfat'
+  [ "$xFSTYPE" ] && FSTYPE='vfat'
  fi
- 
+
  [ "$FSTYPE" = "unknown" ] && FSTYPE="none"
- 
- [ "$SUNITS" = "" ] && SIZE=$(($SIZE*2)) #512 byte blocks.
- [ "$SUNITS" = '-m' ] && SIZE=$(($SIZE/1024)) #MB
+
+ [ "$SUNITS" ] || SIZE=$((SIZE*2)) #512 byte blocks.
+ [ "$SUNITS" = '-m' ] && SIZE=$((SIZE/1024)) #MB
 
  echo "/dev/$DEVICE|$FSTYPE|$SIZE"
  echo "  /dev/$DEVICE|$FSTYPE|$SIZE" >> /tmp/probepart.log #101127
