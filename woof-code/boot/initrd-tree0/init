@@ -171,6 +171,11 @@ if [ "$MINRAMSIZE2COPY_DEF" ];then
 [ "$MINRAMSIZE2COPY_FRUGAL" ] || MINRAMSIZE2COPY_FRUGAL=$MINRAMSIZE2COPY_DEF
 fi
 
+
+
+
+
+
 #/bin/hotplug2stdout_notimeout > /tmp/pup_event_uevents_initrd &
 
 reset_status(){ STATUS='';STATUSA=''; }
@@ -191,9 +196,8 @@ echo "STATUS=$STATUS STATUSA=$STATUSA : for $*" # should go to bootinit.log
 return $1
 }
 
-check_status()
-{
-    local XPAUSE=40
+check_status(){
+  local XPAUSE=40
   test "$1" || { echo "check_status:WARNING:Missing numerical parameter - defaulting to 0";set - 0; }
 
   if [ $1 -eq 0 ]
@@ -235,7 +239,7 @@ check_status()
     echo -en "\\033[1;31m"       #31=red
     dmesg | tail -n 4
     echo -en "\\033[0;39m"
-	) >/dev/console
+    ) >/dev/console
 
     #exit to initial ramdisk shell...
     [ "$RDSH" = "yes" ] && exec /bin/sh >/dev/console 2>&1
@@ -589,6 +593,7 @@ PMEDIA="`echo -n "$PMEDIA" | sed -e 's%ide%ata%' -e 's%sata%ata%' -e 's%.*cd$%cd
 #100915 requested by technosaurus (formats get changed further down)...
 [ "$pupsfs" ] && PUPSFS="$pupsfs" #format partition:<path><filename> ex: sda2:/wary071/wary_071.sfs
 [ "$zdrv" ]   && ZDRV="$zdrv"     #ex: sda2:/wary071/zdrv_071.sfs
+
 _parse_pupsfs(){
 for oneSFS in "$PUPSFS" "$ADRV" "$YDRV" "$ZDRV"
 do
@@ -741,6 +746,67 @@ fi
 }
 _do_keyboard
 
+
+
+[ "$RDSH" = "0" ] && exec /bin/sh >/dev/console 2>&1 #w091222
+
+case $player in
+risk*) _load_modules;_ass_layerfs;;
+*)     _load_drivers_main;;
+esac
+
+
+#[ "$PDEV1" ] && PDEV1=`basename "$PDEV1"`
+#[ "$PDEV1" ] && { [ -e /dev/$PDEV1 ] || unset PDEV1; }
+
+#110126 define ATADRIVES as all internal ide/pata/sata (and mmc) drives (not usb), except optical...
+#110710 rewritten to handle kernel with usb driver built-in...
+ALLDRVS0="`find /sys/block -maxdepth 1 -name 'mmc*' -o -name 'sd*' -o -name 'sr*' -o -name 'scd*' | /bin/xargs -l readlink 2>/dev/null | grep -v '/usb[0-9]' | rev | cut -f 1 -d '/' | rev`" #all *except* usb!
+ALLDRVS="`echo "$ALLDRVS0" | tr '\n' ' '`" #all *except* usb!
+[ "$ALLDRVS" = " " ] && ALLDRVS=""
+ATADRIVES="`echo "$ALLDRVS0" | grep -vE '^sr|^scd' | tr '\n' ' '`"
+[ "$ATADRIVES" = " " ] && ATADRIVES=""
+ATAOPTICALDRIVES="`echo "$ALLDRVS0" | grep -E '^sr|^scd' | tr '\n' ' '`"
+[ "$ATAOPTICALDRIVES" = " " ] && ATAOPTICALDRIVES=""
+if [ -e /proc/ide ];then
+ for ONEIDE in `ls -1 /proc/ide | grep '^hd'`
+ do
+  ALLDRVS="${ALLDRVS}${ONEIDE} "
+  if [ "`cat /proc/ide/${ONEIDE}/media`" = "cdrom" ];then
+   ATAOPTICALDRIVES="${ATAOPTICALDRIVES}${ONEIDE} "
+  else
+   ATADRIVES="${ATADRIVES}${ONEIDE} "
+  fi
+ done
+ ALLDRVS0="`echo -n "$ALLDRVS" | tr ' ' '\n'`"
+fi
+ATADRIVES0="`echo -n "$ATADRIVES" | tr ' ' '\n'`"
+touch /tmp/ATADRIVES0 #110509 fix for LF only messes up grep later.
+[ "$ATADRIVES" ] && echo "$ATADRIVES0" > /tmp/ATADRIVES0 #110205 broken busybox grep -F. 110509
+ATAOPTICALDRIVES0="`echo -n "$ATAOPTICALDRIVES" | tr ' ' '\n'`"
+touch /tmp/ALLDRVS0
+[ "$ALLDRVS" ] && echo "$ALLDRVS0" > /tmp/ALLDRVS0 #all drives *except* usb.
+
+PCPARTSALL="`probepart_init -k`"
+PCPARTS0="`echo "$PCPARTSALL" | grep '^/dev/' | cut -f 1-2 -d '|'  | grep -E 'xfs|jfs|btrfs|f2fs|udf|iso9660|ext2|ext3|ext4|reiserfs|msdos|vfat|minix|ntfs' | sed -e 's%/dev/%%'`" #ex: sda1|vfat 130128 add udf. 130216 add f2fs.
+LESSPARTS0="$PCPARTS0"
+#120328 could have iso9660 f.s. booting off a non-optical drive (see BootFlash). exclude /dev/mmc ...
+OPTICALDRIVES0="`echo "$PCPARTS0" | grep -E 'iso9660|udf' | grep -v '^mmc' | cut -f 1 -d '|'`" #ex: sr0  130128 add udf.
+touch /tmp/OPTICALDRIVES0 #110509 fix for using with grep.
+[ "$OPTICALDRIVES0" ] && echo "$OPTICALDRIVES0" > /tmp/OPTICALDRIVES0 #110509 fix
+
+echo "ALLDRVS=$ALLDRVS " >> /tmp/puppy-file-search.log #for debugging.
+
+if [ "`lsmod | grep -E '^uhci|^ohci|^ehci'`" ];then
+ /sbin/wait4usb_classic & #110425
+else
+ /sbin/wait4usb & #110710 kernel has builtin hid and usb drivers, and without or with my usb-storage patch.
+fi
+
+check_status 0 #END STEP ONE
+##############END MODULE LOADING TO ACCESS DRIVES####################
+
+
 #100318 perform a f.s. check...
 fsckme_func() { #passed params: partition filesystem [pupsavefile]
  #if [ ! -e /bin/e2fsck ];then #111120
@@ -787,14 +853,18 @@ fsckme_func() { #passed params: partition filesystem [pupsavefile]
  return $?
 }
 
-mnt_func() {
+mnt_func(){
+test "$*" || return 1   
  MNT_T="$1"    #ex: vfat
  MNT_DEV="$2"  #ex: /dev/sda1
  MNT_DIR="$3"  #ex: /mnt/sda1
  MNT_O=""
  [ $4 ] && MNT_O="${4}" #ex: noatime
 
- grep $Q " $MNT_DIR " /proc/mounts && { echo "NOTICE:$* already mounted"; return 0; }
+ case $MNT_O in *remount*) :;;
+ *) grep $Q " $MNT_DIR " /proc/mounts && { echo "NOTICE:$* already mounted"; return 0; }
+ ;; esac
+
  [ -d "$MNT_DIR" ] || mkdir -p "$MNT_DIR"
 
  case $MNT_T in
@@ -828,14 +898,18 @@ mnt_func() {
  return $?
 }
 
-umnt_func() {
+umnt_func(){
+test "$*" || return 1
  #111120 note, this code is not needed anymore for ntfs-3g. normal 'umount' can unmount it.
  #warning umnt_func call must have mntpt param, not device name.
- LASTPARAM="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/mnt/'`"
- if [ "`mount | grep "$LASTPARAM" | grep -E 'ntfs|fuse'`" = "" ];then
+ MNT_DIR="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/mnt/'`"
+ test -d "$MNT_DIR" || return 0
+ mount | grep $Q " on $MNT_DIR type " || return 0 # not mounted
+
+ if [ "`mount | grep " on $MNT_DIR type " | grep -E 'ntfs|fuse'`" = "" ];then
   umount $@
  else
-  fusermount -u $LASTPARAM
+  fusermount -u $MNT_DIR
  fi
  return $?
 }
@@ -861,14 +935,16 @@ _umount_mnt_data(){
  if [ "$FSCKME" ]; then
 
   fsckme_func $FSCKME
-[ $? = 0 ] && [ -b "$DEV" ] && mount -o rw "$DEV" "$*" && rm -f "$*"/fsckme.flg && umount -lr "$*"
-  #[ $? = 0 ] && DEV=`grep " $* " /proc/mounts | tail -n1 | cut -f1 -d' '`
-  # && [ -b "$DEV" ] && mount -o remount,rw "$DEV" "$*" && rm -f "$*"/fsckme.flg
+[ $? = 0 ] && [ -b "$DEV" ] && {
+    mount -o rw "$DEV" "$*" && rm -f "$*"/fsckme.flg
+    umount -lr "$*"
+}
+ 
  else true
  fi
 }
 
-search_func() { #110425
+search_func(){ #110425
 
  case $1 in
   ata)
@@ -900,11 +976,13 @@ search_func() { #110425
  IGNORE=''
  SEARCHDEPTH=2
  [ "$PSUBDIR" ] && SEARCHDEPTH=1
+ 
  for ONETRY in $LESSPARTS
  do
-  ONEDEV="`echo -n "$ONETRY" | cut -f 1 -d '|'`"
-  ONEFS="`echo -n "$ONETRY" | cut -f 2 -d '|'`"
-  ONEDRV="`echo -n "$ONEDEV" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
+  ONEDEV="`echo "$ONETRY" | cut -f 1 -d '|'`"
+   ONEFS="`echo "$ONETRY" | cut -f 2 -d '|'`"
+  ONEDRV="`echo "$ONEDEV" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
+
   if [ "$IGNORE" = "optical" ];then #110126 ignore optical if boot partition found.
    [ "`echo -n "$ONEDRV" | grep -f /tmp/OPTICALDRIVES0`" ] && continue #110205
   fi
@@ -1120,21 +1198,18 @@ LESSPARTS=${LESSPARTS}" > /tmp/ERRORUSBSCAN
 
   if [ "$PDEV1" -a "$PSUBDIR" ]; then
     if [ "$PDEV1" = "$ONEDEV" -a -d /mnt/${ONEDEV}$PSUBDIR ]; then
-       #_umount_mnt_data /mnt/data
         _umount_mnt_data /mnt/$ONEDEV
        break
     fi
   fi
   if [ "$PSUBDIR" ]; then
    if [ -d /mnt/${ONEDEV}$PSUBDIR ]; then
-      #_umount_mnt_data /mnt/data
        _umount_mnt_data /mnt/$ONEDEV
       break
    fi
   fi
   if [ "$PDEV1" ]; then
    if [ "$PDEV1" = "$ONEDEV" ]; then
-      #_umount_mnt_data /mnt/data
        _umount_mnt_data /mnt/$ONEDEV
       break
    fi
@@ -1143,128 +1218,11 @@ LESSPARTS=${LESSPARTS}" > /tmp/ERRORUSBSCAN
    _umount_mnt_data /mnt/$ONEDEV
    break
   fi
-
- #_umount_mnt_data /mnt/data
+  
   _umount_mnt_data /mnt/$ONEDEV
  done
 } #search_func
 
-[ "$RDSH" = "0" ] && exec /bin/sh >/dev/console 2>&1 #w091222
-
-__load_drivers_main__(){
-###################LOAD MODULES TO ACCESS DRIVES#####################
-echo -n "Loading drivers needed to access disk drives" >/dev/console #STEP ONE
-
-#100214 one config of 2.6.33 has base floppy and ps/2 mouse support not builtin...
-[ "`modinfo floppy 2>/dev/null`" ]  && modprobe floppy
-[ "`modinfo psmouse 2>/dev/null`" ] && modprobe psmouse
-
-#w462 if present, load it. enables recognition of drives attached to parallel port.
-[ "`modinfo ppa 2>/dev/null`" ] && modprobe ppa #also loads parport.ko
-
-ELSPCI="`elspci -l`" #jesses great little utility.
-#v403 pcmcia drive support. i think this may need extra delay though...
-if [ "`echo "$ELSPCI" | grep '060700'`" ];then
- modprobe yenta_socket
- #...may have to add on a couple of seconds, need to test with a pcmcia drive.
- #v412 yeah, my pccard-usb adaptor needs delay before elspci recognises 0C0310 (ohci-hcd) interface...
- echo -n "." >/dev/console
- sleep 2
-fi
-#v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid...
-#[ "`echo "$ELSPCI" | grep '0C0320'`" ] && modprobe ehci-hcd
-if [ "`echo "$ELSPCI" | grep '0C0320'`" ]; then
- modinfo usbcore  && modprobe -v usbcore
- modinfo ehci-hcd && modprobe -v ehci-hcd
-else true
-fi
-
-#121227 extra f.s. drivers may be modules (quirky6)... 130216 add f2fs...
-for ONEFSMOD in ext2 ext3 ext4 fat msdos vfat ntfs reiserfs udf f2fs
-do
- [ "`modinfo $ONEFSMOD 2>/dev/null`" ] && modprobe $ONEFSMOD
-done
-
-echo -n "." >/dev/console
-MODALIASES="`cat /sys/bus/pci/devices/*/modalias`" #important, save to variable before loop.
-for ONEMODALIAS in $MODALIASES
-do
-  modprobe -v $ONEMODALIAS #-v means verbose.
-  #[ $? -eq 0 ] && echo -n "." >/dev/console
-done
-
-#091222 some mmc/sd interfaces need this...
-#(above code loop may have loaded sdhci/sdhci_pci or tifm_core/tifm_7xx1)
-[ "`lsmod | grep '^sdhci'`" ] && modprobe mmc_core && modprobe mmc_block
-[ "`lsmod | grep '^tifm'`" ]  && modprobe mmc_core && modprobe mmc_block && modprobe tifm_sd
-
-modprobe squashfs
-modprobe sr_mod #v3.93 now built-in to kernel.
-
-#filesystems...
-modprobe nls_cp437     #needed by windows filesystems.
-modprobe nls_iso8859-1 #needed by linux filesystems.
-#modprobe nls_utf8  #w007
-#modprobe nls_cp850 #w468 now default for fat f.s. (2.6.29.2 kernel)
-modprobe $LAYERFS #unionfs or aufs.
-modprobe fuse     #for ntfs-3g driver.
-}
-
-case $player in
-risk*) _load_modules;_ass_layerfs;;
-*) _load_drivers_main;;
-esac
-
-
-#[ "$PDEV1" ] && PDEV1=`basename "$PDEV1"`
-#[ "$PDEV1" ] && { [ -e /dev/$PDEV1 ] || unset PDEV1; }
-
-#110126 define ATADRIVES as all internal ide/pata/sata (and mmc) drives (not usb), except optical...
-#110710 rewritten to handle kernel with usb driver built-in...
-ALLDRVS0="`find /sys/block -maxdepth 1 -name 'mmc*' -o -name 'sd*' -o -name 'sr*' -o -name 'scd*' | /bin/xargs -l readlink 2>/dev/null | grep -v '/usb[0-9]' | rev | cut -f 1 -d '/' | rev`" #all *except* usb!
-ALLDRVS="`echo "$ALLDRVS0" | tr '\n' ' '`" #all *except* usb!
-[ "$ALLDRVS" = " " ] && ALLDRVS=""
-ATADRIVES="`echo "$ALLDRVS0" | grep -vE '^sr|^scd' | tr '\n' ' '`"
-[ "$ATADRIVES" = " " ] && ATADRIVES=""
-ATAOPTICALDRIVES="`echo "$ALLDRVS0" | grep -E '^sr|^scd' | tr '\n' ' '`"
-[ "$ATAOPTICALDRIVES" = " " ] && ATAOPTICALDRIVES=""
-if [ -e /proc/ide ];then
- for ONEIDE in `ls -1 /proc/ide | grep '^hd'`
- do
-  ALLDRVS="${ALLDRVS}${ONEIDE} "
-  if [ "`cat /proc/ide/${ONEIDE}/media`" = "cdrom" ];then
-   ATAOPTICALDRIVES="${ATAOPTICALDRIVES}${ONEIDE} "
-  else
-   ATADRIVES="${ATADRIVES}${ONEIDE} "
-  fi
- done
- ALLDRVS0="`echo -n "$ALLDRVS" | tr ' ' '\n'`"
-fi
-ATADRIVES0="`echo -n "$ATADRIVES" | tr ' ' '\n'`"
-touch /tmp/ATADRIVES0 #110509 fix for LF only messes up grep later.
-[ "$ATADRIVES" ] && echo "$ATADRIVES0" > /tmp/ATADRIVES0 #110205 broken busybox grep -F. 110509
-ATAOPTICALDRIVES0="`echo -n "$ATAOPTICALDRIVES" | tr ' ' '\n'`"
-touch /tmp/ALLDRVS0
-[ "$ALLDRVS" ] && echo "$ALLDRVS0" > /tmp/ALLDRVS0 #all drives *except* usb.
-
-PCPARTSALL="`probepart_init -k`"
-PCPARTS0="`echo "$PCPARTSALL" | grep '^/dev/' | cut -f 1-2 -d '|'  | grep -E 'xfs|jfs|btrfs|f2fs|udf|iso9660|ext2|ext3|ext4|reiserfs|msdos|vfat|minix|ntfs' | sed -e 's%/dev/%%'`" #ex: sda1|vfat 130128 add udf. 130216 add f2fs.
-LESSPARTS0="$PCPARTS0"
-#120328 could have iso9660 f.s. booting off a non-optical drive (see BootFlash). exclude /dev/mmc ...
-OPTICALDRIVES0="`echo "$PCPARTS0" | grep -E 'iso9660|udf' | grep -v '^mmc' | cut -f 1 -d '|'`" #ex: sr0  130128 add udf.
-touch /tmp/OPTICALDRIVES0 #110509 fix for using with grep.
-[ "$OPTICALDRIVES0" ] && echo "$OPTICALDRIVES0" > /tmp/OPTICALDRIVES0 #110509 fix
-
-echo "ALLDRVS=$ALLDRVS " >> /tmp/puppy-file-search.log #for debugging.
-
-if [ "`lsmod | grep -E '^uhci|^ohci|^ehci'`" ];then
- /sbin/wait4usb_classic & #110425
-else
- /sbin/wait4usb & #110710 kernel has builtin hid and usb drivers, and without or with my usb-storage patch.
-fi
-
-check_status 0 #END STEP ONE
-##############END MODULE LOADING TO ACCESS DRIVES####################
 
 #######################FINDING PUPPY FILES###########################
 echo -n "           :Searching for Puppy files..." >/dev/console #STEP TWO
@@ -1349,6 +1307,7 @@ test "$DEV1PUP" && return 0
 test "$DEV2PUP" && return 0
 return 1
 }
+
 #================ SEARCH LOOP =================================================
 while :; do
 
@@ -1421,6 +1380,7 @@ done
 #================ SEARCH LOOP =================================================
 
 cp -f /tmp/PUPSAVES /tmp/PUPSAVES-complete #101127 for debugging.
+
 __firstattempt_to_pupmode__(){
 # PUPMODE 3 presets:
 case $PMEDIA in
@@ -1548,10 +1508,9 @@ else
 fi
 }
 
-if [ "$PUPSFS" != "" ]; then
-  PUPMODE=$((PUPMODE + 4)) #puppy.sfs (PUPXXXSFS) exists.
-  [ "$DEV1PUP" = "yes" -o "$DEV2PUP" ] && PUPMODE=$((PUPMODE + 2)) #PUPMODE 6 or 7
-elif [ "$PRAMONLY" = "yes" ]; then
+_set_first_pupmode(){
+if [ "$PRAMONLY" = "yes" ]; then
+PUPMODE=5
  #110116 jamesbond: for netboot, PDEV1 is empty, so don't want to fail here...
  #[ "$PDEV1" ] || DROPOUT="Boot partition"
  [ "$PUPSFS" ] || DROPOUT="${PUPXXXSFS}"
@@ -1563,15 +1522,25 @@ elif [ "$PRAMONLY" = "yes" ]; then
   ) >/dev/console
   exec /bin/sh >/dev/console 2>&1
  fi
+elif [ "$PUPSFS" != "" ]; then
+  PUPMODE=$((PUPMODE + 4)) #puppy.sfs (PUPXXXSFS) exists.
+  [ "$DEV1PUP" = "yes" -o "$DEV2PUP" ] && PUPMODE=$((PUPMODE + 2)) #PUPMODE 6 or 7
 else
  PUPMODE=$((PUPMODE + 2)) #PUPMODE 2 or 3
 fi
+}
 
-if [ "$PUPMODE" = 4 ]; then # PUPSFS found but no DEVYPUP
- : #ask about pupsave
+_ask_for_savefile(){
+#if [ "$PUPMODE" = 4 ]; then # PUPSFS found but no DEVYPUP
+# : #ask about pupsave
+
+#case $PUPMODE in 4|12|13)
+case $* in 4|12|13)
+
  #if pupsave file not already found, choose it here...
 if [ ! "$PUPSAVE" ];then
  if [ "$PRAMONLY" != "yes" ];then
+
   if [ "$IGNORE" = "optical" ];then #narrow it down...
    #not booting off optical drive.
    grep "${PSUBDIR}/" /tmp/PUPSAVES > /tmp/PUPSAVES2 #note: need this as above probing may have got some invalid hits.
@@ -1613,7 +1582,12 @@ if [ ! "$PUPSAVE" ];then
      CNTSAVE=$((CNTSAVE + 1))
     done
     echo -en "\\033[0;39m" >/dev/console
+
+    while :; do
     read NUMSAVE
+    echo "$NUMSAVE" | grep $Q '[^0-9]' && continue
+    break
+    done
     #[ $NUMSAVE -ne 0 ] && PUPSAVE="`cat /tmp/PUPSAVE2SFSS | tr '\n' ' ' | cut -f $NUMSAVE -d ' '`"
      [ "$NUMSAVE" = 0 ] || PUPSAVE="`cat /tmp/PUPSAVE2SFSS | sed -n "$NUMSAVE p"`"
    fi
@@ -1627,12 +1601,19 @@ if [ ! "$PUPSAVE" ];then
 else #PUPSAVE FOUND before
 :
 fi
-else #2 or 6
- :
-fi
+;;
+esac
+#else #2 or 6
+# :
+#fi
+}
+
+_set_first_pupmode
+_ask_for_savefile $PUPMODE
 [ "$PUPSAVE" ] && PUPMODE=$((PUPMODE + 8))
 echo "DETECTED PUPMODE='$PUPMODE'"
 [ "$FPUPMODE" ] && { PUPMODE=$FPUPMODE; echo "FORCED PUPMODE='$PUPMODE'"; }
+
 
 #do we want a tmpfs top layered-fs layer? (set bit-0 of PUPMODE)...
 #only if ${DISTRO_FILE_PREFIX}save.2fs (or PDEV1 for DEV1PUP=yes, or first boot) on a flash drive, usb or internal...
@@ -1653,24 +1634,6 @@ _redefine12(){
  return 12
 }
 
-__redefine12__(){
- case $FPUPMODE in 11|12|13) return $FPUPMODE;; esac
- case $PMEDIA in *flash*) return 13;; esac
- DRVSAVE="`echo -n "$PUPSAVE" | cut -f 1 -d ',' | sed -e 's/[0-9]*$//' -e 's/p$//'`" #ex: sda  110126 mmcblk0p1 becomes mmcblk0
- [ -f /sys/block/$DRVSAVE/removable ] && read REMOVABLEDRVSAVE </sys/block/$DRVSAVE/removable
- case $REMOVABLEDRVSAVE in 1) [ "$PMEDIA" = usbhd ] || return 13;;esac
- return 12
-}
-
-__redefine12(){
-    case $FPUPMODE in 11|12|13) PUPMODE=$FPUPMODE;return 0;; esac
-    case $PMEDIA in *flash*)    PUPMODE=13;       return 0;; esac
-    DRVSAVE="`echo -n "$PUPSAVE" | cut -f 1 -d ',' | sed -e 's/[0-9]*$//' -e 's/p$//'`" #ex: sda  110126 mmcblk0p1 becomes mmcblk0
-    [ -f /sys/block/$DRVSAVE/removable ] && read REMOVABLEDRVSAVE </sys/block/$DRVSAVE/removable
-    case $REMOVABLEDRVSAVE in 1) [ "$PMEDIA" = usbhd ] || { PUPMODE=13;return 0; } ;;esac
-    PUPMODE=12
-}
-
 case $PUPMODE in
  2)
    ;;
@@ -1678,39 +1641,33 @@ case $PUPMODE in
    ;;
  4) #so far have only got a puppy.sfs. this is first boot or pfix=ram.
   PUPMODE=5 #`expr $PUPMODE + 1` #yes, want tmpfs top layer (PUPMODE=5).
- ;;
+   ;;
+ 5)
+   ;;
  6) #4=puppy.sfs found, 2=session saved to entire partition. total=6
     #note: session saved in boot partition, or other specified by SAVEMARK (DEV2PUP).
-  __old_check_removable__(){
-  DRVSAVE="`echo -n "$PDEV1" | sed -e 's/[0-9]*$//' -e 's/p$//'`" #ex: sda   110126 mmcblk0p1 becomes mmcblk0
-  REMOVABLEDRVSAVE="`cat /sys/block/$DRVSAVE/removable`"
-  #[ "$REMOVABLEDRVSAVE" = "1" ] && PUPMODE=7
-  [ "$REMOVABLEDRVSAVE" = "1" -a  "$PMEDIA" != "usbhd" ] && PUPMODE=7  #110116 shinobar.
-  }
-  _check_removable "$PDEV1"; PUPMODE=$((PUPMODE + $?))
-  #v3.96 Classmate laptop has internal usb flash, so really want the tmpfs layer...
-  # puppyinstaller created 'pmedia=usbflash' for the extlinux full hd install...
-  [ "$PMEDIA" = "usbflash" ] && PUPMODE=7
- ;;
+    if [ ! "$FPUPMODE" ]; then
+    _check_removable "$PDEV1"; PUPMODE=$((PUPMODE + $?))
+    #v3.96 Classmate laptop has internal usb flash, so really want the tmpfs layer...
+    # puppyinstaller created 'pmedia=usbflash' for the extlinux full hd install...
+    [ "$PMEDIA" = "usbflash" ] && PUPMODE=7
+    fi
+   ;;
  12) #4=puppy.sfs found, 8=${DISTRO_FILE_PREFIX}save.2fs found.  total=12
-  __old_redefine12__(){
-  DRVSAVE="`echo -n "$PUPSAVE" | cut -f 1 -d ',' | sed -e 's/[0-9]*$//' -e 's/p$//'`" #ex: sda  110126 mmcblk0p1 becomes mmcblk0
-  REMOVABLEDRVSAVE="`cat /sys/block/$DRVSAVE/removable`"
-  #[ "$REMOVABLEDRVSAVE" = "1" ] && PUPMODE=13
-  [ "$REMOVABLEDRVSAVE" = "1"  -a  "$PMEDIA" != "usbhd" ] && PUPMODE=13  #110116 shinobar.
-  [ "$PMEDIA" = "usbflash" ] && PUPMODE=13 #v404 fix classmate, with internal usb flash.
-  [ "$PMEDIA" = "ataflash" ] && PUPMODE=13 #w019 constrain writes to internal flash drv.
-  [ "$FORCEPUPMODE" = 13 ] && PUPMODE=13
-  [ "$FORCEPUPMODE" = 11 ] && PUPMODE=13
-  }
-   _redefine12
-   PUPMODE=$?
-   [ "$PUPMODE" ] || PUPMODE=13 #precaution
- ;;
- 76) #v3.01 64+8+4 multisession cd.
+     if [ ! "$FPUPMODE" ]; then
+     _redefine12
+     PUPMODE=$?
+     [ "$PUPMODE" ] || PUPMODE=13 #precaution
+     fi
+   ;;
+ 13)
+   ;;
+ 76|77) #v3.01 64+8+4 multisession cd.
   PUPMODE=77 #yes, want tmpfs top layer.
- ;;
- *) [ "$FPUPMODE" ] && PUPMODE=$FPUPMODE || PUPMODE=5;;
+   ;;
+ *)
+  exec /bin/sh >/dev/console 2>&1
+   ;;
 esac
 
 ##if booted with PMEDIA=cd, refine it... 110126
@@ -1722,10 +1679,12 @@ esac
 #  PMEDIA="usbcd"
 # fi
 #fi
-
+_ask_for_savefile $PUPMODE
 check_status 0
+
 ########################END FINDING PUPPY FILES############################
 echo "FINALLY SET PUPMODE='$PUPMODE'"
+
 ##########################LOADING PUPPY FILES###########################
 RAMSIZE=`free | grep -o 'Mem: .*' | tr -s ' ' | cut -f 2 -d ' '` #total physical ram (less shared video). 110405
 CRYPTO=""
@@ -2097,7 +2056,7 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
    fi
 
    if [ "$KILOBIG" ]; then
-	(
+    (
     echo
     echo -n "Increasing $PUPSAVEFILE by $KILOBIG Kbytes, please wait..." )
     dd if=/dev/zero bs=1024 count=$KILOBIG >> /mnt/dev_save$PUPSAVEFILE
