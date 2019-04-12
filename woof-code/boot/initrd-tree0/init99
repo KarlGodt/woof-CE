@@ -236,6 +236,41 @@ fi
 
 #/bin/hotplug2stdout_notimeout > /tmp/pup_event_uevents_initrd &
 
+check_status(){
+  if [ $1 -eq 0 ]
+  then
+  (
+    echo -en "\\033[74G"  #move to column 72. 110426: 74
+    echo -en "\\033[1;32m"
+    echo -en "done"
+    echo -e "\\033[0;39m"
+    ) >/dev/console
+  else
+  (
+    echo -en "\\033[72G"  #110426 move to column 72.
+    echo -en "\\033[1;31m"
+    echo -en "failed"
+    echo -e "\\033[0;39m"
+    echo -en "\\033[1;35m"  #35=purple
+    echo -n "Dumping last lines of /tmp/bootinit.log..."
+    echo -e "\\033[0;39m"
+    echo -en "\\033[1;31m"  #31=red
+    cat /tmp/bootinit.log | tail -n 4
+    echo -en "\\033[0;39m"
+    echo -en "\\033[1;35m"  #35=purple
+    echo -n "Dumping last lines of kernel log..."
+    echo -e "\\033[0;39m"
+    echo -en "\\033[1;31m"  #31=red
+    dmesg | tail -n 4
+    echo -en "\\033[0;39m"
+    ) >/dev/console
+
+    #exit to initial ramdisk shell...
+    [ "$RDSH" ] && exec /bin/sh      >/dev/console 2>&1
+    echo "Pausing for 60 seconds..." >/dev/console
+    sleep 60
+  fi
+}
 
 
 _ass_layerfs(){
@@ -337,6 +372,65 @@ _load_codepage_drivers
 ###################LOAD MODULES TO ACCESS DRIVES#####################
 }
 
+mnt_func(){
+test "$*" || return 1
+
+ MNT_T="$1"    #ex: vfat
+ MNT_DEV="$2"  #ex: /dev/sda1
+ MNT_DIR="$3"  #ex: /mnt/sda1
+ MNT_O=""
+ [ $4 ] && MNT_O="${4}" #ex: noatime
+
+case $MNT_O in *remount*) :;;
+*) grep $Q " $MNT_DIR " /proc/mounts && return 0
+;; esac
+
+ case $MNT_T in
+  ntfs)
+   ntfs-3g $MNT_DEV "$MNT_DIR" -o umask=0,no_def_opts,noatime,rw,silent #default is rw. 130211 add silent.
+   ntfsRETVAL=$?
+   [ $ntfsRETVAL -eq 0 ] && return 0
+   if [ $ntfsRETVAL -eq 14 ];then
+    #ntfs-3g $MNTPRMS -o umask=0,no_def_opts,noatime,rw,remove_hiberfile 2>/dev/null
+    (
+    echo -e "\\033[1;31m" #31=red
+    echo -n "ERROR: Windows NTFS hibernated partition, cannot mount"
+    echo -e "\\033[0;39m"
+    ) >/dev/console
+    return 14
+   else
+    ntfs-3g $MNT_DEV "$MNT_DIR" -o umask=0,no_def_opts,noatime,rw,force,silent #130211 add silent.
+   fi
+  ;;
+  vfat)
+   mount -t $MNT_T -o $VFAT_OUT_PARAM $MNT_DEV "$MNT_DIR"
+  ;;
+  *)
+   if [ "$MNT_O" = "" ];then
+    mount -t $MNT_T $MNT_DEV "$MNT_DIR"
+   else
+    mount -t $MNT_T -o $MNT_O $MNT_DEV "$MNT_DIR"
+   fi
+  ;;
+ esac
+ return $?
+}
+
+umnt_func(){
+test "$*" || return 1
+ #111120 note, this code is not needed anymore for ntfs-3g. normal 'umount' can unmount it.
+ #warning umnt_func call must have mntpt param, not device name.
+ MNT_DIR="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/mnt/'`"
+ test -d "$MNT_DIR" || return 2
+ mount | grep $Q " on $MNT_DIR type " || return 0 # not mounted
+
+ if [ "`mount | grep "$MNT_DIR" | grep -E 'ntfs|fuse'`" = "" ];then
+  umount $@
+ else
+  fusermount -u "$MNT_DIR"
+ fi
+ return $?
+}
 
 _test_kernel_param_root(){
 
@@ -352,16 +446,19 @@ if test "$root"; then
     if [ -f /proc/mounts ]; then
     :
     else
-    mount -t proc proc /proc
-    mount -t sysfs sysfs /sys
+    mnt_func proc proc /proc
+    mnt_func sysfs sysfs /sys
     fi
 
     _load_drivers_main
     test -e "$root" || return 0
 
+    [ -L /mnt/data ] && rm -f /mnt/data
+    mkdir -p /mnt/data
     mount -o ro "$root" /mnt/data || return 0
+    
     test -e /mnt/data/etc/DISTRO_SPECS || {
-    umount -lr /mnt/data
+    umnt_func -lr /mnt/data
     return 0
     }
 
@@ -419,8 +516,8 @@ if [ ! $1 ];then
 if [ -f /proc/mounts ]; then
       :
 else
- mount -t proc none /proc
- mount -t sysfs none /sys
+ mnt_func  proc none /proc
+ mnt_func sysfs none /sys
 fi
 
  _export_proc_cmdline
@@ -428,7 +525,7 @@ fi
 
  mount -t rootfs -o remount,rw /dev/root / || mount -t rootfs -o remount,rw rootfs /
 
- ln -s /proc/mounts /etc/mtab #resize2fs,e2fsck need this.
+ ln -sf /proc/mounts /etc/mtab #resize2fs,e2fsck need this.
 
  [ $plang ] && PLANG=$plang #boot parameter
  [ "`echo "$PLANG" | grep '_'`" ] || PLANG="" #120222 PLANG must be complete, ex: de_DE.UTF-8.
@@ -507,140 +604,187 @@ fi
 _do_devtmpfs
 
 
-#100318 perform a f.s. check...
-fsckme_func(){ #passed params: partition filesystem [pupsavefile]
- if [ ! -e /bin/e2fsck ];then #111120
-  echo -en "\\033[1;31m SORRY, cannot check filesystem \\033[0;39m" >/dev/console #31=red
-  return
+export TZ='XXX-23' #100318 imaginary place right around the world east of Greenwich.
+#...i think that this will give the most delayed time, so any file operations
+#will not result in a future date after the correct time is set in the main puppy f.s.
+#ref: http://www.gnu.org/s/libc/manual/html_node/TZ-Variable.html
+#/bin/hwclock --hctosys --localtime #set system time (based on hw clock set to local time).
+#100427 crap, despite the help inside the hwclock applet, it doesn't accept long-options...
+/bin/hwclock -s -l #set system time (based on hw clock set to local time).
+
+
+#120216 /PUPPYKEYMAP inserted in initrd by quicksetup (in future, by Woof too)...
+FONTMAP=""
+[ -f /PUPPYKEYMAP ] && [ ! "$PKEYS" ] && PKEYS="`cat /PUPPYKEYMAP`" #allow kernel boot param to override.
+if [ "$PLANG" ];then
+ if [ ! "$PKEYS" ];then
+  #try to set PKEYS to match the language. first 2 letters of PLANG...
+  #aa af am an ar as ast az be ber bg bn br bs byn ca crh cs csb cy da de dz el en es et eu fa fi fil fo fr fur fy ga gd gez gl gu gv ha he hi hr hsb hu hy id ig ik is it iu iw ja ka kk kl km kn ko ks ku kw ky lg li lo lt lv mai mg mi mk ml mn mr ms mt nb nds ne nl nn nr nso oc om or pa pap pl pt ro ru rw sa sc se shs si sid sk sl so sq sr ss st sv ta te tg th ti tig tk tl tn tr ts tt ug uk ur uz ve vi wa wal wo xh yi yo zh zu
+  #all the options in /usr/share/i18n/locales...
+  #aa_DJ aa_ER aa_ER@saaho aa_ET af_ZA am_ET an_ES ar_AE ar_BH ar_DZ ar_EG ar_IN ar_IQ ar_JO ar_KW ar_LB ar_LY ar_MA ar_OM ar_QA ar_SA ar_SD ar_SY ar_TN ar_YE as_IN ast_ES az_AZ be_BY be_BY@latin ber_DZ ber_MA bg_BG bn_BD bn_IN br_FR br_FR@euro bs_BA byn_ER ca_AD ca_ES ca_ES@euro ca_FR ca_IT crh_UA csb_PL cs_CZ cy_GB da_DK de_AT de_AT@euro de_BE de_BE@euro de_CH de_DE de_DE@euro de_LU de_LU@euro dz_BT el_CY el_GR el_GR@euro en_AU en_BW en_CA en_DK en_GB en_HK en_IE en_IE@euro en_IN en_NG en_NZ en_PH en_SG en_US en_ZA en_ZW es_AR es_BO es_CL es_CO es_CR es_DO es_EC es_ES es_ES@euro es_GT es_HN es_MX es_NI es_PA es_PE es_PR es_PY es_SV es_US es_UY es_VE et_EE eu_ES eu_ES@euro fa_IR fi_FI fi_FI@euro fil_PH fo_FO fr_BE fr_BE@euro fr_CA fr_CH fr_FR fr_FR@euro fr_LU fr_LU@euro fur_IT fy_DE fy_NL ga_IE ga_IE@euro gd_GB gez_ER gez_ER@abegede gez_ET gez_ET@abegede gl_ES gl_ES@euro gu_IN gv_GB ha_NG he_IL hi_IN hr_HR hsb_DE hu_HU hy_AM id_ID ig_NG ik_CA is_IS it_CH it_IT it_IT@euro iu_CA iw_IL ja_JP ka_GE kk_KZ kl_GL km_KH kn_IN ko_KR ks_IN ku_TR kw_GB ky_KG lg_UG li_BE li_NL lo_LA lt_LT lv_LV mai_IN mg_MG mi_NZ mk_MK ml_IN mn_MN mr_IN ms_MY mt_MT nb_NO nds_DE nds_NL ne_NP nl_BE nl_BE@euro nl_NL nl_NL@euro nn_NO nr_ZA nso_ZA oc_FR om_ET om_KE or_IN pa_IN pap_AN pa_PK pl_PL pt_BR pt_PT pt_PT@euro ro_RO ru_RU ru_UA rw_RW sa_IN sc_IT se_NO shs_CA sid_ET si_LK sk_SK sl_SI so_DJ so_ET so_KE so_SO sq_AL sr_ME sr_RS sr_RS@latin ss_ZA st_ZA sv_FI sv_FI@euro sv_SE ta_IN te_IN tg_TJ th_TH ti_ER ti_ET tig_ER tk_TM tl_PH tn_ZA tr_CY tr_TR ts_ZA tt_RU tt_RU@iqtelif ug_CN uk_UA ur_PK uz_UZ uz_UZ@cyrillic ve_ZA vi_VN wa_BE wa_BE@euro wal_ET wo_SN xh_ZA yi_US yo_NG zh_CN zh_HK zh_SG zh_TW zu_ZA
+  PKEYS=${PLANG:0:2} #rough as guts, assign first 2 chars of PLANG to PKEYS.
+  case $PLANG in
+   en*) PKEYS=us ;;
+  esac
  fi
- case $2 in
-  ext2|ext3|ext4)
-   e2fsck -y -f /dev/$1 >/tmp/chkret &
-   echo -e "\\033[1;35m" >/dev/console #35=purple
-   if [ "${1}" = "loop1" ];then
-    echo -n " 'save file' filesystem check, please wait..." >/dev/console
-   else
-    echo -n " '${1}' filesystem check, please wait..." >/dev/console
-   fi
-   usleep 200000 #100604 TazOC gave me idea that delay before pidof is good.
-   while [ "`pidof e2fsck`" != "" ];do
-    sleep 1
-    echo -n "." >/dev/console
-   done
-   echo -en "\\033[0;39m" >/dev/console
+ #120216 L18L suggests load these, instead of what is below...
+ case $PLANG in
+  en*) echo ;;
+  ar*|iw*) #L18L no Greek
+   setfont /lib/consolefonts/LatArCyrHeb-16.psfu.gz -C /dev/tty1
+   FONTMAP='LatArCyrHeb-16.psfu'
+  ;;
+  *) #L18L All European languages; new default ?!
+   zcat /lib/consolefonts/LatGrkCyr-8x16.psfu.gz | loadfont
+   FONTMAP='LatGrkCyr-8x16.psfu'
   ;;
  esac
- if [ $3 ];then
+fi
+
+#091122 load keyboard layout if PKEYS boot param...
+STATUS=0
+VFAT_OUT_PARAM='shortname=mixed,quiet'
+CODEPAGE=""
+KMAP=""
+if [ "$PKEYS" ];then
+ if [ ! -f /lib/keymaps/${PKEYS}.gz ];then
+  PKEYS="`ls -1 /lib/keymaps/${PKEYS}*.gz | head -n 1 | rev | cut -f 1 -d '/' | cut -f 2 -d '.' | rev`"
+ fi
+ if [ -f /lib/keymaps/${PKEYS}.gz ];then
+  echo "Loading '${PKEYS}' keyboard layout..." >/dev/console
+  KMAP="$PKEYS"
+  zcat /lib/keymaps/${PKEYS}.gz | loadkmap ; STATUS=$((STATUS + $?))
+  case $PKEYS in #note, same code in /etc/rc.d/rc.country, /usr/sbin/input-wizard and init.
+   de*|be*|br*|dk*|es*|fi*|fr*|it*|no*|se*|pt*)
+    modprobe nls_cp850
+    [ ! "$PLANG" ] && FONTMAP="lat1-12.psfu" #120216
+    CODEPAGE="850"
+    VFAT_OUT_PARAM="$OUT_PARAM"',codepage=850'
+   ;;
+   cz*|hu*|pl*|ro*|sk*|croat*|slovene*)
+    modprobe nls_cp852
+    modprobe nls_iso8859-2
+    [ ! "$PLANG" ] && FONTMAP="lat2-12.psfu" #120216
+    CODEPAGE="852"
+    VFAT_OUT_PARAM="$OUT_PARAM"',codepage=852,iocharset=iso8859-2'
+   ;;
+  esac
+  if [ ! "$PLANG" ];then #120216 old behaviour.
+   if [ "$FONTMAP" ];then #100520 fix syntax error...
+    zcat /lib/consolefonts/${FONTMAP}.gz | loadfont
+    STATUS=$((STATUS + $?))
+   fi
+  fi
+ else
+  STATUS=1
+ fi
+ check_status $STATUS
+fi
+
+[ "$RDSH" = "0" ] && exec /bin/sh >/dev/console 2>&1 #w091222
+
+_load_drivers_main
+
+#110126 define ATADRIVES as all internal ide/pata/sata (and mmc) drives (not usb), except optical...
+#110710 rewritten to handle kernel with usb driver built-in...
+ALLDRVS0="`find /sys/block -maxdepth 1 -name 'mmc*' -o -name 'sd*' -o -name 'sr*' -o -name 'scd*' | /bin/xargs -l readlink 2>/dev/null | grep -v '/usb[0-9]' | rev | cut -f 1 -d '/' | rev`" #all *except* usb!
+ALLDRVS="`echo "$ALLDRVS0" | tr '\n' ' '`" #all *except* usb!
+[ "$ALLDRVS" = " " ] && ALLDRVS=""
+
+ATADRIVES="`echo "$ALLDRVS0" | grep -vE '^sr|^scd' | tr '\n' ' '`"
+[ "$ATADRIVES" = " " ] && ATADRIVES=""
+
+ATAOPTICALDRIVES="`echo "$ALLDRVS0" | grep -E '^sr|^scd' | tr '\n' ' '`"
+[ "$ATAOPTICALDRIVES" = " " ] && ATAOPTICALDRIVES=""
+
+if [ -e /proc/ide ];then
+ for ONEIDE in `ls -1 /proc/ide | grep '^hd'`
+ do
+  ALLDRVS="${ALLDRVS}${ONEIDE} "
+  if [ "`cat /proc/ide/${ONEIDE}/media`" = "cdrom" ];then
+   ATAOPTICALDRIVES="${ATAOPTICALDRIVES}${ONEIDE} "
+  else
+   ATADRIVES="${ATADRIVES}${ONEIDE} "
+  fi
+ done
+ ALLDRVS0="`echo "$ALLDRVS" | tr ' ' '\n'`"
+fi
+
+ATADRIVES0="`echo "$ATADRIVES" | tr ' ' '\n'`"
+touch /tmp/ATADRIVES0 #110509 fix for LF only messes up grep later.
+[ "$ATADRIVES" ] && echo "$ATADRIVES0" > /tmp/ATADRIVES0 #110205 broken busybox grep -F. 110509
+
+ATAOPTICALDRIVES0="`echo "$ATAOPTICALDRIVES" | tr ' ' '\n'`"
+touch /tmp/ALLDRVS0
+[ "$ALLDRVS" ] && echo "$ALLDRVS0" > /tmp/ALLDRVS0 #all drives *except* usb.
+
+PCPARTSALL="`probepart_init -k`"
+PCPARTS0="`echo "$PCPARTSALL" | grep '^/dev/' | cut -f 1-2 -d '|'  | grep -E 'f2fs|udf|iso9660|ext2|ext3|ext4|reiserfs|msdos|vfat|minix|ntfs' | sed -e 's%/dev/%%'`" #ex: sda1|vfat 130128 add udf. 130216 add f2fs.
+LESSPARTS0="$PCPARTS0"
+#120328 could have iso9660 f.s. booting off a non-optical drive (see BootFlash). exclude /dev/mmc ...
+OPTICALDRIVES0="`echo "$PCPARTS0" | grep -E 'iso9660|udf' | grep -v '^mmc' | cut -f 1 -d '|'`" #ex: sr0  130128 add udf.
+touch /tmp/OPTICALDRIVES0 #110509 fix for using with grep.
+[ "$OPTICALDRIVES0" ] && echo "$OPTICALDRIVES0" > /tmp/OPTICALDRIVES0 #110509 fix
+
+echo "ALLDRVS=$ALLDRVS " >> /tmp/puppy-file-search.log #for debugging.
+
+if [ "`lsmod | grep -E '^uhci|^ohci|^ehci'`" ];then
+ /sbin/wait4usb_classic & #110425
+else
+ /sbin/wait4usb & #110710 kernel has builtin hid and usb drivers, and without or with my usb-storage patch.
+fi
+
+check_status 0 #END STEP ONE
+##############END MODULE LOADING TO ACCESS DRIVES####################
+
+#100318 perform a f.s. check...
+fsckme_func(){ #passed params: partition filesystem [pupsavefile]
+
+if [ $3 ];then
   #rc.shutdown has created /fsckme.flg with this 3rd parameter.
   #this is a pupsave file, which has a ext2/3/4 f.s (based on .2fs, .3fs, .4fs ext)
   #this flag will be set for any prior improper shutdown. if have lots of installations
   #of puppy on the pc, the flag may not even be for this install of puppy, however, this is
   #the simplest implementation...
   PFSCK="yes"
+fi
+ 
+ case $2 in
+  ext2|ext3|ext4)
+
+ if [ ! -x /bin/e2fsck ];then #111120
+  echo -en "\\033[1;31m SORRY, cannot check filesystem \\033[0;39m" >/dev/console #31=red
+  return 1
  fi
-}
-
-mnt_func(){
-test "$*" || return 1
-
- MNT_T="$1"    #ex: vfat
- MNT_DEV="$2"  #ex: /dev/sda1
- MNT_DIR="$3"  #ex: /mnt/sda1
- MNT_O=""
- [ $4 ] && MNT_O="${4}" #ex: noatime
-
-case $MNT_O in *remount*) :;;
-*) grep $Q " $MNT_DIR " /proc/mounts && return 0
-;; esac
-
- case $MNT_T in
-  ntfs)
-   ntfs-3g $MNT_DEV "$MNT_DIR" -o umask=0,no_def_opts,noatime,rw,silent #default is rw. 130211 add silent.
-   ntfsRETVAL=$?
-   [ $ntfsRETVAL -eq 0 ] && return 0
-   if [ $ntfsRETVAL -eq 14 ];then
-    #ntfs-3g $MNTPRMS -o umask=0,no_def_opts,noatime,rw,remove_hiberfile 2>/dev/null
-    (
-    echo -e "\\033[1;31m" #31=red
-    echo -n "ERROR: Windows NTFS hibernated partition, cannot mount"
-    echo -e "\\033[0;39m"
-    ) >/dev/console
-    return 14
+  
+   e2fsck -y -f /dev/$1 >/tmp/chkret &
+   
+   echo -e "\\033[1;35m" >/dev/console #35=purple
+   if [ "${1}" = "loop1" ];then
+    echo -n " 'save file' filesystem check, please wait..." >/dev/console
    else
-    ntfs-3g $MNT_DEV "$MNT_DIR" -o umask=0,no_def_opts,noatime,rw,force,silent #130211 add silent.
+    echo -n " '${1}' filesystem check, please wait..." >/dev/console
    fi
+
+   usleep 200000 #100604 TazOC gave me idea that delay before pidof is good.
+   while [ "`pidof e2fsck`" ];do
+    echo -n "." >/dev/console
+    sleep 2
+   done
+   echo -en "\\033[0;39m" >/dev/console
   ;;
-  vfat)
-   mount -t $MNT_T -o $VFAT_OUT_PARAM $MNT_DEV "$MNT_DIR"
-  ;;
-  *)
-   if [ "$MNT_O" = "" ];then
-    mount -t $MNT_T $MNT_DEV "$MNT_DIR"
-   else
-    mount -t $MNT_T -o $MNT_O $MNT_DEV "$MNT_DIR"
-   fi
-  ;;
+
+  *) echo -en "\\033[1;31m SORRY, fscheck of $2 currently not supported \\033[0;39m" >/dev/console #31=red
+     return 2
  esac
- return $?
-}
-
-umnt_func(){
-test "$*" || return 1
- #111120 note, this code is not needed anymore for ntfs-3g. normal 'umount' can unmount it.
- #warning umnt_func call must have mntpt param, not device name.
- MNT_DIR="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/mnt/'`"
- test -d "$MNT_DIR" || return 2
- mount | grep $Q " on $MNT_DIR type " || return 0 # not mounted
-
- if [ "`mount | grep "$MNT_DIR" | grep -E 'ntfs|fuse'`" = "" ];then
-  umount $@
- else
-  fusermount -u "$MNT_DIR"
- fi
- return $?
-}
-
-check_status(){
-  if [ $1 -eq 0 ]
-  then
-  (
-    echo -en "\\033[74G"  #move to column 72. 110426: 74
-    echo -en "\\033[1;32m"
-    echo -en "done"
-    echo -e "\\033[0;39m"
-    ) >/dev/console
-  else
-  (
-    echo -en "\\033[72G"  #110426 move to column 72.
-    echo -en "\\033[1;31m"
-    echo -en "failed"
-    echo -e "\\033[0;39m"
-    echo -en "\\033[1;35m"  #35=purple
-    echo -n "Dumping last lines of /tmp/bootinit.log..."
-    echo -e "\\033[0;39m"
-    echo -en "\\033[1;31m"  #31=red
-    cat /tmp/bootinit.log | tail -n 4
-    echo -en "\\033[0;39m"
-    echo -en "\\033[1;35m"  #35=purple
-    echo -n "Dumping last lines of kernel log..."
-    echo -e "\\033[0;39m"
-    echo -en "\\033[1;31m"  #31=red
-    dmesg | tail -n 4
-    echo -en "\\033[0;39m"
-    ) >/dev/console
-
-    #exit to initial ramdisk shell...
-    [ "$RDSH" ] && exec /bin/sh      >/dev/console 2>&1
-    echo "Pausing for 60 seconds..." >/dev/console
-    sleep 60
-  fi
+  
 }
 
 search_func(){ #110425
 
  case $1 in
   ata)
-   [ "$PMEDIA" = "usbflash" -o "$PMEDIA" = "usbhd" ] && return #only probe usb drives.
+   case $PMEDIA in *usb*) return;; esac #only probe usb drives.
    LESSPARTS0="`echo "$PCPARTS0" | grep -f /tmp/ALLDRVS0`" #111003 only probe non-usb drives. need for kernels builtin usb drvr.
   ;;
   *) #usb
@@ -659,6 +803,7 @@ search_func(){ #110425
    ;;
   esac
  fi
+ 
  [ "$LESSPARTS0" ] || return #nothing to search in.
  LESSPARTS="`echo "$LESSPARTS0" | tr '\n' ' '`"
  echo "$PCPARTSALL" > /tmp/PCPARTSALL_${1} #for debugging.
@@ -863,140 +1008,6 @@ search_func(){ #110425
  done
 } #search_func
 
-
-export TZ='XXX-23' #100318 imaginary place right around the world east of Greenwich.
-#...i think that this will give the most delayed time, so any file operations
-#will not result in a future date after the correct time is set in the main puppy f.s.
-#ref: http://www.gnu.org/s/libc/manual/html_node/TZ-Variable.html
-#/bin/hwclock --hctosys --localtime #set system time (based on hw clock set to local time).
-#100427 crap, despite the help inside the hwclock applet, it doesn't accept long-options...
-/bin/hwclock -s -l #set system time (based on hw clock set to local time).
-
-
-#120216 /PUPPYKEYMAP inserted in initrd by quicksetup (in future, by Woof too)...
-FONTMAP=""
-[ -f /PUPPYKEYMAP ] && [ ! "$PKEYS" ] && PKEYS="`cat /PUPPYKEYMAP`" #allow kernel boot param to override.
-if [ "$PLANG" ];then
- if [ ! "$PKEYS" ];then
-  #try to set PKEYS to match the language. first 2 letters of PLANG...
-  #aa af am an ar as ast az be ber bg bn br bs byn ca crh cs csb cy da de dz el en es et eu fa fi fil fo fr fur fy ga gd gez gl gu gv ha he hi hr hsb hu hy id ig ik is it iu iw ja ka kk kl km kn ko ks ku kw ky lg li lo lt lv mai mg mi mk ml mn mr ms mt nb nds ne nl nn nr nso oc om or pa pap pl pt ro ru rw sa sc se shs si sid sk sl so sq sr ss st sv ta te tg th ti tig tk tl tn tr ts tt ug uk ur uz ve vi wa wal wo xh yi yo zh zu
-  #all the options in /usr/share/i18n/locales...
-  #aa_DJ aa_ER aa_ER@saaho aa_ET af_ZA am_ET an_ES ar_AE ar_BH ar_DZ ar_EG ar_IN ar_IQ ar_JO ar_KW ar_LB ar_LY ar_MA ar_OM ar_QA ar_SA ar_SD ar_SY ar_TN ar_YE as_IN ast_ES az_AZ be_BY be_BY@latin ber_DZ ber_MA bg_BG bn_BD bn_IN br_FR br_FR@euro bs_BA byn_ER ca_AD ca_ES ca_ES@euro ca_FR ca_IT crh_UA csb_PL cs_CZ cy_GB da_DK de_AT de_AT@euro de_BE de_BE@euro de_CH de_DE de_DE@euro de_LU de_LU@euro dz_BT el_CY el_GR el_GR@euro en_AU en_BW en_CA en_DK en_GB en_HK en_IE en_IE@euro en_IN en_NG en_NZ en_PH en_SG en_US en_ZA en_ZW es_AR es_BO es_CL es_CO es_CR es_DO es_EC es_ES es_ES@euro es_GT es_HN es_MX es_NI es_PA es_PE es_PR es_PY es_SV es_US es_UY es_VE et_EE eu_ES eu_ES@euro fa_IR fi_FI fi_FI@euro fil_PH fo_FO fr_BE fr_BE@euro fr_CA fr_CH fr_FR fr_FR@euro fr_LU fr_LU@euro fur_IT fy_DE fy_NL ga_IE ga_IE@euro gd_GB gez_ER gez_ER@abegede gez_ET gez_ET@abegede gl_ES gl_ES@euro gu_IN gv_GB ha_NG he_IL hi_IN hr_HR hsb_DE hu_HU hy_AM id_ID ig_NG ik_CA is_IS it_CH it_IT it_IT@euro iu_CA iw_IL ja_JP ka_GE kk_KZ kl_GL km_KH kn_IN ko_KR ks_IN ku_TR kw_GB ky_KG lg_UG li_BE li_NL lo_LA lt_LT lv_LV mai_IN mg_MG mi_NZ mk_MK ml_IN mn_MN mr_IN ms_MY mt_MT nb_NO nds_DE nds_NL ne_NP nl_BE nl_BE@euro nl_NL nl_NL@euro nn_NO nr_ZA nso_ZA oc_FR om_ET om_KE or_IN pa_IN pap_AN pa_PK pl_PL pt_BR pt_PT pt_PT@euro ro_RO ru_RU ru_UA rw_RW sa_IN sc_IT se_NO shs_CA sid_ET si_LK sk_SK sl_SI so_DJ so_ET so_KE so_SO sq_AL sr_ME sr_RS sr_RS@latin ss_ZA st_ZA sv_FI sv_FI@euro sv_SE ta_IN te_IN tg_TJ th_TH ti_ER ti_ET tig_ER tk_TM tl_PH tn_ZA tr_CY tr_TR ts_ZA tt_RU tt_RU@iqtelif ug_CN uk_UA ur_PK uz_UZ uz_UZ@cyrillic ve_ZA vi_VN wa_BE wa_BE@euro wal_ET wo_SN xh_ZA yi_US yo_NG zh_CN zh_HK zh_SG zh_TW zu_ZA
-  PKEYS=${PLANG:0:2} #rough as guts, assign first 2 chars of PLANG to PKEYS.
-  case $PLANG in
-   en*) PKEYS=us ;;
-  esac
- fi
- #120216 L18L suggests load these, instead of what is below...
- case $PLANG in
-  en*) echo ;;
-  ar*|iw*) #L18L no Greek
-   setfont /lib/consolefonts/LatArCyrHeb-16.psfu.gz -C /dev/tty1
-   FONTMAP='LatArCyrHeb-16.psfu'
-  ;;
-  *) #L18L All European languages; new default ?!
-   zcat /lib/consolefonts/LatGrkCyr-8x16.psfu.gz | loadfont
-   FONTMAP='LatGrkCyr-8x16.psfu'
-  ;;
- esac
-fi
-
-#091122 load keyboard layout if PKEYS boot param...
-STATUS=0
-VFAT_OUT_PARAM='shortname=mixed,quiet'
-CODEPAGE=""
-KMAP=""
-if [ "$PKEYS" ];then
- if [ ! -f /lib/keymaps/${PKEYS}.gz ];then
-  PKEYS="`ls -1 /lib/keymaps/${PKEYS}*.gz | head -n 1 | rev | cut -f 1 -d '/' | cut -f 2 -d '.' | rev`"
- fi
- if [ -f /lib/keymaps/${PKEYS}.gz ];then
-  echo "Loading '${PKEYS}' keyboard layout..." >/dev/console
-  KMAP="$PKEYS"
-  zcat /lib/keymaps/${PKEYS}.gz | loadkmap ; STATUS=$((STATUS + $?))
-  case $PKEYS in #note, same code in /etc/rc.d/rc.country, /usr/sbin/input-wizard and init.
-   de*|be*|br*|dk*|es*|fi*|fr*|it*|no*|se*|pt*)
-    modprobe nls_cp850
-    [ ! "$PLANG" ] && FONTMAP="lat1-12.psfu" #120216
-    CODEPAGE="850"
-    VFAT_OUT_PARAM="$OUT_PARAM"',codepage=850'
-   ;;
-   cz*|hu*|pl*|ro*|sk*|croat*|slovene*)
-    modprobe nls_cp852
-    modprobe nls_iso8859-2
-    [ ! "$PLANG" ] && FONTMAP="lat2-12.psfu" #120216
-    CODEPAGE="852"
-    VFAT_OUT_PARAM="$OUT_PARAM"',codepage=852,iocharset=iso8859-2'
-   ;;
-  esac
-  if [ ! "$PLANG" ];then #120216 old behaviour.
-   if [ "$FONTMAP" ];then #100520 fix syntax error...
-    zcat /lib/consolefonts/${FONTMAP}.gz | loadfont
-    STATUS=$((STATUS + $?))
-   fi
-  fi
- else
-  STATUS=1
- fi
- check_status $STATUS
-fi
-
-[ "$RDSH" = "0" ] && exec /bin/sh >/dev/console 2>&1 #w091222
-
-_load_drivers_main
-
-#110126 define ATADRIVES as all internal ide/pata/sata (and mmc) drives (not usb), except optical...
-#110710 rewritten to handle kernel with usb driver built-in...
-ALLDRVS0="`find /sys/block -maxdepth 1 -name 'mmc*' -o -name 'sd*' -o -name 'sr*' -o -name 'scd*' | /bin/xargs -l readlink 2>/dev/null | grep -v '/usb[0-9]' | rev | cut -f 1 -d '/' | rev`" #all *except* usb!
-ALLDRVS="`echo "$ALLDRVS0" | tr '\n' ' '`" #all *except* usb!
-[ "$ALLDRVS" = " " ] && ALLDRVS=""
-
-ATADRIVES="`echo "$ALLDRVS0" | grep -vE '^sr|^scd' | tr '\n' ' '`"
-[ "$ATADRIVES" = " " ] && ATADRIVES=""
-
-ATAOPTICALDRIVES="`echo "$ALLDRVS0" | grep -E '^sr|^scd' | tr '\n' ' '`"
-[ "$ATAOPTICALDRIVES" = " " ] && ATAOPTICALDRIVES=""
-
-if [ -e /proc/ide ];then
- for ONEIDE in `ls -1 /proc/ide | grep '^hd'`
- do
-  ALLDRVS="${ALLDRVS}${ONEIDE} "
-  if [ "`cat /proc/ide/${ONEIDE}/media`" = "cdrom" ];then
-   ATAOPTICALDRIVES="${ATAOPTICALDRIVES}${ONEIDE} "
-  else
-   ATADRIVES="${ATADRIVES}${ONEIDE} "
-  fi
- done
- ALLDRVS0="`echo "$ALLDRVS" | tr ' ' '\n'`"
-fi
-
-ATADRIVES0="`echo "$ATADRIVES" | tr ' ' '\n'`"
-touch /tmp/ATADRIVES0 #110509 fix for LF only messes up grep later.
-[ "$ATADRIVES" ] && echo "$ATADRIVES0" > /tmp/ATADRIVES0 #110205 broken busybox grep -F. 110509
-
-ATAOPTICALDRIVES0="`echo "$ATAOPTICALDRIVES" | tr ' ' '\n'`"
-touch /tmp/ALLDRVS0
-[ "$ALLDRVS" ] && echo "$ALLDRVS0" > /tmp/ALLDRVS0 #all drives *except* usb.
-
-PCPARTSALL="`probepart_init -k`"
-PCPARTS0="`echo "$PCPARTSALL" | grep '^/dev/' | cut -f 1-2 -d '|'  | grep -E 'f2fs|udf|iso9660|ext2|ext3|ext4|reiserfs|msdos|vfat|minix|ntfs' | sed -e 's%/dev/%%'`" #ex: sda1|vfat 130128 add udf. 130216 add f2fs.
-LESSPARTS0="$PCPARTS0"
-#120328 could have iso9660 f.s. booting off a non-optical drive (see BootFlash). exclude /dev/mmc ...
-OPTICALDRIVES0="`echo "$PCPARTS0" | grep -E 'iso9660|udf' | grep -v '^mmc' | cut -f 1 -d '|'`" #ex: sr0  130128 add udf.
-touch /tmp/OPTICALDRIVES0 #110509 fix for using with grep.
-[ "$OPTICALDRIVES0" ] && echo "$OPTICALDRIVES0" > /tmp/OPTICALDRIVES0 #110509 fix
-
-echo "ALLDRVS=$ALLDRVS " >> /tmp/puppy-file-search.log #for debugging.
-
-if [ "`lsmod | grep -E '^uhci|^ohci|^ehci'`" ];then
- /sbin/wait4usb_classic & #110425
-else
- /sbin/wait4usb & #110710 kernel has builtin hid and usb drivers, and without or with my usb-storage patch.
-fi
-
-check_status 0 #END STEP ONE
-##############END MODULE LOADING TO ACCESS DRIVES####################
-
 #######################FINDING PUPPY FILES###########################
 echo -n "Searching for Puppy files..." >/dev/console #STEP TWO
 
@@ -1032,9 +1043,14 @@ fi
 [ -f /${ZDRVSFS} ]   &&   ZDRV="rootfs,rootfs,/${ZDRVSFS}"
 #[ -f /${DEVXSFS} ]   &&  DEVX="rootfs,rootfs,/${DEVXSFS}"
 
+
+
+### first search
 search_func ata #110425
 
-while [ ! -e /tmp/flag-usb-ready ];do #110710 wait for usb process to complete.
+
+
+until [ -e /tmp/flag-usb-ready ];do #110710 wait for usb process to complete.
  usleep 250000 #microseconds
 done
 
@@ -1296,7 +1312,8 @@ if [ "$CREATEPDEV1" != "" ];then #pupmodes 3,6,7
  fi
 
  [ "`echo "$FS" | grep 'ext[234]'`" ] && echo "/dev/$DEV $CREATEPDEV1 $FS defaults  1 1" >> /etc/fstab #v2.21
- mount -t $FS /dev/$DEV $CREATEPDEV1
+ #mount -t $FS /dev/$DEV $CREATEPDEV1
+  mnt_func $FS /dev/$DEV $CREATEPDEV1
  check_status $?
 
  #save is not a ${DISTRO_FILE_PREFIX}save file, but a partition on a layered-fs layer...
@@ -1399,7 +1416,8 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then # pupmode 12, 13
 
     echo "/dev/loop1 $CREATEPUPSAVE2FS ext2 defaults  1 1" >> /etc/fstab #v2.21
     #[ "$PFSCK" = "yes" ] && fsckme_func loop1 ext2 #100318 however, commented out as there was an old not that f.s. check on an encrypted pupsave is broken.
-    mount -t ext2 -o noatime,rw /dev/loop1 $CREATEPUPSAVE2FS #only ext2 allowed.
+    #mount -t ext2 -o noatime,rw /dev/loop1 $CREATEPUPSAVE2FS #only ext2 allowed.
+     mnt_func ext2 /dev/loop1 $CREATEPUPSAVE2FS noatime,rw
     MNTSTAT=$?
     if [ "$MNTSTAT" = "0" ] ; then
      echo -n "...successfully mounted" >/dev/console
@@ -1444,17 +1462,21 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then # pupmode 12, 13
     check_status 0 #note, e2fsck gives an error even though it works. v2.21 maybe okay now.
     echo -n "...continuing with loading $PUPSAVEFILE..." >/dev/console
    fi
+
    losetup /dev/loop1 /mnt/dev_save${PUPSAVEFILE}
    SFFS='ext'`echo "$PUPSAVEFILE" | rev | cut -c 3`
    echo "/dev/loop1 $CREATEPUPSAVE2FS $SFFS defaults  1 1" >> /etc/fstab
    [ "$PFSCK" = "yes" ] && fsckme_func loop1 $SFFS #100318
-   mount -t $SFFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
+   #mount -t $SFFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
+    mnt_func $SFFS /dev/loop1 $CREATEPUPSAVE2FS noatime
    if [ $? -ne 0 ];then
     if [ -e /bin/e2fsck ];then #111120
      e2fsck -y -f /dev/loop1 >/dev/console #-y answer yes to all repair questions.
-     mount -t $SFFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
+     #mount -t $SFFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
+      mnt_func $SFFS /dev/loop1 $CREATEPUPSAVE2FS noatime
     fi
    fi
+   
   fi
  fi
  STATUS=$? #101028
@@ -1582,7 +1604,8 @@ if [ "$CREATETMPFS" != "" ];then
   FREEK=$((RAMSIZE / 2)) #half of physical.
   [ $PUPMODE -eq 77 ] && FREEK=$((FREEK - 50000)) #need some slack.
   ALLOCK=$((FREEK + EXTRAALLOCK))
- mount -t tmpfs -o size=${ALLOCK}k tmpfs $CREATETMPFS
+ #mount -t tmpfs -o size=${ALLOCK}k tmpfs $CREATETMPFS
+  mnt_func tmpfs tmpfs $CREATETMPFS size=${ALLOCK}k
 fi
 
 #RW (top) layer now has a tmpfs, PDEV1 or ${DISTRO_FILE_PREFIX}save mounted on it. calc free space...
@@ -1596,7 +1619,8 @@ if [ "$CREATEFOLDERS" != "" ];then
  mount -o noatime -t $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_ro1 #mnt the cd.
  #create a tmpfs to load the folders...
   ALLOCK=$(( (RAMSIZE / 2) - 50000 )) #allocate half of physical ram. + leave 50M slack.
- mount -t tmpfs -o size=${ALLOCK}k tmpfs $CREATEFOLDERS #/pup_ro1
+ #mount -t tmpfs -o size=${ALLOCK}k tmpfs $CREATEFOLDERS #/pup_ro1
+  mnt_func tmpfs tmpfs $CREATEFOLDERS size=${ALLOCK}k #/pup_ro1
  #load the folders from the cd...
   ####START LOAD FOLDERS####
   CDMNTPT="/mnt/dev_ro1" #where the multisession cd is mounted.
@@ -1790,7 +1814,8 @@ if [ "$CREATEPUPXXXSFS" != "" ];then
  [ "$COPYCONTENDER" = "yes" ] && [ $RAMSIZE -gt 220000 ] && [ $RAMSIZE -gt $MINRAM2CPY ] && COPY2RAM="yes"
 
  if [ "$COPY2RAM" = "yes" ];then
-  mount -t tmpfs -o size=${SIZESFSK}k tmpfs /mnt/tmpfs
+  #mount -t tmpfs -o size=${SIZESFSK}k tmpfs /mnt/tmpfs
+   mnt_func tmpfs tmpfs /mnt/tmpfs size=${SIZESFSK}k
   if [ "${PUPSFSDEVMNTPT}" = "" ];then #v403 humongous initrd.
     mv -f ${PUPSFSDEVMNTPT}${PUPSFSFILE} /mnt/tmpfs/
   else
@@ -1837,7 +1862,8 @@ if [ "$ZDRVINIT" != "yes" ];then
    if [ "$COPY2RAM" = "yes" ];then
     SIZEZK=`du -k ${MNT_ZFILE}${ZFILE} | cut -f 1`
     SIZEZK=$((SIZEZK + 1000)) #some slack.
-    mount -t tmpfs -o size=${SIZEZK}k tmpfs /mnt/tmpfs2
+    #mount -t tmpfs -o size=${SIZEZK}k tmpfs /mnt/tmpfs2
+     mnt_func tmpfs tmpfs /mnt/tmpfs2 size=${SIZEZK}k
     if [ "$MNT_ZFILE" = "" ];then #101101 humongous initrd.
      mv -af ${MNT_ZFILE}${ZFILE} /mnt/tmpfs2/
     else
@@ -1867,7 +1893,7 @@ if [ $PUPMODE -eq 5 ];then
   if [ ! "$pdMNTPT" ];then
    mkdir -p /mnt/$pdDEV
    #mount -t $pdFS /dev/$pdDEV /mnt/$pdDEV
-   mnt_func $pdFS /dev/$pdDEV /mnt/$pdDEV #130518
+    mnt_func $pdFS /dev/$pdDEV /mnt/$pdDEV #130518
    pdFLG=1
    pdMNTPT="/mnt/${pdDEV}"
   fi
@@ -2251,22 +2277,22 @@ check_status $? #END STEP FIVE
 #every time you want to change the core, and no need for a hard drive to store customizations"
 if [ -d $PUPSFSDEVMNTPT/precfg ];then
  echo -n "Overlaying preconfig files..." >/dev/console
- SRC="$PUPSFSDEVMNTPT"/precfg
+  SRC="$PUPSFSDEVMNTPT"/precfg
  DEST="/pup_new"
  cd $SRC
  for i in `find . -not -type d -print`; do
   BASEFILE="$i"
-  SRCFILE="$SRC/$BASEFILE"
+   SRCFILE="$SRC/$BASEFILE"
   DESTFILE="$DEST/$BASEFILE"
- #DESTDIR=`dirname $DESTFILE`
-  DESTDIR=${DESTFILE%/*}
+  #DESTDIR=`dirname $DESTFILE`
+   DESTDIR=${DESTFILE%/*}
   MASK="777"
   if test -f "$DESTFILE"; then
    MASK=`stat -c %a $DESTFILE`
   fi
-  mkdir -p $DESTDIR
+        mkdir -p $DESTDIR
   cp -f $SRCFILE $DESTFILE
-  chmod $MASK $DESTFILE
+     chmod $MASK $DESTFILE
  done
  check_status 0
 fi
@@ -2335,9 +2361,8 @@ if [ "$CREATETMPFS" != "/pup_rw" ];then #test if no tmpfs on unionfs top layer.
   ALLOCK=$(( (RAMSIZE / 4) + EXTRAALLOCK ))
 
  #v424 don't create tmpfs if have versioncleanup dir... 100423 try again...
- #mount -t tmpfs -o size=${ALLOCK}k tmpfs /pup_new/tmp
- #[ ! -e $OLDFILESMNTPT/tmp/versioncleanup ] && mount -t tmpfs -o size=${ALLOCK}k tmpfs /pup_new/tmp
- [ -e /pup_new/tmp/versioncleanup ] || mount -t tmpfs -o size=${ALLOCK}k tmpfs /pup_new/tmp
+ #[ -e /pup_new/tmp/versioncleanup ] || mount -t tmpfs -o size=${ALLOCK}k tmpfs /pup_new/tmp
+  [ -e /pup_new/tmp/versioncleanup ] || mnt_func tmpfs tmpfs /pup_new/tmp size=${ALLOCK}k
 
  ##v412 bugfix, versioncleanup dir gets overwritten by this tmpfs on tmp...
  #if [ -d $OLDFILESMNTPT/tmp/versioncleanup ];then
@@ -2387,7 +2412,8 @@ fi
 if [ $DEVTMPFSFLG -eq 0 ];then #130612
  /bin/cp -a -u -f /dev/* /pup_new/dev/
 else
- mount -t devtmpfs devtmpfs /pup_new/dev
+ #mount -t devtmpfs devtmpfs /pup_new/dev
+  mnt_func devtmpfs devtmpfs /pup_new/dev
 fi
 
 #120215 if PLANG set here, carry it over...
