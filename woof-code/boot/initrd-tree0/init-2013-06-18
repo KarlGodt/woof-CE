@@ -157,6 +157,10 @@
 
 set -n
 
+PATH="/bin:/sbin"
+KERNELVER="`uname -r`"
+
+
 # some user definable variables
 # MINRAMSIZE2COPY* should be higher than PUPXXXSFS * 2, since it makes sense only to demand more RAM as minimum needed
 #  to prevent sluggish behaviour in X with RAM consuming applications like firefox
@@ -170,6 +174,119 @@ if [ "$MINRAMSIZE2COPY_DEF" ];then
 [ "$MINRAMSIZE2COPY_CD" ]     || MINRAMSIZE2COPY_CD=$MINRAMSIZE2COPY_DEF
 [ "$MINRAMSIZE2COPY_FRUGAL" ] || MINRAMSIZE2COPY_FRUGAL=$MINRAMSIZE2COPY_DEF
 fi
+
+
+##130612 detect CONFIG_DEVTMPFS=y and CONFIG_DEVTMPFS_MOUNT=y...
+#DEVTMPFSFLG=`gunzip -c /proc/config.gz | grep 'CONFIG_DEVTMPFS.*=y' | wc -l`
+DEVTMPFSFLG=0 #130618 set it from 3builddistro.
+
+PUPDESKFLG=1 #130515 this may be changed to 0 by 3builddistro.
+
+. /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
+[ ! "$DISTRO_DB_SUBNAME" ] && DISTRO_DB_SUBNAME="$DISTRO_COMPAT_VERSION" #121102 fallback if DISTRO_DB_SUBNAME not defined in file DISTRO_SPECS.
+
+#100911 simple filenames specified in DISTRO_SPECS: DISTRO_ZDRVSFS, DISTRO_PUPPYSFS...
+ZDRVSFS="$DISTRO_ZDRVSFS"
+#w020 compose name of 'zdrv', to fit 8+3 filename...
+PREFIX1CHAR="`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`"
+KERNEL3CHARS="`echo -n "$KERNELVER" | tr -d '.' | tr -d '\-' | tr -d '[a-z]' | rev | cut -c 1,2,3 | rev`"
+[ "$ZDRVSFS" ] || ZDRVSFS="z${PREFIX1CHAR}${DISTRO_VERSION}${KERNEL3CHARS}.sfs"
+PUPXXXSFS="$DISTRO_PUPPYSFS"
+[ "$PUPXXXSFS" ] || PUPXXXSFS="${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs"  #before September 2010
+#DEVXSFS="$DISTRO_DEVXSFS"
+IDSTRING="$DISTRO_IDSTRING" #from DISTRO_SPECS, string appended to kernel.qky, vmlinuz, puppy.sfs, zdrv.sfs, devx.sfs (see 3builddistro).
+#[ "`echo "$PUPXXXSFS" | grep '_[0-9][0-9][0-9]\.sfs'`" ] && NAMETYPE='traditional' #has version info.
+[ "`echo "$PUPXXXSFS" | grep '[0-9]\.sfs'`" ] && NAMETYPE='traditional' #110422 has version info.
+
+#does this initrd have all the zdrv components inside it?...
+ZDRVINIT='no'
+[ -d /lib/modules/$KERNELVER ] || mkdir -p /lib/modules/$KERNELVER
+[ -x /bin/depmod ] && depmod
+if [ -f /lib/modules/$KERNELVER/modules.dep ]; then
+[ `cat /lib/modules/$KERNELVER/modules.dep  | wc -l` -gt 200 ] && ZDRVINIT='yes'
+else
+touch /lib/modules/$KERNELVER/modules.dep
+fi
+
+
+# pupmode=NUMBER parameter to force PUPMODE ie 13 on hd install
+[ $pmode ]    && FPUPMODE=$pmode
+[ $pupmode ]  && FPUPMODE=$pupmode
+[ $ppupmode ] && FPUPMODE=$ppupmode
+
+#pmedia= usbflash|usbhd|usbcd|ataflash|atahd|atacd|atazip|scsihd|scsicd|cd
+[ "$pmedia" ]  && PMEDIA="$pmedia"   #boot parameter, broad category of boot media. ex: cd.
+#for backwards naming compatibility... ex: idehd becomes atahd 101021: atacd,scsicd,usbcd to become just cd...
+PMEDIA="`echo -n "$PMEDIA" | sed -e 's%ide%ata%' -e 's%sata%ata%' -e 's%.*cd$%cd%'`"
+
+[ "$pdev1" ]   && PDEV1="$pdev1"     #boot parameter, partition have booted off. ex: hda3
+[ "$PDEV1" ]   && PDEV1=`basename "$PDEV1"`
+
+[ "$psubdir" ] && PSUBDIR="$psubdir" #boot parameter, directory for puppy files. ex: puppy220
+#[ "$PSUBDIR" ] && [ "`echo -n "$PSUBDIR" | cut -c 1`" != "/" ] && PSUBDIR="/${PSUBDIR}" #add leading /.
+[ "$PSUBDIR" ] && PSUBDIR=`echo "/${PSUBDIR}" | tr -s '/'` #add leading /.
+[ "$psavemark" ] && PSAVEMARK="$psavemark" #100913 partition number that has/will-have save-file.
+
+#100915 requested by technosaurus (formats get changed further down)...
+[ "$pupsfs" ] && PUPSFS="$pupsfs" #format partition:<path><filename> ex: sda2:/wary071/wary_071.sfs
+[ "$zdrv" ]   && ZDRV="$zdrv"     #ex: sda2:/wary071/zdrv_071.sfs
+
+[ "$underdog" ] && UNDERDOG="$underdog" #120130 specify partition for Underdog Linux (refer also underdog.lnx).
+[ "$pkeys" ]   && PKEYS="$pkeys"     #boot parameter, keyboard layout w476
+
+#now supporting a boot menu...
+RDSH=""
+if [ "$pfix" ];then
+ for ONEFIX in `echo -n "$pfix" | tr ',' ' '`
+ do
+  case $ONEFIX in
+   ram)     PRAMONLY="yes";;      #run in ram only (do not load ${DISTRO_FILE_PREFIX}save).
+   rdsh)    RDSH="yes";;          #exit to shell in initial ramdisk.
+   rdsh0)   RDSH="0";;            #drop out early, before loading drivers.
+   rdsh6)   RDSH="6";;            #w091027 drop out just before mount layerfs.
+   nox)     PNOX="yes";;          #do not start X.
+   clean)   PCLEAN="yes";;        #force version upgrade and cleanup.
+   purge)   PPURGE="yes";;        #radical cleanup for broken system.
+   copy)    PCOPY="yes";;         #copy .sfs files into ram.
+   nocopy)  PNOCOPY="yes";;        #do not copy .sfs files into ram (default is copy if enough ram).
+   fsck)    PFSCK="yes";;         #do a fsck of ${DISTRO_FILE_PREFIX}save file.
+   [0-9]*)  PIGNORELAST=$ONEFIX;; #blacklist last $ONEFIX folders (multisession).
+  esac
+ done
+fi
+
+
+_parse_pupsfs(){
+for oneSFS in "$PUPSFS" "$ADRV" "$YDRV" "$ZDRV"
+do
+ [ "$oneSFS" ] || continue
+  DEV="`echo "$oneSFS" | cut -f 1 -d ':'`"
+ SPEC="`echo "$oneSFS" | cut -f 2 -d ':'`"
+   FS="`echo "$PCPARTS0" | grep "${DEV}|" | cut -f 2 -d '|'`"
+ case "$SPEC" in
+ *adrv*) ADRVSFS="`basename $SPEC`";   ADRV="${DEV},${FS},${SPEC}"
+               [ -f /${ADRVSFS} ] &&   ADRV="rootfs,rootfs,/${ADRVSFS}";;
+ *ydrv*) YDRVSFS="`basename $SPEC`";   YDRV="${DEV},${FS},${SPEC}"
+               [ -f /${YDRVSFS} ] &&   YDRV="rootfs,rootfs,/${YDRVSFS}";;
+ *zdrv*) ZDRVSFS="`basename $SPEC`";   ZDRV="${DEV},${FS},${SPEC}"
+               [ -f /${ZDRVSFS} ] &&   ZDRV="rootfs,rootfs,/${ZDRVSFS}";;
+ *)    PUPXXXSFS="`basename $SPEC`"; PUPSFS="${DEV},${FS},${SPEC}"
+             [ -f /${PUPXXXSFS} ] && PUPSFS="rootfs,rootfs,/${PUPXXXSFS}"
+      LESSPARTS0="${DEV}|${FS}"
+      [ "$PSUBDIR" = "" ]  && PSUBDIR="${SPEC%/*}"
+      [ "$PSUBDIR" = "/" ] && PSUBDIR=""
+      ;;#110425
+ esac
+done
+unset oneSFS
+
+#first look inside initrd...
+[ -f /${PUPXXXSFS} ] && PUPSFS="rootfs,rootfs,/${PUPXXXSFS}"
+[ -f /${ZDRVSFS} ]   && ZDRV="rootfs,rootfs,/${ZDRVSFS}"
+#[ -f /${DEVXSFS} ]   && DEVX="rootfs,rootfs,/${DEVXSFS}"
+}
+
+
 
 #/bin/hotplug2stdout_notimeout > /tmp/pup_event_uevents_initrd &
 
@@ -191,8 +308,8 @@ echo "STATUS=$STATUS STATUSA=$STATUSA : for $*" # should go to bootinit.log
 return $1
 }
 
-check_status()
-{
+check_status(){
+    
     local XPAUSE=40
   test "$1" || { echo "check_status:WARNING:Missing numerical parameter - defaulting to 0";set - 0; }
 
@@ -236,7 +353,7 @@ check_status()
     echo -en "\\033[1;31m"       #31=red
     dmesg | tail -n 4
     echo -en "\\033[0;39m"
-	) >/dev/console
+    ) >/dev/console
 
     #exit to initial ramdisk shell...
     [ "$RDSH" = "yes" ] && exec /bin/sh >/dev/console 2>&1
@@ -364,11 +481,14 @@ done
 ###################LOAD MODULES TO ACCESS DRIVES#####################
 }
 
+
+
+
 _test_kernel_param_root(){
 
 if test "$root"; then
 
-. /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
+#. /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
 
 
  case "$root" in
@@ -414,69 +534,6 @@ return 0
 
 }
 
-#120215 internationalize... (based on work by L18L)
-if [ ! $1 ];then
-
-    mount -t rootfs -o remount,rw /dev/root / || mount -t rootfs -o remount,rw rootfs /
-    if [ -f /proc/mounts ]; then
-    :
-    else
-    for d in dev etc proc sys tmp; do [ -d "/$d" ] || mkdir "/$d"; done; unset d
- mount -t proc proc /proc
- mount -t sysfs sysfs /sys
-    fi
-
- #_test_kernel_param_root || exit 0
- ln -sf /proc/mounts /etc/mtab #resize2fs,e2fsck need this.
-
- [ $plang ] && PLANG=$plang #boot parameter
- [ "`echo -n "$PLANG" | grep '_'`" ] || PLANG="" #120222 PLANG must be complete, ex: de_DE.UTF-8.
- [ ! "$PLANG" ] && [ -f /PUPPYLANG ] && PLANG=`cat /PUPPYLANG` #so Woof can specify a default lang.
- #note, a running puppy could also open initrd.gz and stick PUPPYLANG inside (i plan for chooselocale to do that!)
- if [ "$PLANG" ];then
-  if [ -f /locale/${PLANG%.*}/init ];then #chop off .UTF-8 if it is there.
-   TRANSLATIONFILE="/locale/${PLANG%.*}/init"
-  else
-   [ -f /locale/${PLANG%_*}/init ] && TRANSLATIONFILE="/locale/${PLANG%_*}/init" #get first 2 chars of PLANG, ex: en
-  fi
-  if [ "$TRANSLATIONFILE" ];then
-   sed -f $TRANSLATIONFILE /init > /init$PLANG
-   chmod 755 /init$PLANG
-   exec /init$PLANG $PLANG #run translated script.
-  fi
- fi
-else #2nd entry, running /init$PLANG
- PLANG=${1}
-fi
-
-
-# Karl Godt: add debugging variables to commands like grep
-unset Q QUIET S SILENT
-VERB=-v; L_VERB=--verbose
-[ $loglevel ] && LOGLEVEL=$loglevel #v2.22
-#clear #clear the screen.
-[ -d /tmp ] || mkdir /tmp
-[ ! "$LOGLEVEL" ] && {
-    # Karl Godt: add debugging variables to commands like grep
-    Q=-q; QUIET=--quiet; S=-s; SILENT=--silent; VERB=''; L_VERB=''
-    exec 1>/tmp/bootinit.log 2>&1 #remove o/p to console. v2.22 loglevel added.
-}
-readonly Q QUIET S SILENT VERB L_VERB
-
-export LANG=C #w004
-
-# pupmode=NUMBER parameter to force PUPMODE ie 13 on hd install
-[ $pmode ]    && FPUPMODE=$pmode
-[ $pupmode ]  && FPUPMODE=$pupmode
-[ $ppupmode ] && FPUPMODE=$ppupmode
-
-PATH="/bin:/sbin"
-KERNELVER="`uname -r`"
-
-##130612 detect CONFIG_DEVTMPFS=y and CONFIG_DEVTMPFS_MOUNT=y...
-#DEVTMPFSFLG=`gunzip -c /proc/config.gz | grep 'CONFIG_DEVTMPFS.*=y' | wc -l`
-DEVTMPFSFLG=0 #130618 set it from 3builddistro.
-
 _do_devtmpfs(){
 # always use DEVTMPFS now.
 if grep $Q "[[:blank:]]\+devtmpfs$" /proc/filesystems; then
@@ -514,106 +571,64 @@ DEVTMPFSFLG=1 #130618 set it from 3builddistro.
   DEVTMPFSFLG=0
  fi
 fi
-#DEVTMPFSFLG=1 #130618 set it from 3builddistro.
+STATUS=$?
+[ "$PDEV1" ] && { [ -e /dev/$PDEV1 ] || unset PDEV1; }
+return $STATUS
 }
-_do_devtmpfs
 
-PUPDESKFLG=1 #130515 this may be changed to 0 by 3builddistro.
+#120215 internationalize... (based on work by L18L)
+if [ ! $1 ];then
 
-. /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
-[ ! "$DISTRO_DB_SUBNAME" ] && DISTRO_DB_SUBNAME="$DISTRO_COMPAT_VERSION" #121102 fallback if DISTRO_DB_SUBNAME not defined in file DISTRO_SPECS.
+    _parse_pupsfs
 
-#100911 simple filenames specified in DISTRO_SPECS: DISTRO_ZDRVSFS, DISTRO_PUPPYSFS...
-ZDRVSFS="$DISTRO_ZDRVSFS"
-#w020 compose name of 'zdrv', to fit 8+3 filename...
-PREFIX1CHAR="`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`"
-KERNEL3CHARS="`echo -n "$KERNELVER" | tr -d '.' | tr -d '\-' | tr -d '[a-z]' | rev | cut -c 1,2,3 | rev`"
-[ "$ZDRVSFS" ] || ZDRVSFS="z${PREFIX1CHAR}${DISTRO_VERSION}${KERNEL3CHARS}.sfs"
-PUPXXXSFS="$DISTRO_PUPPYSFS"
-[ "$PUPXXXSFS" ] || PUPXXXSFS="${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs"  #before September 2010
-#DEVXSFS="$DISTRO_DEVXSFS"
-IDSTRING="$DISTRO_IDSTRING" #from DISTRO_SPECS, string appended to kernel.qky, vmlinuz, puppy.sfs, zdrv.sfs, devx.sfs (see 3builddistro).
-#[ "`echo "$PUPXXXSFS" | grep '_[0-9][0-9][0-9]\.sfs'`" ] && NAMETYPE='traditional' #has version info.
-[ "`echo "$PUPXXXSFS" | grep '[0-9]\.sfs'`" ] && NAMETYPE='traditional' #110422 has version info.
+    mount -t rootfs -o remount,rw /dev/root / || mount -t rootfs -o remount,rw rootfs /
+    if [ -f /proc/mounts ]; then
+    :
+    else
+    for d in dev etc proc sys tmp; do [ -d "/$d" ] || mkdir "/$d"; done; unset d
+ mount -t proc proc /proc
+ mount -t sysfs sysfs /sys
+    fi
 
-#does this initrd have all the zdrv components inside it?...
-ZDRVINIT='no'
-[ -d /lib/modules/$KERNELVER ] || mkdir -p /lib/modules/$KERNELVER
-[ -x /bin/depmod ] && depmod
-if [ -f /lib/modules/$KERNELVER/modules.dep ]; then
-[ `cat /lib/modules/$KERNELVER/modules.dep  | wc -l` -gt 200 ] && ZDRVINIT='yes'
-else
-touch /lib/modules/$KERNELVER/modules.dep
+ _do_devtmpfs
+ #_test_kernel_param_root || exit 0
+ ln -sf /proc/mounts /etc/mtab #resize2fs,e2fsck need this.
+
+ [ $plang ] && PLANG=$plang #boot parameter
+ [ "`echo -n "$PLANG" | grep '_'`" ] || PLANG="" #120222 PLANG must be complete, ex: de_DE.UTF-8.
+ [ ! "$PLANG" ] && [ -f /PUPPYLANG ] && PLANG=`cat /PUPPYLANG` #so Woof can specify a default lang.
+ #note, a running puppy could also open initrd.gz and stick PUPPYLANG inside (i plan for chooselocale to do that!)
+ if [ "$PLANG" ];then
+  if [ -f /locale/${PLANG%.*}/init ];then #chop off .UTF-8 if it is there.
+   TRANSLATIONFILE="/locale/${PLANG%.*}/init"
+  else
+   [ -f /locale/${PLANG%_*}/init ] && TRANSLATIONFILE="/locale/${PLANG%_*}/init" #get first 2 chars of PLANG, ex: en
+  fi
+  if [ "$TRANSLATIONFILE" ];then
+   sed -f $TRANSLATIONFILE /init > /init$PLANG
+   chmod 755 /init$PLANG
+   exec /init$PLANG $PLANG #run translated script.
+  fi
+ fi
+else #2nd entry, running /init$PLANG
+ PLANG=${1}
 fi
 
-#pmedia= usbflash|usbhd|usbcd|ataflash|atahd|atacd|atazip|scsihd|scsicd|cd
-[ "$pmedia" ]  && PMEDIA="$pmedia"   #boot parameter, broad category of boot media. ex: cd.
-#for backwards naming compatibility... ex: idehd becomes atahd 101021: atacd,scsicd,usbcd to become just cd...
-PMEDIA="`echo -n "$PMEDIA" | sed -e 's%ide%ata%' -e 's%sata%ata%' -e 's%.*cd$%cd%'`"
+export LANG=C #w004
 
-[ "$pdev1" ]   && PDEV1="$pdev1"     #boot parameter, partition have booted off. ex: hda3
-[ "$PDEV1" ]   && PDEV1=`basename "$PDEV1"`
-[ "$psubdir" ] && PSUBDIR="$psubdir" #boot parameter, directory for puppy files. ex: puppy220
-#[ "$PSUBDIR" ] && [ "`echo -n "$PSUBDIR" | cut -c 1`" != "/" ] && PSUBDIR="/${PSUBDIR}" #add leading /.
-[ "$PSUBDIR" ] && PSUBDIR=`echo "/${PSUBDIR}" | tr -s '/'` #add leading /.
-[ "$psavemark" ] && PSAVEMARK="$psavemark" #100913 partition number that has/will-have save-file.
-
-#100915 requested by technosaurus (formats get changed further down)...
-[ "$pupsfs" ] && PUPSFS="$pupsfs" #format partition:<path><filename> ex: sda2:/wary071/wary_071.sfs
-[ "$zdrv" ]   && ZDRV="$zdrv"     #ex: sda2:/wary071/zdrv_071.sfs
-_parse_pupsfs(){
-for oneSFS in "$PUPSFS" "$ADRV" "$YDRV" "$ZDRV"
-do
- [ "$oneSFS" ] || continue
- DEV="`echo "$oneSFS" | cut -f 1 -d ':'`"
- FS="`echo "$PCPARTS0" | grep "${DEV}|" | cut -f 2 -d '|'`"
- SPEC="`echo -n "$oneSFS" | cut -f 2 -d ':'`"
- case "$SPEC" in
- *adrv*) ADRVSFS="`basename $SPEC`";   ADRV="${DEV},${FS},${SPEC}"
-               [ -f /${ADRVSFS} ] &&   ADRV="rootfs,rootfs,/${ADRVSFS}";;
- *ydrv*) YDRVSFS="`basename $SPEC`";   YDRV="${DEV},${FS},${SPEC}"
-               [ -f /${YDRVSFS} ] &&   YDRV="rootfs,rootfs,/${YDRVSFS}";;
- *zdrv*) ZDRVSFS="`basename $SPEC`";   ZDRV="${DEV},${FS},${SPEC}"
-               [ -f /${ZDRVSFS} ] &&   ZDRV="rootfs,rootfs,/${ZDRVSFS}";;
- *)    PUPXXXSFS="`basename $SPEC`"; PUPSFS="${DEV},${FS},${SPEC}"
-             [ -f /${PUPXXXSFS} ] && PUPSFS="rootfs,rootfs,/${PUPXXXSFS}"
-      LESSPARTS0="${DEV}|${FS}"
-      [ "$PSUBDIR" = "" ]  && PSUBDIR="${SPEC%/*}"
-      [ "$PSUBDIR" = "/" ] && PSUBDIR=""
-      ;;#110425
- esac
-done
-unset oneSFS
-
-#first look inside initrd...
-[ -f /${PUPXXXSFS} ] && PUPSFS="rootfs,rootfs,/${PUPXXXSFS}"
-[ -f /${ZDRVSFS} ]   && ZDRV="rootfs,rootfs,/${ZDRVSFS}"
-#[ -f /${DEVXSFS} ]   && DEVX="rootfs,rootfs,/${DEVXSFS}"
+# Karl Godt: add debugging variables to commands like grep
+unset Q QUIET S SILENT
+VERB=-v; L_VERB=--verbose
+[ $loglevel ] && LOGLEVEL=$loglevel #v2.22
+#clear #clear the screen.
+[ -d /tmp ] || mkdir /tmp
+[ ! "$LOGLEVEL" ] && {
+    # Karl Godt: add debugging variables to commands like grep
+    Q=-q; QUIET=--quiet; S=-s; SILENT=--silent; VERB=''; L_VERB=''
+    exec 1>/tmp/bootinit.log 2>&1 #remove o/p to console. v2.22 loglevel added.
 }
-_parse_pupsfs
+readonly Q QUIET S SILENT VERB L_VERB
 
-[ "$underdog" ] && UNDERDOG="$underdog" #120130 specify partition for Underdog Linux (refer also underdog.lnx).
-
-#now supporting a boot menu...
-RDSH=""
-if [ "$pfix" ];then
- for ONEFIX in `echo -n "$pfix" | tr ',' ' '`
- do
-  case $ONEFIX in
-   ram)     PRAMONLY="yes";;      #run in ram only (do not load ${DISTRO_FILE_PREFIX}save).
-   rdsh)    RDSH="yes";;          #exit to shell in initial ramdisk.
-   rdsh0)   RDSH="0";;            #drop out early, before loading drivers.
-   rdsh6)   RDSH="6";;            #w091027 drop out just before mount layerfs.
-   nox)     PNOX="yes";;          #do not start X.
-   clean)   PCLEAN="yes";;        #force version upgrade and cleanup.
-   purge)   PPURGE="yes";;        #radical cleanup for broken system.
-   copy)    PCOPY="yes";;         #copy .sfs files into ram.
-   nocopy)  PNOCOPY="yes";;        #do not copy .sfs files into ram (default is copy if enough ram).
-   fsck)    PFSCK="yes";;         #do a fsck of ${DISTRO_FILE_PREFIX}save file.
-   [0-9]*)  PIGNORELAST=$ONEFIX;; #blacklist last $ONEFIX folders (multisession).
-  esac
- done
-fi
 
 #clear #clear the screen.
 #[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootinit.log 2>&1 #remove o/p from console. v2.22 loglevel added.
@@ -629,7 +644,7 @@ export TZ='XXX-23' #100318 imaginary place right around the world east of Greenw
 [ -e /dev/misc/rtc ]  || ln -sf rtc0 /dev/misc/rtc
 /bin/hwclock -s -l #set system time (based on hw clock set to local time).
 
-[ "$pkeys" ]   && PKEYS="$pkeys"     #boot parameter, keyboard layout w476
+
 _do_keymap(){
 #120216 /PUPPYKEYMAP inserted in initrd by quicksetup (in future, by Woof too)...
 FONTMAP=""
@@ -662,7 +677,6 @@ if [ "$PLANG" ];then
  esac
 fi
 }
-_do_keymap
 
 _do_keyboard(){
 #091122 load keyboard layout if PKEYS boot param...
@@ -711,10 +725,63 @@ if [ "$PKEYS" ];then
  check_status $STATUS
 fi
 }
+
+_do_keymap
 _do_keyboard
 
+[ "$RDSH" = "0" ] && exec /bin/sh >/dev/console 2>&1 #w091222
+_load_drivers_main
+
+#110126 define ATADRIVES as all internal ide/pata/sata (and mmc) drives (not usb), except optical...
+#110710 rewritten to handle kernel with usb driver built-in...
+ALLDRVS0="`find /sys/block -maxdepth 1 -name 'mmc*' -o -name 'sd*' -o -name 'sr*' -o -name 'scd*' | /bin/xargs -l readlink 2>/dev/null | grep -v '/usb[0-9]' | rev | cut -f 1 -d '/' | rev`" #all *except* usb!
+ALLDRVS="`echo "$ALLDRVS0" | tr '\n' ' '`" #all *except* usb!
+[ "$ALLDRVS" = " " ] && ALLDRVS=""
+ATADRIVES="`echo "$ALLDRVS0" | grep -vE '^sr|^scd' | tr '\n' ' '`"
+[ "$ATADRIVES" = " " ] && ATADRIVES=""
+ATAOPTICALDRIVES="`echo "$ALLDRVS0" | grep -E '^sr|^scd' | tr '\n' ' '`"
+[ "$ATAOPTICALDRIVES" = " " ] && ATAOPTICALDRIVES=""
+if [ -e /proc/ide ];then
+ for ONEIDE in `ls -1 /proc/ide | grep '^hd'`
+ do
+  ALLDRVS="${ALLDRVS}${ONEIDE} "
+  if [ "`cat /proc/ide/${ONEIDE}/media`" = "cdrom" ];then
+   ATAOPTICALDRIVES="${ATAOPTICALDRIVES}${ONEIDE} "
+  else
+   ATADRIVES="${ATADRIVES}${ONEIDE} "
+  fi
+ done
+ ALLDRVS0="`echo -n "$ALLDRVS" | tr ' ' '\n'`"
+fi
+ATADRIVES0="`echo -n "$ATADRIVES" | tr ' ' '\n'`"
+touch /tmp/ATADRIVES0 #110509 fix for LF only messes up grep later.
+[ "$ATADRIVES" ] && echo "$ATADRIVES0" > /tmp/ATADRIVES0 #110205 broken busybox grep -F. 110509
+ATAOPTICALDRIVES0="`echo -n "$ATAOPTICALDRIVES" | tr ' ' '\n'`"
+touch /tmp/ALLDRVS0
+[ "$ALLDRVS" ] && echo "$ALLDRVS0" > /tmp/ALLDRVS0 #all drives *except* usb.
+
+PCPARTSALL="`probepart_init -k`"
+PCPARTS0="`echo "$PCPARTSALL" | grep '^/dev/' | cut -f 1-2 -d '|'  | grep -E 'xfs|jfs|btrfs|f2fs|udf|iso9660|ext2|ext3|ext4|reiserfs|msdos|vfat|minix|ntfs' | sed -e 's%/dev/%%'`" #ex: sda1|vfat 130128 add udf. 130216 add f2fs.
+LESSPARTS0="$PCPARTS0"
+#120328 could have iso9660 f.s. booting off a non-optical drive (see BootFlash). exclude /dev/mmc ...
+OPTICALDRIVES0="`echo "$PCPARTS0" | grep -E 'iso9660|udf' | grep -v '^mmc' | cut -f 1 -d '|'`" #ex: sr0  130128 add udf.
+touch /tmp/OPTICALDRIVES0 #110509 fix for using with grep.
+[ "$OPTICALDRIVES0" ] && echo "$OPTICALDRIVES0" > /tmp/OPTICALDRIVES0 #110509 fix
+
+echo "ALLDRVS=$ALLDRVS " >> /tmp/puppy-file-search.log #for debugging.
+
+if [ "`lsmod | grep -E '^uhci|^ohci|^ehci'`" ];then
+ /sbin/wait4usb_classic & #110425
+else
+ /sbin/wait4usb & #110710 kernel has builtin hid and usb drivers, and without or with my usb-storage patch.
+fi
+
+check_status 0 #END STEP ONE
+##############END MODULE LOADING TO ACCESS DRIVES####################
+
+
 #100318 perform a f.s. check...
-fsckme_func() { #passed params: partition filesystem [pupsavefile]
+fsckme_func(){ #passed params: partition filesystem [pupsavefile]
  #if [ ! -e /bin/e2fsck ];then #111120
  # echo -en "\\033[1;31m SORRY, cannot check filesystem \\033[0;39m" >/dev/console #31=red
  # return
@@ -759,7 +826,9 @@ fsckme_func() { #passed params: partition filesystem [pupsavefile]
  return $?
 }
 
-mnt_func() {
+mnt_func(){
+test "$*" || return 1
+
  MNT_T="$1"    #ex: vfat
  MNT_DEV="$2"  #ex: /dev/sda1
  MNT_DIR="$3"  #ex: /mnt/sda1
@@ -800,18 +869,22 @@ mnt_func() {
  return $?
 }
 
-umnt_func() {
+umnt_func(){
+test "$*" || return 1
  #111120 note, this code is not needed anymore for ntfs-3g. normal 'umount' can unmount it.
  #warning umnt_func call must have mntpt param, not device name.
- LASTPARAM="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/mnt/'`"
- if [ "`mount | grep "$LASTPARAM" | grep -E 'ntfs|fuse'`" = "" ];then
+ MNT_DIR="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/mnt/'`"
+
+ test -d "$MNT_DIR" || return 0
+ mount | grep $Q " on $MNT_DIR type " || return 0 # not mounted
+
+ if [ "`mount | grep " on $MNT_DIR type " | grep -E 'ntfs|fuse'`" = "" ];then
   umount $@
  else
-  fusermount -u $LASTPARAM
+  fusermount -u $MNT_DIR
  fi
  return $?
 }
-
 
 _find_fsckme(){
   #fix any improper shutdowns... fsckme.flg format: sda7,ext3,[/pupsave.2fs] (see rc.shutdown)
@@ -829,18 +902,18 @@ _umount_mnt_data(){
   DEV=`grep " $* " /proc/mounts | tail -n1 | cut -f1 -d' '`
 
   umnt_func -lr "$*"
-  #[ "$FSCKME" ] && fsckme_func $FSCKME
+ 
  if [ "$FSCKME" ]; then
-
   fsckme_func $FSCKME
-[ $? = 0 ] && [ -b "$DEV" ] && mount -o rw "$DEV" "$*" && rm -f "$*"/fsckme.flg && umount -lr "$*"
-  #[ $? = 0 ] && DEV=`grep " $* " /proc/mounts | tail -n1 | cut -f1 -d' '`
-  # && [ -b "$DEV" ] && mount -o remount,rw "$DEV" "$*" && rm -f "$*"/fsckme.flg
+[ $? = 0 ] && [ -b "$DEV" ] && {
+    mount -o rw "$DEV" "$*" && rm -f "$*"/fsckme.flg
+    umount -lr "$*"
+  }
  else true
  fi
 }
 
-search_func() { #110425
+search_func(){ #110425
 
  case $1 in
   ata)
@@ -858,7 +931,7 @@ search_func() { #110425
   ;;
  esac
 
- [ "$LESSPARTS0" ] || return #nothing to search in.
+ [ "$LESSPARTS0" ] || return 1 #nothing to search in.
  LESSPARTS="`echo "$LESSPARTS0" | tr '\n' ' '`"
  LESSPARTS=$LESSPARTS0
  echo "$PCPARTSALL" > /tmp/PCPARTSALL_${1} #for debugging.
@@ -872,17 +945,20 @@ search_func() { #110425
  IGNORE=''
  SEARCHDEPTH=2
  [ "$PSUBDIR" ] && SEARCHDEPTH=1
+ 
  for ONETRY in $LESSPARTS
  do
-  ONEDEV="`echo -n "$ONETRY" | cut -f 1 -d '|'`"
-  ONEFS="`echo -n "$ONETRY" | cut -f 2 -d '|'`"
-  ONEDRV="`echo -n "$ONEDEV" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
+  ONEDEV="`echo "$ONETRY" | cut -f 1 -d '|'`"
+   ONEFS="`echo "$ONETRY" | cut -f 2 -d '|'`"
+  ONEDRV="`echo "$ONEDEV" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
+
   if [ "$IGNORE" = "optical" ];then #110126 ignore optical if boot partition found.
-   [ "`echo -n "$ONEDRV" | grep -f /tmp/OPTICALDRIVES0`" ] && continue #110205
+   [ "`echo "$ONEDRV" | grep -f /tmp/OPTICALDRIVES0`" ] && continue #110205
   fi
 
   test "$PDEV1" && { [ "$PDEV1" = "$ONEDEV" ] || continue; }
   test "$ONEDEV" -a "$ONEFS" || continue
+
   (
   echo -en '\r'"      "
   echo -en '\r'"$ONEDEV " ) >/dev/console
@@ -898,6 +974,7 @@ search_func() { #110425
    mnt_func $ONEFS /dev/$ONEDEV /mnt/$ONEDEV ro
    if [ $? -ne 0 ];then
     echo "RETRY FAILED: mounting /dev/${ONEDEV}, ${ONEFS} f.s." #101005
+    umnt_func /mnt/$ONEDEV
     continue
    fi
   fi
@@ -924,8 +1001,8 @@ search_func() { #110425
       echo "kernel '$ONEPUPFILE' has right IDSTRING='$IDSTRING'"
        #VMLINUZ="`basename $ONEPUPFILE`"
        VMLINUZ="${ONEPUPFILE##*/}"
-       PDEV1="$ONEDEV"
-       DEV1FS="$ONEFS"
+         PDEV1="$ONEDEV"
+        DEV1FS="$ONEFS"
        BOOTDRV="$ONEDRV" #exs: sda sr0
        #PSUBDIR="`dirname $ONEPUPFILE`" #ex: /puppies/wary071
        PSUBDIR="${ONEPUPFILE%/*}" #ex: /puppies/wary071
@@ -980,7 +1057,7 @@ search_func() { #110425
     fi
    fi
 
-   #[ "$PSUBDIR" ] && SEARCHDEPTH=1
+   [ "$PSUBDIR" ] && SEARCHDEPTH=1
 
    if [ "$PUPSFS" = "" ];then
     FND_FILES="`find /mnt/${ONEDEV}${PSUBDIR} -maxdepth ${SEARCHDEPTH} -xdev -type f -iname ${PUPXXXSFS} | sed -e "s%^/mnt/$ONEDEV%%"`"
@@ -994,10 +1071,63 @@ search_func() { #110425
        ONEORIGSIZE=$((ONEFULLSIZE - 32))
       ONEIDSTRING="`dd if=/mnt/${ONEDEV}${ONEPUPFILE} bs=1 skip=${ONEORIGSIZE} 2>/dev/null | sed -e 's%[^a-zA-Z0-9\.]%%g'`"
      fi
+
      if [ "$ONEIDSTRING" = "$IDSTRING" ];then
+              PDEV1="$ONEDEV"
+        DEV1FS="$ONEFS"
+       BOOTDRV="$ONEDRV" #exs: sda sr0
+       #PSUBDIR="`dirname $ONEPUPFILE`" #ex: /puppies/wary071
+       PSUBDIR="${ONEPUPFILE%/*}" #ex: /puppies/wary071
+       [ "$PSUBDIR" = "/" ] && PSUBDIR=""
+       #SAVEMARK: BootFlash utility can create 128MB boot partition, 2nd partition for pupsave...
+       #101020 if pup installed in a subdir, look there for SAVEMARK...
+       [ -f /mnt/${ONEDEV}${PSUBDIR}/SAVEMARK ] && PSAVEMARK="`cat /mnt/${ONEDEV}${PSUBDIR}/SAVEMARK`" #partition no. that has or will-have ${DISTRO_FILE_PREFIX}save.2fs. 101020
+       [ "$PSAVEMARK" ] && SAVEPART="${BOOTDRV}${PSAVEMARK}" #note, PSAVEMARK could also be a kernel boot param. ex: sda2
+
+       #[ "$PSUBDIR" = "" ] && [ -f /mnt/$ONEDEV/etc/DISTRO_SPECS ] && DEV1PUP='yes' #flag full installation. 101103 ignore if vmlinuz in a psubdir.
+       [ -f /mnt/$ONEDEV/etc/DISTRO_SPECS ] && DEV1PUP='yes' #flag full installation.
+
+       echo "PSAVEMARK='$PSAVEMARK' DEV1PUP='$DEV1PUP'"
+       if [ "$DEV1PUP" = yes ]; then
+        #check DISTRO_SPECS file for diff - /bin/diff not in initrd by default
+        for aVAR in DISTRO_IDSTRING DISTRO_DB_SUBNAME DISTRO_TARGETARCH DISTRO_KERNEL_PET DISTRO_VERSION DISTRO_NAME
+        do
+        mineVAR=`grep "^${aVAR}=.*"                 /DISTRO_SPECS | tail -n1 | cut -f2- -d'=' | sed 's%^"%%;s%"$%%' | sed "s%^'%%;s%'$%%"`
+        partVAR=`grep "^${aVAR}=.*" /mnt/$ONEDEV/etc/DISTRO_SPECS | tail -n1 | cut -f2- -d'=' | sed 's%^"%%;s%"$%%' | sed "s%^'%%;s%'$%%"`
+        test "$mineVAR" = "$partVAR" || { echo "$ONEDEV /etc/DISTRO_SPECS is not equal ours."; unset DEV1PUP; break; }
+        done
+       fi
+       echo "PSAVEMARK='$PSAVEMARK' DEV1PUP='$DEV1PUP'"
+
+       if [ "`echo -n "$BOOTDRV" | grep -f /tmp/OPTICALDRIVES0`" = "" ];then #110205 test not optical.
+        IGNORE='optical' #refinement, if vmlinuz not on optical drive, don't probe it. 110126
+       else #booting on optical, is it multisession?...
+        FND_MULTIFOLDER="`find /mnt/$ONEDEV -maxdepth 1 -xdev -type d -name 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9] | grep -v ' ' | sed -e "s%^/mnt/$ONEDEV%%" | head -n 1`"
+        if [ "$FND_MULTIFOLDER" ];then #multisession cd/dvd
+
+         if [ "$PRAMONLY" != "yes" ];then
+          PUPMODE=72 #64+8, will become 77.
+          PUPSAVE="${ONEDEV},${ONEFS},${FND_MULTIFOLDER}"
+
+         else
+          true #pfix=ram
+         fi
+
+        else
+         true #no multifolder
+        fi
+
+       #else
+       # false #is optical drive
+       fi
+     
       PUPSFS="${ONEDEV},${ONEFS},${ONEPUPFILE}"
       break
+
+     else
+       false #wrong IDSTRING
      fi
+
     done
    fi
 
@@ -1093,21 +1223,18 @@ LESSPARTS=${LESSPARTS}" > /tmp/ERRORUSBSCAN
 
   if [ "$PDEV1" -a "$PSUBDIR" ]; then
     if [ "$PDEV1" = "$ONEDEV" -a -d /mnt/${ONEDEV}$PSUBDIR ]; then
-       #_umount_mnt_data /mnt/data
         _umount_mnt_data /mnt/$ONEDEV
        break
     fi
   fi
   if [ "$PSUBDIR" ]; then
    if [ -d /mnt/${ONEDEV}$PSUBDIR ]; then
-      #_umount_mnt_data /mnt/data
        _umount_mnt_data /mnt/$ONEDEV
       break
    fi
   fi
   if [ "$PDEV1" ]; then
    if [ "$PDEV1" = "$ONEDEV" ]; then
-      #_umount_mnt_data /mnt/data
        _umount_mnt_data /mnt/$ONEDEV
       break
    fi
@@ -1117,117 +1244,10 @@ LESSPARTS=${LESSPARTS}" > /tmp/ERRORUSBSCAN
    break
   fi
 
- #_umount_mnt_data /mnt/data
   _umount_mnt_data /mnt/$ONEDEV
  done
 } #search_func
 
-[ "$RDSH" = "0" ] && exec /bin/sh >/dev/console 2>&1 #w091222
-
-__load_drivers_main__(){
-###################LOAD MODULES TO ACCESS DRIVES#####################
-echo -n "Loading drivers needed to access disk drives" >/dev/console #STEP ONE
-
-#100214 one config of 2.6.33 has base floppy and ps/2 mouse support not builtin...
-[ "`modinfo floppy 2>/dev/null`" ]  && modprobe floppy
-[ "`modinfo psmouse 2>/dev/null`" ] && modprobe psmouse
-
-#w462 if present, load it. enables recognition of drives attached to parallel port.
-[ "`modinfo ppa 2>/dev/null`" ] && modprobe ppa #also loads parport.ko
-
-ELSPCI="`elspci -l`" #jesses great little utility.
-#v403 pcmcia drive support. i think this may need extra delay though...
-if [ "`echo "$ELSPCI" | grep '060700'`" ];then
- modprobe yenta_socket
- #...may have to add on a couple of seconds, need to test with a pcmcia drive.
- #v412 yeah, my pccard-usb adaptor needs delay before elspci recognises 0C0310 (ohci-hcd) interface...
- echo -n "." >/dev/console
- sleep 2
-fi
-#v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid...
-[ "`echo "$ELSPCI" | grep '0C0320'`" ] && modprobe ehci-hcd
-
-#121227 extra f.s. drivers may be modules (quirky6)... 130216 add f2fs...
-for ONEFSMOD in ext2 ext3 ext4 fat msdos vfat ntfs reiserfs udf f2fs
-do
- [ "`modinfo $ONEFSMOD 2>/dev/null`" ] && modprobe $ONEFSMOD
-done
-
-echo -n "." >/dev/console
-MODALIASES="`cat /sys/bus/pci/devices/*/modalias`" #important, save to variable before loop.
-for ONEMODALIAS in $MODALIASES
-do
-  modprobe -v $ONEMODALIAS #-v means verbose.
-  #[ $? -eq 0 ] && echo -n "." >/dev/console
-done
-
-#091222 some mmc/sd interfaces need this...
-#(above code loop may have loaded sdhci/sdhci_pci or tifm_core/tifm_7xx1)
-[ "`lsmod | grep '^sdhci'`" ] && modprobe mmc_core && modprobe mmc_block
-[ "`lsmod | grep '^tifm'`" ]  && modprobe mmc_core && modprobe mmc_block && modprobe tifm_sd
-
-modprobe squashfs
-modprobe sr_mod #v3.93 now built-in to kernel.
-
-#filesystems...
-modprobe nls_cp437     #needed by windows filesystems.
-modprobe nls_iso8859-1 #needed by linux filesystems.
-#modprobe nls_utf8  #w007
-#modprobe nls_cp850 #w468 now default for fat f.s. (2.6.29.2 kernel)
-modprobe $LAYERFS #unionfs or aufs.
-modprobe fuse     #for ntfs-3g driver.
-}
-
-_load_drivers_main
-#[ "$PDEV1" ] && PDEV1=`basename "$PDEV1"`
-#[ "$PDEV1" ] && { [ -e /dev/$PDEV1 ] || unset PDEV1; }
-
-#110126 define ATADRIVES as all internal ide/pata/sata (and mmc) drives (not usb), except optical...
-#110710 rewritten to handle kernel with usb driver built-in...
-ALLDRVS0="`find /sys/block -maxdepth 1 -name 'mmc*' -o -name 'sd*' -o -name 'sr*' -o -name 'scd*' | /bin/xargs -l readlink 2>/dev/null | grep -v '/usb[0-9]' | rev | cut -f 1 -d '/' | rev`" #all *except* usb!
-ALLDRVS="`echo "$ALLDRVS0" | tr '\n' ' '`" #all *except* usb!
-[ "$ALLDRVS" = " " ] && ALLDRVS=""
-ATADRIVES="`echo "$ALLDRVS0" | grep -vE '^sr|^scd' | tr '\n' ' '`"
-[ "$ATADRIVES" = " " ] && ATADRIVES=""
-ATAOPTICALDRIVES="`echo "$ALLDRVS0" | grep -E '^sr|^scd' | tr '\n' ' '`"
-[ "$ATAOPTICALDRIVES" = " " ] && ATAOPTICALDRIVES=""
-if [ -e /proc/ide ];then
- for ONEIDE in `ls -1 /proc/ide | grep '^hd'`
- do
-  ALLDRVS="${ALLDRVS}${ONEIDE} "
-  if [ "`cat /proc/ide/${ONEIDE}/media`" = "cdrom" ];then
-   ATAOPTICALDRIVES="${ATAOPTICALDRIVES}${ONEIDE} "
-  else
-   ATADRIVES="${ATADRIVES}${ONEIDE} "
-  fi
- done
- ALLDRVS0="`echo -n "$ALLDRVS" | tr ' ' '\n'`"
-fi
-ATADRIVES0="`echo -n "$ATADRIVES" | tr ' ' '\n'`"
-touch /tmp/ATADRIVES0 #110509 fix for LF only messes up grep later.
-[ "$ATADRIVES" ] && echo "$ATADRIVES0" > /tmp/ATADRIVES0 #110205 broken busybox grep -F. 110509
-ATAOPTICALDRIVES0="`echo -n "$ATAOPTICALDRIVES" | tr ' ' '\n'`"
-touch /tmp/ALLDRVS0
-[ "$ALLDRVS" ] && echo "$ALLDRVS0" > /tmp/ALLDRVS0 #all drives *except* usb.
-
-PCPARTSALL="`probepart_init -k`"
-PCPARTS0="`echo "$PCPARTSALL" | grep '^/dev/' | cut -f 1-2 -d '|'  | grep -E 'xfs|jfs|btrfs|f2fs|udf|iso9660|ext2|ext3|ext4|reiserfs|msdos|vfat|minix|ntfs' | sed -e 's%/dev/%%'`" #ex: sda1|vfat 130128 add udf. 130216 add f2fs.
-LESSPARTS0="$PCPARTS0"
-#120328 could have iso9660 f.s. booting off a non-optical drive (see BootFlash). exclude /dev/mmc ...
-OPTICALDRIVES0="`echo "$PCPARTS0" | grep -E 'iso9660|udf' | grep -v '^mmc' | cut -f 1 -d '|'`" #ex: sr0  130128 add udf.
-touch /tmp/OPTICALDRIVES0 #110509 fix for using with grep.
-[ "$OPTICALDRIVES0" ] && echo "$OPTICALDRIVES0" > /tmp/OPTICALDRIVES0 #110509 fix
-
-echo "ALLDRVS=$ALLDRVS " >> /tmp/puppy-file-search.log #for debugging.
-
-if [ "`lsmod | grep -E '^uhci|^ohci|^ehci'`" ];then
- /sbin/wait4usb_classic & #110425
-else
- /sbin/wait4usb & #110710 kernel has builtin hid and usb drivers, and without or with my usb-storage patch.
-fi
-
-check_status 0 #END STEP ONE
-##############END MODULE LOADING TO ACCESS DRIVES####################
 
 #######################FINDING PUPPY FILES###########################
 echo -n "           :Searching for Puppy files..." >/dev/console #STEP TWO
@@ -2059,7 +2079,7 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
    fi
 
    if [ "$KILOBIG" ]; then
-	(
+    (
     echo
     echo -n "Increasing $PUPSAVEFILE by $KILOBIG Kbytes, please wait..." ) >/dev/console
     dd if=/dev/zero bs=1024 count=$KILOBIG >> /mnt/dev_save$PUPSAVEFILE
