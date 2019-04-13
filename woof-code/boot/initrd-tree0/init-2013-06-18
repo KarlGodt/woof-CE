@@ -158,8 +158,8 @@
 set -n
 
 PATH="/bin:/sbin"
-KERNELVER="`uname -r`"
 
+KERNELNAME='vmlinuz'
 
 # some user definable variables
 # MINRAMSIZE2COPY* should be higher than PUPXXXSFS * 2, since it makes sense only to demand more RAM as minimum needed
@@ -182,113 +182,7 @@ DEVTMPFSFLG=0 #130618 set it from 3builddistro.
 
 PUPDESKFLG=1 #130515 this may be changed to 0 by 3builddistro.
 
-. /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
-[ ! "$DISTRO_DB_SUBNAME" ] && DISTRO_DB_SUBNAME="$DISTRO_COMPAT_VERSION" #121102 fallback if DISTRO_DB_SUBNAME not defined in file DISTRO_SPECS.
 
-#100911 simple filenames specified in DISTRO_SPECS: DISTRO_ZDRVSFS, DISTRO_PUPPYSFS...
-ZDRVSFS="$DISTRO_ZDRVSFS"
-#w020 compose name of 'zdrv', to fit 8+3 filename...
-PREFIX1CHAR="`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`"
-KERNEL3CHARS="`echo -n "$KERNELVER" | tr -d '.' | tr -d '\-' | tr -d '[a-z]' | rev | cut -c 1,2,3 | rev`"
-[ "$ZDRVSFS" ] || ZDRVSFS="z${PREFIX1CHAR}${DISTRO_VERSION}${KERNEL3CHARS}.sfs"
-PUPXXXSFS="$DISTRO_PUPPYSFS"
-[ "$PUPXXXSFS" ] || PUPXXXSFS="${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs"  #before September 2010
-#DEVXSFS="$DISTRO_DEVXSFS"
-IDSTRING="$DISTRO_IDSTRING" #from DISTRO_SPECS, string appended to kernel.qky, vmlinuz, puppy.sfs, zdrv.sfs, devx.sfs (see 3builddistro).
-#[ "`echo "$PUPXXXSFS" | grep '_[0-9][0-9][0-9]\.sfs'`" ] && NAMETYPE='traditional' #has version info.
-[ "`echo "$PUPXXXSFS" | grep '[0-9]\.sfs'`" ] && NAMETYPE='traditional' #110422 has version info.
-
-#does this initrd have all the zdrv components inside it?...
-ZDRVINIT='no'
-[ -d /lib/modules/$KERNELVER ] || mkdir -p /lib/modules/$KERNELVER
-[ -x /bin/depmod ] && depmod
-if [ -f /lib/modules/$KERNELVER/modules.dep ]; then
-[ `cat /lib/modules/$KERNELVER/modules.dep  | wc -l` -gt 200 ] && ZDRVINIT='yes'
-else
-touch /lib/modules/$KERNELVER/modules.dep
-fi
-
-
-# pupmode=NUMBER parameter to force PUPMODE ie 13 on hd install
-[ $pmode ]    && FPUPMODE=$pmode
-[ $pupmode ]  && FPUPMODE=$pupmode
-[ $ppupmode ] && FPUPMODE=$ppupmode
-
-#pmedia= usbflash|usbhd|usbcd|ataflash|atahd|atacd|atazip|scsihd|scsicd|cd
-[ "$pmedia" ]  && PMEDIA="$pmedia"   #boot parameter, broad category of boot media. ex: cd.
-#for backwards naming compatibility... ex: idehd becomes atahd 101021: atacd,scsicd,usbcd to become just cd...
-PMEDIA="`echo -n "$PMEDIA" | sed -e 's%ide%ata%' -e 's%sata%ata%' -e 's%.*cd$%cd%'`"
-
-[ "$pdev1" ]   && PDEV1="$pdev1"     #boot parameter, partition have booted off. ex: hda3
-[ "$PDEV1" ]   && PDEV1=`basename "$PDEV1"`
-
-[ "$psubdir" ] && PSUBDIR="$psubdir" #boot parameter, directory for puppy files. ex: puppy220
-#[ "$PSUBDIR" ] && [ "`echo -n "$PSUBDIR" | cut -c 1`" != "/" ] && PSUBDIR="/${PSUBDIR}" #add leading /.
-[ "$PSUBDIR" ] && PSUBDIR=`echo "/${PSUBDIR}" | tr -s '/'` #add leading /.
-[ "$psavemark" ] && PSAVEMARK="$psavemark" #100913 partition number that has/will-have save-file.
-
-#100915 requested by technosaurus (formats get changed further down)...
-[ "$pupsfs" ] && PUPSFS="$pupsfs" #format partition:<path><filename> ex: sda2:/wary071/wary_071.sfs
-[ "$zdrv" ]   && ZDRV="$zdrv"     #ex: sda2:/wary071/zdrv_071.sfs
-
-[ "$underdog" ] && UNDERDOG="$underdog" #120130 specify partition for Underdog Linux (refer also underdog.lnx).
-[ "$pkeys" ]   && PKEYS="$pkeys"     #boot parameter, keyboard layout w476
-
-#now supporting a boot menu...
-RDSH=""
-if [ "$pfix" ];then
- for ONEFIX in `echo -n "$pfix" | tr ',' ' '`
- do
-  case $ONEFIX in
-   ram)     PRAMONLY="yes";;      #run in ram only (do not load ${DISTRO_FILE_PREFIX}save).
-   rdsh)    RDSH="yes";;          #exit to shell in initial ramdisk.
-   rdsh0)   RDSH="0";;            #drop out early, before loading drivers.
-   rdsh6)   RDSH="6";;            #w091027 drop out just before mount layerfs.
-   nox)     PNOX="yes";;          #do not start X.
-   clean)   PCLEAN="yes";;        #force version upgrade and cleanup.
-   purge)   PPURGE="yes";;        #radical cleanup for broken system.
-   copy)    PCOPY="yes";;         #copy .sfs files into ram.
-   nocopy)  PNOCOPY="yes";;        #do not copy .sfs files into ram (default is copy if enough ram).
-   fsck)    PFSCK="yes";;         #do a fsck of ${DISTRO_FILE_PREFIX}save file.
-   [0-9]*)  PIGNORELAST=$ONEFIX;; #blacklist last $ONEFIX folders (multisession).
-  esac
- done
-fi
-
-
-_parse_pupsfs(){
-for oneSFS in "$PUPSFS" "$ADRV" "$YDRV" "$ZDRV"
-do
- [ "$oneSFS" ] || continue
-  DEV="`echo "$oneSFS" | cut -f 1 -d ':'`"
- SPEC="`echo "$oneSFS" | cut -f 2 -d ':'`"
-   FS="`echo "$PCPARTS0" | grep "${DEV}|" | cut -f 2 -d '|'`"
- case "$SPEC" in
- *adrv*) ADRVSFS="`basename $SPEC`";   ADRV="${DEV},${FS},${SPEC}"
-               [ -f /${ADRVSFS} ] &&   ADRV="rootfs,rootfs,/${ADRVSFS}";;
- *ydrv*) YDRVSFS="`basename $SPEC`";   YDRV="${DEV},${FS},${SPEC}"
-               [ -f /${YDRVSFS} ] &&   YDRV="rootfs,rootfs,/${YDRVSFS}";;
- *zdrv*) ZDRVSFS="`basename $SPEC`";   ZDRV="${DEV},${FS},${SPEC}"
-               [ -f /${ZDRVSFS} ] &&   ZDRV="rootfs,rootfs,/${ZDRVSFS}";;
- *)    PUPXXXSFS="`basename $SPEC`"; PUPSFS="${DEV},${FS},${SPEC}"
-             [ -f /${PUPXXXSFS} ] && PUPSFS="rootfs,rootfs,/${PUPXXXSFS}"
-      LESSPARTS0="${DEV}|${FS}"
-      [ "$PSUBDIR" = "" ]  && PSUBDIR="${SPEC%/*}"
-      [ "$PSUBDIR" = "/" ] && PSUBDIR=""
-      ;;#110425
- esac
-done
-unset oneSFS
-
-#first look inside initrd...
-[ -f /${PUPXXXSFS} ] && PUPSFS="rootfs,rootfs,/${PUPXXXSFS}"
-[ -f /${ZDRVSFS} ]   && ZDRV="rootfs,rootfs,/${ZDRVSFS}"
-#[ -f /${DEVXSFS} ]   && DEVX="rootfs,rootfs,/${DEVXSFS}"
-}
-
-
-
-#/bin/hotplug2stdout_notimeout > /tmp/pup_event_uevents_initrd &
 
 reset_status(){ STATUS='';STATUSA=''; }
 
@@ -576,10 +470,12 @@ STATUS=$?
 return $STATUS
 }
 
+
+
 #120215 internationalize... (based on work by L18L)
 if [ ! $1 ];then
 
-    _parse_pupsfs
+    #_parse_pupsfs # needs PCPARTS0 variable
 
     mount -t rootfs -o remount,rw /dev/root / || mount -t rootfs -o remount,rw rootfs /
     if [ -f /proc/mounts ]; then
@@ -615,6 +511,7 @@ else #2nd entry, running /init$PLANG
 fi
 
 export LANG=C #w004
+#/bin/hotplug2stdout_notimeout > /tmp/pup_event_uevents_initrd &
 
 # Karl Godt: add debugging variables to commands like grep
 unset Q QUIET S SILENT
@@ -622,7 +519,7 @@ VERB=-v; L_VERB=--verbose
 [ $loglevel ] && LOGLEVEL=$loglevel #v2.22
 #clear #clear the screen.
 [ -d /tmp ] || mkdir /tmp
-[ ! "$LOGLEVEL" ] && {
+[ "$LOGLEVEL" ] || {
     # Karl Godt: add debugging variables to commands like grep
     Q=-q; QUIET=--quiet; S=-s; SILENT=--silent; VERB=''; L_VERB=''
     exec 1>/tmp/bootinit.log 2>&1 #remove o/p to console. v2.22 loglevel added.
@@ -630,8 +527,140 @@ VERB=-v; L_VERB=--verbose
 readonly Q QUIET S SILENT VERB L_VERB
 
 
-#clear #clear the screen.
-#[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootinit.log 2>&1 #remove o/p from console. v2.22 loglevel added.
+. /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
+[ "$DISTRO_DB_SUBNAME" ] || DISTRO_DB_SUBNAME="$DISTRO_COMPAT_VERSION" #121102 fallback if DISTRO_DB_SUBNAME not defined in file DISTRO_SPECS.
+
+KERNELVER="`uname -r`"
+
+#100911 simple filenames specified in DISTRO_SPECS: DISTRO_ZDRVSFS, DISTRO_PUPPYSFS...
+ZDRVSFS="$DISTRO_ZDRVSFS"
+#w020 compose name of 'zdrv', to fit 8+3 filename...
+PREFIX1CHAR="`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`"
+KERNEL3CHARS="`echo -n "$KERNELVER" | tr -d '.' | tr -d '\-' | tr -d '[a-z]' | rev | cut -c 1,2,3 | rev`"
+[ "$ZDRVSFS" ] || ZDRVSFS="z${PREFIX1CHAR}${DISTRO_VERSION}${KERNEL3CHARS}.sfs"
+PUPXXXSFS="$DISTRO_PUPPYSFS"
+[ "$PUPXXXSFS" ] || PUPXXXSFS="${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs"  #before September 2010
+#DEVXSFS="$DISTRO_DEVXSFS"
+IDSTRING="$DISTRO_IDSTRING" #from DISTRO_SPECS, string appended to kernel.qky, vmlinuz, puppy.sfs, zdrv.sfs, devx.sfs (see 3builddistro).
+#[ "`echo "$PUPXXXSFS" | grep '_[0-9][0-9][0-9]\.sfs'`" ] && NAMETYPE='traditional' #has version info.
+[ "`echo "$PUPXXXSFS" | grep '[0-9]\.sfs'`" ] && NAMETYPE='traditional' #110422 has version info.
+
+#does this initrd have all the zdrv components inside it?...
+ZDRVINIT='no'
+[ -d /lib/modules/$KERNELVER ] || mkdir -p /lib/modules/$KERNELVER
+[ -x /bin/depmod ] && depmod
+if [ -f /lib/modules/$KERNELVER/modules.dep ]; then
+[ `cat /lib/modules/$KERNELVER/modules.dep  | wc -l` -gt 200 ] && ZDRVINIT='yes'
+else
+touch /lib/modules/$KERNELVER/modules.dep
+fi
+
+
+# pupmode=NUMBER parameter to force PUPMODE ie 13 on hd install
+[ $pmode ]    && FPUPMODE=$pmode
+[ $pupmode ]  && FPUPMODE=$pupmode
+[ $ppupmode ] && FPUPMODE=$ppupmode
+
+#pmedia= usbflash|usbhd|usbcd|ataflash|atahd|atacd|atazip|scsihd|scsicd|cd
+[ "$pmedia" ]  && PMEDIA="$pmedia"   #boot parameter, broad category of boot media. ex: cd.
+#for backwards naming compatibility... ex: idehd becomes atahd 101021: atacd,scsicd,usbcd to become just cd...
+PMEDIA="`echo -n "$PMEDIA" | sed -e 's%ide%ata%' -e 's%sata%ata%' -e 's%.*cd$%cd%'`"
+
+[ "$pdev1" ]   && PDEV1="$pdev1"     #boot parameter, partition have booted off. ex: hda3
+[ "$PDEV1" ]   && PDEV1=`basename "$PDEV1"`
+
+[ "$psubdir" ] && PSUBDIR="$psubdir" #boot parameter, directory for puppy files. ex: puppy220
+#[ "$PSUBDIR" ] && [ "`echo -n "$PSUBDIR" | cut -c 1`" != "/" ] && PSUBDIR="/${PSUBDIR}" #add leading /.
+[ "$PSUBDIR" ] && PSUBDIR=`echo "/${PSUBDIR}" | tr -s '/'` #add leading /.
+[ "$psavemark" ] && PSAVEMARK="$psavemark" #100913 partition number that has/will-have save-file.
+
+#100915 requested by technosaurus (formats get changed further down)...
+[ "$pupsfs" ] && PUPSFS="$pupsfs" #format partition:<path><filename> ex: sda2:/wary071/wary_071.sfs
+[ "$zdrv" ]   && ZDRV="$zdrv"     #ex: sda2:/wary071/zdrv_071.sfs
+
+[ "$underdog" ] && UNDERDOG="$underdog" #120130 specify partition for Underdog Linux (refer also underdog.lnx).
+[ "$pkeys" ]   && PKEYS="$pkeys"     #boot parameter, keyboard layout w476
+
+#now supporting a boot menu...
+RDSH=""
+if [ "$pfix" ];then
+ for ONEFIX in `echo -n "$pfix" | tr ',' ' '`
+ do
+  case $ONEFIX in
+   ram)     PRAMONLY="yes";;      #run in ram only (do not load ${DISTRO_FILE_PREFIX}save).
+   rdsh)    RDSH="yes";;          #exit to shell in initial ramdisk.
+   rdsh0)   RDSH="0";;            #drop out early, before loading drivers.
+   rdsh6)   RDSH="6";;            #w091027 drop out just before mount layerfs.
+   nox)     PNOX="yes";;          #do not start X.
+   clean)   PCLEAN="yes";;        #force version upgrade and cleanup.
+   purge)   PPURGE="yes";;        #radical cleanup for broken system.
+   copy)    PCOPY="yes";;         #copy .sfs files into ram.
+   nocopy)  PNOCOPY="yes";;        #do not copy .sfs files into ram (default is copy if enough ram).
+   fsck)    PFSCK="yes";;         #do a fsck of ${DISTRO_FILE_PREFIX}save file.
+   [0-9]*)  PIGNORELAST=$ONEFIX;; #blacklist last $ONEFIX folders (multisession).
+  esac
+ done
+fi
+
+
+
+__parse_pupsfs__(){
+#100915 technosaurus recommendation (see above)...
+if [ "$PUPSFS" ];then
+  DEV="`echo "$PUPSFS" | cut -f 1 -d ':'`"
+ SPEC="`echo "$PUPSFS" | cut -f 2 -d ':'`"
+   FS="`echo "$PCPARTS0" | grep "${DEV}|" | cut -f 2 -d '|'`"
+ PUPXXXSFS="`basename $SPEC`"
+ [ "$PSUBDIR" = "" ]  && PSUBDIR="`dirname $SPEC`"
+ [ "$PSUBDIR" = "/" ] && PSUBDIR=""
+ PUPSFS="${DEV},${FS},${SPEC}"
+ LESSPARTS0="${DEV}|${FS}" #110425
+fi
+if [ "$ZDRV" ];then
+  DEV="`echo "$ZDRV" | cut -f 1 -d ':'`"
+ SPEC="`echo "$ZDRV" | cut -f 2 -d ':'`"
+   FS="`echo "$PCPARTS0" | grep "${DEV}|" | cut -f 2 -d '|'`"
+ ZDRVSFS="`basename $SPEC`"
+ ZDRV="${DEV},${FS},${SPEC}"
+fi
+
+#first look inside initrd...
+[ -f /${PUPXXXSFS} ] && PUPSFS="rootfs,rootfs,/${PUPXXXSFS}"
+[ -f /${ZDRVSFS} ] && ZDRV="rootfs,rootfs,/${ZDRVSFS}"
+#[ -f /${DEVXSFS} ] && DEVX="rootfs,rootfs,/${DEVXSFS}"
+}
+
+_parse_pupsfs(){
+for oneSFS in "$PUPSFS" "$ADRV" "$YDRV" "$ZDRV"
+do
+ [ "$oneSFS" ] || continue
+  DEV="`echo "$oneSFS" | cut -f 1 -d ':'`"
+ SPEC="`echo "$oneSFS" | cut -f 2 -d ':'`"
+   FS="`echo "$PCPARTS0" | grep "${DEV}|" | cut -f 2 -d '|'`"
+ case "$SPEC" in
+ *adrv*) ADRVSFS="`basename $SPEC`";   ADRV="${DEV},${FS},${SPEC}"
+               [ -f /${ADRVSFS} ] &&   ADRV="rootfs,rootfs,/${ADRVSFS}";;
+ *ydrv*) YDRVSFS="`basename $SPEC`";   YDRV="${DEV},${FS},${SPEC}"
+               [ -f /${YDRVSFS} ] &&   YDRV="rootfs,rootfs,/${YDRVSFS}";;
+ *zdrv*) ZDRVSFS="`basename $SPEC`";   ZDRV="${DEV},${FS},${SPEC}"
+               [ -f /${ZDRVSFS} ] &&   ZDRV="rootfs,rootfs,/${ZDRVSFS}";;
+ *)    PUPXXXSFS="`basename $SPEC`"; PUPSFS="${DEV},${FS},${SPEC}"
+             [ -f /${PUPXXXSFS} ] && PUPSFS="rootfs,rootfs,/${PUPXXXSFS}"
+      LESSPARTS0="${DEV}|${FS}"
+      [ "$PSUBDIR" = "" ]  && PSUBDIR="${SPEC%/*}"
+      [ "$PSUBDIR" = "/" ] && PSUBDIR=""
+      ;;#110425
+ esac
+done
+unset oneSFS
+
+#first look inside initrd...
+[ -f /${PUPXXXSFS} ] && PUPSFS="rootfs,rootfs,/${PUPXXXSFS}"
+[ -f /${ZDRVSFS} ]   && ZDRV="rootfs,rootfs,/${ZDRVSFS}"
+#[ -f /${DEVXSFS} ]   && DEVX="rootfs,rootfs,/${DEVXSFS}"
+}
+
+
 
 export TZ='XXX-23' #100318 imaginary place right around the world east of Greenwich.
 #...i think that this will give the most delayed time, so any file operations
@@ -776,16 +805,15 @@ else
  /sbin/wait4usb & #110710 kernel has builtin hid and usb drivers, and without or with my usb-storage patch.
 fi
 
+_parse_pupsfs
+
 check_status 0 #END STEP ONE
 ##############END MODULE LOADING TO ACCESS DRIVES####################
 
 
 #100318 perform a f.s. check...
 fsckme_func(){ #passed params: partition filesystem [pupsavefile]
- #if [ ! -e /bin/e2fsck ];then #111120
- # echo -en "\\033[1;31m SORRY, cannot check filesystem \\033[0;39m" >/dev/console #31=red
- # return
- #fi
+ 
  case $2 in
   ext2|ext3|ext4)
    if [ ! -e /bin/e2fsck ];then #111120
@@ -835,7 +863,10 @@ test "$*" || return 1
  MNT_O=""
  [ $4 ] && MNT_O="${4}" #ex: noatime
 
- grep $Q " $MNT_DIR " /proc/mounts && { echo "NOTICE:$* already mounted"; return 0; }
+ case $MNT_O in *remount*) :;;
+ *) grep $Q " $MNT_DIR " /proc/mounts && { echo "NOTICE:$* already mounted"; return 0; }
+ ;; esac
+ 
  [ -d "$MNT_DIR" ] || mkdir -p "$MNT_DIR"
 
  case $MNT_T in
@@ -859,10 +890,10 @@ test "$*" || return 1
    mount -t $MNT_T -o $VFAT_OUT_PARAM $MNT_DEV $MNT_DIR
   ;;
   *)
-   if [ "$MNT_O" = "" ];then
-    mount -t $MNT_T $MNT_DEV $MNT_DIR
-   else
+   if [ "$MNT_O" ];then
     mount -t $MNT_T -o $MNT_O $MNT_DEV $MNT_DIR
+   else
+    mount -t $MNT_T $MNT_DEV $MNT_DIR
    fi
   ;;
  esac
@@ -878,10 +909,10 @@ test "$*" || return 1
  test -d "$MNT_DIR" || return 0
  mount | grep $Q " on $MNT_DIR type " || return 0 # not mounted
 
- if [ "`mount | grep " on $MNT_DIR type " | grep -E 'ntfs|fuse'`" = "" ];then
-  umount $@
- else
+ if [ "`mount | grep " on $MNT_DIR type " | grep -E 'ntfs|fuse'`" ];then
   fusermount -u $MNT_DIR
+ else
+  umount $@
  fi
  return $?
 }
@@ -964,6 +995,7 @@ search_func(){ #110425
   echo -en '\r'"$ONEDEV " ) >/dev/console
 
   #v403 nasty bug: usb optical drive showing as /sys/block/sr0, but won't mount, needs more delay...
+  umnt_func /mnt/$ONEDEV # might still be mounted somehow
   #mnt_func $ONEFS /dev/$ONEDEV /mnt/data ro #-t $ONEFS /dev/$ONEDEV /mnt/data
   mnt_func $ONEFS /dev/$ONEDEV /mnt/$ONEDEV ro
   if [ $? -ne 0 ];then
@@ -974,7 +1006,7 @@ search_func(){ #110425
    mnt_func $ONEFS /dev/$ONEDEV /mnt/$ONEDEV ro
    if [ $? -ne 0 ];then
     echo "RETRY FAILED: mounting /dev/${ONEDEV}, ${ONEFS} f.s." #101005
-    umnt_func /mnt/$ONEDEV
+    #umnt_func /mnt/$ONEDEV # might have been still mounted somehow
     continue
    fi
   fi
@@ -1130,6 +1162,8 @@ search_func(){ #110425
 
     done
    fi
+   
+   [ "$PSUBDIR" ] && SEARCHDEPTH=1
 
    if [ "$ZDRV" = "" ];then
     FND_FILES="`find /mnt/${ONEDEV}${PSUBDIR} -maxdepth ${SEARCHDEPTH} -xdev -type f -iname ${ZDRVSFS} | sed -e "s%^/mnt/$ONEDEV%%"`"
@@ -1158,10 +1192,10 @@ search_func(){ #110425
    if [ "$SAVEPART" = "$ONEDEV" ];then
     if [ "$PSUBDIR" ];then
      #look in same subdir, then in '/' (maxdepth=1)...
-     [ -d /mnt/${ONEDEV}${PSUBDIR} ] && FND_PUPSAVES="`find /mnt/${ONEDEV}${PSUBDIR} -maxdepth 1              -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | sed -e "s%^/mnt/$ONEDEV%%"`"
-       [ "$FND_PUPSAVES" ] || FND_PUPSAVES="`find /mnt/$ONEDEV           -maxdepth 1              -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | sed -e "s%^/mnt/$ONEDEV%%"`"
+     [ -d /mnt/${ONEDEV}${PSUBDIR} ] && FND_PUPSAVES="`find /mnt/${ONEDEV}${PSUBDIR} -maxdepth 1  -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | sed -e "s%^/mnt/$ONEDEV%%"`"
+                 [ "$FND_PUPSAVES" ] || FND_PUPSAVES="`find /mnt/$ONEDEV             -maxdepth 1  -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | sed -e "s%^/mnt/$ONEDEV%%"`"
     else
-                                   FND_PUPSAVES="`find /mnt/$ONEDEV           -maxdepth ${SEARCHDEPTH} -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | sed -e "s%^/mnt/$ONEDEV%%"`"
+                                        FND_PUPSAVES="`find /mnt/$ONEDEV -maxdepth ${SEARCHDEPTH} -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | sed -e "s%^/mnt/$ONEDEV%%"`"
      [ -f /mnt/$ONEDEV/etc/rc.d/PUPSTATE ] && DEV2PUP="${ONEDEV}|${ONEFS}" #full save to different partition than boot. 100919 101103 ignore if installed in a subdir.
     fi
     #echo -e "$ONEDEV:\\n""$FND_PUPSAVES""\\n" >>/tmp/pupsave-file-search2.log
@@ -1169,10 +1203,10 @@ search_func(){ #110425
   else #101020
    if [ "$PSUBDIR" ];then
     #look in same subdir, then in '/' (maxdepth=1)...
-    [ -d /mnt/${ONEDEV}${PSUBDIR} ] && FND_PUPSAVES="`find /mnt/${ONEDEV}${PSUBDIR} -maxdepth 1              -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | sed -e "s%^/mnt/$ONEDEV%%"`"
-      [ "$FND_PUPSAVES" ] || FND_PUPSAVES="`find /mnt/$ONEDEV           -maxdepth 1              -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | sed -e "s%^/mnt/$ONEDEV%%"`"
+    [ -d /mnt/${ONEDEV}${PSUBDIR} ] && FND_PUPSAVES="`find /mnt/${ONEDEV}${PSUBDIR} -maxdepth 1  -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | sed -e "s%^/mnt/$ONEDEV%%"`"
+                [ "$FND_PUPSAVES" ] || FND_PUPSAVES="`find /mnt/$ONEDEV             -maxdepth 1  -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | sed -e "s%^/mnt/$ONEDEV%%"`"
    else
-                                  FND_PUPSAVES="`find /mnt/$ONEDEV           -maxdepth ${SEARCHDEPTH} -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | sed -e "s%^/mnt/$ONEDEV%%"`"
+                                       FND_PUPSAVES="`find /mnt/$ONEDEV -maxdepth ${SEARCHDEPTH} -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | sed -e "s%^/mnt/$ONEDEV%%"`"
    fi
    #echo -e "$ONEDEV:\\n""$FND_PUPSAVES""\\n" >>/tmp/pupsave-file-search2.log
   fi
@@ -1202,7 +1236,7 @@ LESSPARTS=${LESSPARTS}" > /tmp/ERRORUSBSCAN
 
   echo -e "$ONEDEV:\\n""$FND_PUPSAVES""\\n" >>/tmp/pupsave-file-search2.log
   #[ "$FND_PUPSAVES" ] && echo "$ONEDEV $ONEFS $FND_PUPSAVES" >> /tmp/PUPSAVES
-  [ "$FND_PUPSAVES" ] && echo "$FND_PUPSAVES" | sed "s%^%$ONEDEV,$ONEFS,%" >>/tmp/PUPSAVES
+   [ "$FND_PUPSAVES" ] && echo "$FND_PUPSAVES" | sed "s%^%$ONEDEV,$ONEFS,%" >>/tmp/PUPSAVES
 
  __out_with_pupdeskflg__(){
   #130513 if we find a rw f.s., create pupdesk.flg. only needed in PUPMODE=5, see /usr/sbin/quicksetup.
@@ -1254,33 +1288,6 @@ echo -n "           :Searching for Puppy files..." >/dev/console #STEP TWO
 
 PUPMODE=0
 touch /tmp/PUPSAVES
-KERNELNAME='vmlinuz'
-
-__parse_pupsfs__(){
-#100915 technosaurus recommendation (see above)...
-if [ "$PUPSFS" ];then
- DEV="`echo "$PUPSFS" | cut -f 1 -d ':'`"
- FS="`echo "$PCPARTS0" | grep "${DEV}|" | cut -f 2 -d '|'`"
- SPEC="`echo -n "$PUPSFS" | cut -f 2 -d ':'`"
- PUPXXXSFS="`basename $SPEC`"
- [ "$PSUBDIR" = "" ]  && PSUBDIR="`dirname $SPEC`"
- [ "$PSUBDIR" = "/" ] && PSUBDIR=""
- PUPSFS="${DEV},${FS},${SPEC}"
- LESSPARTS0="${DEV}|${FS}" #110425
-fi
-if [ "$ZDRV" ];then
- DEV="`echo "$ZDRV" | cut -f 1 -d ':'`"
- FS="`echo "$PCPARTS0" | grep "${DEV}|" | cut -f 2 -d '|'`"
- SPEC="`echo -n "$ZDRV" | cut -f 2 -d ':'`"
- ZDRVSFS="`basename $SPEC`"
- ZDRV="${DEV},${FS},${SPEC}"
-fi
-
-#first look inside initrd...
-[ -f /${PUPXXXSFS} ] && PUPSFS="rootfs,rootfs,/${PUPXXXSFS}"
-[ -f /${ZDRVSFS} ] && ZDRV="rootfs,rootfs,/${ZDRVSFS}"
-#[ -f /${DEVXSFS} ] && DEVX="rootfs,rootfs,/${DEVXSFS}"
-}
 
 #search_func ata #110425
 _search_loop(){
