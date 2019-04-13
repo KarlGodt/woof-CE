@@ -1,4 +1,128 @@
-#!/bin/sh
+#!/bin/ash
+
+PARAM="$@"
+
+Q=-q # grep --quiet
+
+for p in $PARAM; do
+
+case $p in
+-v) VERB=-v; Q="";;
+-debug) DEBUG=1;;
+-l) DO_APP_LIST=1;;
+-h|*-help) echo "-v : Verbose, unset quiet"
+echo "-debug : Print variable substition messages"
+echo "-l : create app_list variable"
+exit 0
+esac
+
+done
+
+test "$VERB"  && PARAM=${PARAM//-v/}
+test "$DEBUG" && PARAM=${PARAM//-debug/}
+
+
+test -e ./busybox || { echo "busybox does not live here. Where can he be ?"; exit 4; }
+test -x ./busybox || { echo "busybox is not set executable. Does he not like you ?"; exit 5; }
+
+_create_links(){
+
+./busybox | while read line
+do
+
+case $line in
+*Currently*defined*functions:) :;;
+*) continue;;
+esac
+
+ while read line2
+ do
+ [ "$DEBUG" ] && echo $line2
+
+  for app in $line2
+  do
+  app=${app%,*}
+  [ "$DEBUG" ] && echo $app
+
+  if test "$PARAM"; then
+   if test -e $app; then
+    readlink $app | grep $Q busybox && rm $VERB $app
+   fi
+
+  else
+
+   if test ! -e $app; then
+    ln -s $VERB busybox $app
+   fi
+
+  fi
+
+  done
+
+ done
+
+done
+}
+
+__create_app_list(){
+
+rm -f /tmp/bb_app_list.lst
+
+./busybox | while read line
+do
+
+case $line in
+*Currently*defined*functions:) :;;
+*) continue;;
+esac
+
+ while read line2
+ do
+  for app in $line2
+  do
+  app=${app%,*}
+  echo $app >>/tmp/bb_app_list.lst
+  done
+ done
+done
+
+app_list=`cat /tmp/bb_app_list.lst | sort -u`
+}
+
+_create_app_list(){
+
+while read line
+do
+
+case $line in
+*Currently*defined*functions:) :;;
+*) continue;;
+esac
+
+ while read line2
+ do
+  for app in $line2
+  do
+  app=${app%,*}
+  app_list="${app_list}$app "
+  done
+ done
+done <<EoI
+`./busybox`
+EoI
+
+app_list=`echo $app_list`
+echo $app_list
+}
+
+if test "$DO_APP_LIST"; then
+_create_app_list
+else
+_create_links "$PARAM"
+fi
+
+
+__new_code__(){
 #130217 recompiled bb 1.21.0 with f2fs patch, in aboriginal uclibc f.s. (ref: input216).
 
 #compiled busybox statically in 'buildroot', snapshot on 8 nov. 2011
@@ -13,3 +137,4 @@ do
  ONEAPPLET="`echo -n "$ONEAPPLET" | tr -d "'"`" #'geany
  [ ! -e "$ONEAPPLET" ] && ln -s busybox "$ONEAPPLET"
 done
+}
