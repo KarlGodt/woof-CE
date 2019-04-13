@@ -155,9 +155,9 @@
 #Normal running puppy:      pup_save.3fs                  pup_xxx.sfs      12
 #ditto, but flash drive:    tmpfs         pup_save.3fs    pup_xxx.sfs      13
 #Multisession cd/dvd:       tmpfs         folders(tmpfs2) pup_xxx.sfs      77 (13+64)
+PATH="/bin:/sbin"
 
 set -n
-
 
 PUPDESKFLG=1 #130515 this may be changed to 0 by 3builddistro.
 
@@ -168,73 +168,6 @@ DEVTMPFSFLG=0 #130618 set it from 3builddistro.
 KERNELNAME='vmlinuz'
 
 
-PATH="/bin:/sbin"
-KERNELVER="`uname -r`"
-
-
-. /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
-[ "$DISTRO_DB_SUBNAME" ] || DISTRO_DB_SUBNAME="$DISTRO_COMPAT_VERSION" #121102 fallback if DISTRO_DB_SUBNAME not defined in file DISTRO_SPECS.
-
-#100911 simple filenames specified in DISTRO_SPECS: DISTRO_ZDRVSFS, DISTRO_PUPPYSFS...
-ZDRVSFS="$DISTRO_ZDRVSFS"
-PUPXXXSFS="$DISTRO_PUPPYSFS"
-#DEVXSFS="$DISTRO_DEVXSFS"
-IDSTRING="$DISTRO_IDSTRING" #from DISTRO_SPECS, string appended to kernel.qky, vmlinuz, puppy.sfs, zdrv.sfs, devx.sfs (see 3builddistro).
-#[ "`echo "$PUPXXXSFS" | grep '_[0-9][0-9][0-9]\.sfs'`" ] && NAMETYPE='traditional' #has version info.
-[ "`echo "$PUPXXXSFS" | grep '[0-9]\.sfs'`" ] && NAMETYPE='traditional' #110422 has version info.
-
-#100915 requested by technosaurus (formats get changed further down)...
-[ "$pupsfs" ] && PUPSFS="$pupsfs" #format partition:<path><filename> ex: sda2:/wary071/wary_071.sfs
-[ "$zdrv" ] && ZDRV="$zdrv" #ex: sda2:/wary071/zdrv_071.sfs
-
-
-[ $loglevel ] && LOGLEVEL=$loglevel #v2.22
-
-# done in _ass_layerfs
-#[ $layerfs ] && LAYERFS=$layerfs
-#[ $LAYERFS ] || LAYERFS=aufs #aufs or unionfs
-#[ "`modinfo aufs 2>/dev/null`" ] || LAYERFS=unionfs #precaution.
-
-[ "$pdev1" ]   && PDEV1="$pdev1"     #boot parameter, partition have booted off. ex: hda3
-[ "$psubdir" ] && PSUBDIR="$psubdir" #boot parameter, directory for puppy files. ex: puppy220
-[ "$PSUBDIR" ] && [ "`echo "$PSUBDIR" | cut -c 1`" != "/" ] && PSUBDIR="/${PSUBDIR}" #add leading /.
-
-#pmedia= usbflash|usbhd|usbcd|ataflash|atahd|atacd|atazip|scsihd|scsicd|cd
-[ "$pmedia" ]  && PMEDIA="$pmedia"   #boot parameter, broad category of boot media. ex: cd.
-#for backwards naming compatibility... ex: idehd becomes atahd 101021: atacd,scsicd,usbcd to become just cd...
-PMEDIA="`echo "$PMEDIA" | sed -e 's%ide%ata%' -e 's%sata%ata%' -e 's%.*cd$%cd%'`"
-
-[ "$psavemark" ] && PSAVEMARK="$psavemark" #100913 partition number that has/will-have save-file.
-
-[ "$underdog" ] && UNDERDOG="$underdog" #120130 specify partition for Underdog Linux (refer also underdog.lnx).
-
-#now supporting a boot menu...
-RDSH=""
-if [ "$pfix" ];then
- for ONEFIX in `echo "$pfix" | tr ',' ' '`
- do
-  case $ONEFIX in
-   ram)     PRAMONLY="yes";;      #run in ram only (do not load ${DISTRO_FILE_PREFIX}save).
-   rdsh)    RDSH="yes";;          #exit to shell in initial ramdisk.
-   rdsh0)   RDSH="0";;            #drop out early, before loading drivers.
-   rdsh6)   RDSH="6";;            #w091027 drop out just before mount layerfs.
-   nox)     PNOX="yes";;          #do not start X.
-   clean)   PCLEAN="yes";;        #force version upgrade and cleanup.
-   purge)   PPURGE="yes";;        #radical cleanup for broken system.
-   copy)    PCOPY="yes";;         #copy .sfs files into ram.
-   nocopy)  PNOCOPY="yes";;        #do not copy .sfs files into ram (default is copy if enough ram).
-   fsck)    PFSCK="yes";;         #do a fsck of ${DISTRO_FILE_PREFIX}save file.
-   [0-9]*)  PIGNORELAST=$ONEFIX;; #blacklist last $ONEFIX folders (multisession).
-  esac
- done
-fi
-
-[ "$pkeys" ]     && PKEYS="$pkeys"     #boot parameter, keyboard layout w476
-
-
-
-
-#/bin/hotplug2stdout_notimeout > /tmp/pup_event_uevents_initrd &
 
 check_status(){
   if [ $1 -eq 0 ]
@@ -432,6 +365,45 @@ test "$*" || return 1
  return $?
 }
 
+_do_devtmpfs(){
+# always use DEVTMPFS now.
+if grep $Q "[[:blank:]]\+devtmpfs$" /proc/filesystems; then
+DEVTMPFSFLG=1 #130618 set it from 3builddistro.
+ if grep $Q ' /dev ' /proc/mounts; then
+ DEVTMPFSFLG=2
+ elif [ "`which mdev`" -o "`which mknod`" ]; then
+  mount -t devtmpfs devtmpfs /dev
+  if [ $? = 0 ]; then
+   if [ "`which mdev`" ]; then
+    mdev -s
+   else
+     oldIFS="$IFS"
+     IFS=$'\n'
+     find /sys -type f -name uevent -perm 644 |
+     while read oneFILE
+     do
+     unset K MAJOR MINOR DEVPATH DEVNAME DEVTYPE DRIVER DEVICE PRODUCT TYPE BUSNUM DEVNUM INTERFACE MODALIAS DEVMODE
+     source "$oneFILE" 2>>$ERR  || continue
+     test "$MAJOR" -a "$MINOR"      || continue
+     test "$DEVNAME" && { test -e /dev/$DEVNAME && continue; } || { DEVNAME=${oneFILE%/uevent*}; DEVNAME=${DEVNAME##*/}; test -e /dev/$DEVNAME && continue; }
+     test "$DEVMODE" && DEVMODE=-m\ $DEVMODE
+     test -e /dev/$DEVPATH/$DEVNAME || {
+     test "$DEVTYPE" = disk -o "$DEVTYPE" = partition && K=b || K=c
+     test ${DEVNAME%/*} = $DEVNAME || { test -d /dev/$DEVPATH/${DEVNAME%/*} || mkdir $VERB -p /dev/$DEVPATH/${DEVNAME%/*}; }
+     mknod $DEVMODE /dev/$DEVPATH/$DEVNAME $K $MAJOR $MINOR
+      }
+     done
+     IFS="$oldIFS"
+   fi
+  else
+   DEVTMPFSFLG=0
+  fi
+ else
+  DEVTMPFSFLG=0
+ fi
+fi
+}
+
 _test_kernel_param_root(){
 
 if test "$root"; then
@@ -513,19 +485,22 @@ done
 #120215 internationalize... (based on work by L18L)
 if [ ! $1 ];then
 
+mount -t rootfs -o remount,rw /dev/root / || mount -t rootfs -o remount,rw rootfs /
+
 if [ -f /proc/mounts ]; then
       :
 else
- mnt_func  proc none /proc
- mnt_func sysfs none /sys
+ #mnt_func  proc none /proc # mnt_func needs /proc/mounts
+ #mnt_func sysfs none /sys
+ mount -t proc  none /proc
+ mount -t sysfs none /sys
 fi
+ln -sf /proc/mounts /etc/mtab #resize2fs,e2fsck need this.
 
  _export_proc_cmdline
+ _do_devtmpfs
  _test_kernel_param_root || exit 0
 
- mount -t rootfs -o remount,rw /dev/root / || mount -t rootfs -o remount,rw rootfs /
-
- ln -sf /proc/mounts /etc/mtab #resize2fs,e2fsck need this.
 
  [ $plang ] && PLANG=$plang #boot parameter
  [ "`echo "$PLANG" | grep '_'`" ] || PLANG="" #120222 PLANG must be complete, ex: de_DE.UTF-8.
@@ -549,11 +524,70 @@ else #2nd entry, running /init2
 fi
 
 export LANG=C #w004
+#/bin/hotplug2stdout_notimeout > /tmp/pup_event_uevents_initrd &
 
+[ $loglevel ] && LOGLEVEL=$loglevel #v2.22
 clear #clear the screen.
 [ "$LOGLEVEL" -ge 5 ] && exec 1>/tmp/bootinit.log 2>&1 #remove o/p from console. v2.22 loglevel added.
 
+. /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
+[ "$DISTRO_DB_SUBNAME" ] || DISTRO_DB_SUBNAME="$DISTRO_COMPAT_VERSION" #121102 fallback if DISTRO_DB_SUBNAME not defined in file DISTRO_SPECS.
 
+#100911 simple filenames specified in DISTRO_SPECS: DISTRO_ZDRVSFS, DISTRO_PUPPYSFS...
+ZDRVSFS="$DISTRO_ZDRVSFS"
+PUPXXXSFS="$DISTRO_PUPPYSFS"
+#DEVXSFS="$DISTRO_DEVXSFS"
+IDSTRING="$DISTRO_IDSTRING" #from DISTRO_SPECS, string appended to kernel.qky, vmlinuz, puppy.sfs, zdrv.sfs, devx.sfs (see 3builddistro).
+#[ "`echo "$PUPXXXSFS" | grep '_[0-9][0-9][0-9]\.sfs'`" ] && NAMETYPE='traditional' #has version info.
+[ "`echo "$PUPXXXSFS" | grep '[0-9]\.sfs'`" ] && NAMETYPE='traditional' #110422 has version info.
+
+#100915 requested by technosaurus (formats get changed further down)...
+[ "$pupsfs" ] && PUPSFS="$pupsfs" #format partition:<path><filename> ex: sda2:/wary071/wary_071.sfs
+[ "$zdrv" ] && ZDRV="$zdrv" #ex: sda2:/wary071/zdrv_071.sfs
+
+# done in _ass_layerfs
+#[ $layerfs ] && LAYERFS=$layerfs
+#[ $LAYERFS ] || LAYERFS=aufs #aufs or unionfs
+#[ "`modinfo aufs 2>/dev/null`" ] || LAYERFS=unionfs #precaution.
+
+[ "$pdev1" ]   && PDEV1="$pdev1"     #boot parameter, partition have booted off. ex: hda3
+[ "$psubdir" ] && PSUBDIR="$psubdir" #boot parameter, directory for puppy files. ex: puppy220
+[ "$PSUBDIR" ] && [ "`echo "$PSUBDIR" | cut -c 1`" != "/" ] && PSUBDIR="/${PSUBDIR}" #add leading /.
+
+#pmedia= usbflash|usbhd|usbcd|ataflash|atahd|atacd|atazip|scsihd|scsicd|cd
+[ "$pmedia" ]  && PMEDIA="$pmedia"   #boot parameter, broad category of boot media. ex: cd.
+#for backwards naming compatibility... ex: idehd becomes atahd 101021: atacd,scsicd,usbcd to become just cd...
+PMEDIA="`echo "$PMEDIA" | sed -e 's%ide%ata%' -e 's%sata%ata%' -e 's%.*cd$%cd%'`"
+
+[ "$psavemark" ] && PSAVEMARK="$psavemark" #100913 partition number that has/will-have save-file.
+
+[ "$underdog" ] && UNDERDOG="$underdog" #120130 specify partition for Underdog Linux (refer also underdog.lnx).
+
+#now supporting a boot menu...
+RDSH=""
+if [ "$pfix" ];then
+ for ONEFIX in `echo "$pfix" | tr ',' ' '`
+ do
+  case $ONEFIX in
+   ram)     PRAMONLY="yes";;      #run in ram only (do not load ${DISTRO_FILE_PREFIX}save).
+   rdsh)    RDSH="yes";;          #exit to shell in initial ramdisk.
+   rdsh0)   RDSH="0";;            #drop out early, before loading drivers.
+   rdsh6)   RDSH="6";;            #w091027 drop out just before mount layerfs.
+   nox)     PNOX="yes";;          #do not start X.
+   clean)   PCLEAN="yes";;        #force version upgrade and cleanup.
+   purge)   PPURGE="yes";;        #radical cleanup for broken system.
+   copy)    PCOPY="yes";;         #copy .sfs files into ram.
+   nocopy)  PNOCOPY="yes";;        #do not copy .sfs files into ram (default is copy if enough ram).
+   fsck)    PFSCK="yes";;         #do a fsck of ${DISTRO_FILE_PREFIX}save file.
+   [0-9]*)  PIGNORELAST=$ONEFIX;; #blacklist last $ONEFIX folders (multisession).
+  esac
+ done
+fi
+
+[ "$pkeys" ]     && PKEYS="$pkeys"     #boot parameter, keyboard layout w476
+
+
+KERNELVER="`uname -r`"
 #does this initrd have all the zdrv components inside it?...
 ZDRVINIT='no'
 if [ -f /lib/modules/$KERNELVER/modules.dep ]; then
@@ -563,45 +597,6 @@ else
 touch /lib/modules/$KERNELVER/modules.dep
 fi
 
-_do_devtmpfs(){
-# always use DEVTMPFS now.
-if grep $Q "[[:blank:]]\+devtmpfs$" /proc/filesystems; then
-DEVTMPFSFLG=1 #130618 set it from 3builddistro.
- if grep $Q ' /dev ' /proc/mounts; then
- DEVTMPFSFLG=2
- elif [ "`which mdev`" -o "`which mknod`" ]; then
-  mount -t devtmpfs devtmpfs /dev
-  if [ $? = 0 ]; then
-   if [ "`which mdev`" ]; then
-    mdev -s
-   else
-     oldIFS="$IFS"
-     IFS=$'\n'
-     find /sys -type f -name uevent -perm 644 |
-     while read oneFILE
-     do
-     unset K MAJOR MINOR DEVPATH DEVNAME DEVTYPE DRIVER DEVICE PRODUCT TYPE BUSNUM DEVNUM INTERFACE MODALIAS DEVMODE
-     source "$oneFILE" 2>>$ERR  || continue
-     test "$MAJOR" -a "$MINOR"      || continue
-     test "$DEVNAME" && { test -e /dev/$DEVNAME && continue; } || { DEVNAME=${oneFILE%/uevent*}; DEVNAME=${DEVNAME##*/}; test -e /dev/$DEVNAME && continue; }
-     test "$DEVMODE" && DEVMODE=-m\ $DEVMODE
-     test -e /dev/$DEVPATH/$DEVNAME || {
-     test "$DEVTYPE" = disk -o "$DEVTYPE" = partition && K=b || K=c
-     test ${DEVNAME%/*} = $DEVNAME || { test -d /dev/$DEVPATH/${DEVNAME%/*} || mkdir $VERB -p /dev/$DEVPATH/${DEVNAME%/*}; }
-     mknod $DEVMODE /dev/$DEVPATH/$DEVNAME $K $MAJOR $MINOR
-      }
-     done
-     IFS="$oldIFS"
-   fi
-  else
-   DEVTMPFSFLG=0
-  fi
- else
-  DEVTMPFSFLG=0
- fi
-fi
-}
-_do_devtmpfs
 
 
 export TZ='XXX-23' #100318 imaginary place right around the world east of Greenwich.
