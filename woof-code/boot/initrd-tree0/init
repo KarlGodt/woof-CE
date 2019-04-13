@@ -165,8 +165,6 @@ PUPDESKFLG=1 #130515 this may be changed to 0 by 3builddistro.
 DEVTMPFSFLG=0 #130618 set it from 3builddistro.
 
 
-#/bin/hotplug2stdout_notimeout > /tmp/pup_event_uevents_initrd &
-
 set -n
 
 
@@ -209,10 +207,11 @@ check_status(){
 
 #120215 internationalize... (based on work by L18L)
 if [ ! $1 ];then
- mount -t proc none /proc
+ mount -t proc  none /proc
  mount -t sysfs none /sys
  mount -t rootfs -o remount,rw rootfs /
  ln -s /proc/mounts /etc/mtab #resize2fs,e2fsck need this.
+
  [ $plang ] && PLANG=$plang #boot parameter
  [ "`echo -n "$PLANG" | grep '_'`" ] || PLANG="" #120222 PLANG must be complete, ex: de_DE.UTF-8.
  [ ! "$PLANG" ] && [ -f /PUPPYLANG ] && PLANG=`cat /PUPPYLANG` #so Woof can specify a default lang.
@@ -235,10 +234,15 @@ fi
 
 export LANG=C #w004
 
+[ $loglevel ] && LOGLEVEL=$loglevel #v2.22
+clear #clear the screen.
+[ "$LOGLEVEL" ] || exec 1>/tmp/bootinit.log 2>&1 #remove o/p from console. v2.22 loglevel added.
+
+#/bin/hotplug2stdout_notimeout > /tmp/pup_event_uevents_initrd &
 
 
 . /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
-[ ! "$DISTRO_DB_SUBNAME" ] && DISTRO_DB_SUBNAME="$DISTRO_COMPAT_VERSION" #121102 fallback if DISTRO_DB_SUBNAME not defined in file DISTRO_SPECS.
+[ "$DISTRO_DB_SUBNAME" ] || DISTRO_DB_SUBNAME="$DISTRO_COMPAT_VERSION" #121102 fallback if DISTRO_DB_SUBNAME not defined in file DISTRO_SPECS.
 
 #100911 simple filenames specified in DISTRO_SPECS: DISTRO_ZDRVSFS, DISTRO_PUPPYSFS...
 ZDRVSFS="$DISTRO_ZDRVSFS"
@@ -249,19 +253,18 @@ IDSTRING="$DISTRO_IDSTRING" #from DISTRO_SPECS, string appended to kernel.qky, v
 [ "`echo "$PUPXXXSFS" | grep '[0-9]\.sfs'`" ] && NAMETYPE='traditional' #110422 has version info.
 
 [ $layerfs ] && LAYERFS=$layerfs
-[ ! $LAYERFS ] && LAYERFS=aufs #aufs or unionfs
+[ $LAYERFS ] || LAYERFS=aufs #aufs or unionfs
 [ "`modinfo aufs 2>/dev/null`" ] || LAYERFS=unionfs #precaution.
-
-[ $loglevel ] && LOGLEVEL=$loglevel #v2.22
 
 #pmedia= usbflash|usbhd|usbcd|ataflash|atahd|atacd|atazip|scsihd|scsicd|cd
 [ $pmedia ] && PMEDIA=$pmedia #boot parameter, broad category of boot media. ex: cd.
-[ $pdev1 ] && PDEV1=$pdev1    #boot parameter, partition have booted off. ex: hda3
-[ $psubdir ] && PSUBDIR=$psubdir #boot parameter, directory for puppy files. ex: puppy220
-[ $pkeys ] && PKEYS=$pkeys #boot parameter, keyboard layout w476
-[ $psavemark ] && PSAVEMARK=$psavemark #100913 partition number that has/will-have save-file.
+#for backwards naming compatibility... ex: idehd becomes atahd 101021: atacd,scsicd,usbcd to become just cd...
+PMEDIA="`echo -n "$PMEDIA" | sed -e 's%ide%ata%' -e 's%sata%ata%' -e 's%.*cd$%cd%'`"
 
+[ $pdev1 ]   && PDEV1=$pdev1     #boot parameter, partition have booted off. ex: hda3
+[ $psubdir ] && PSUBDIR=$psubdir #boot parameter, directory for puppy files. ex: puppy220
 [ $PSUBDIR ] && [ "`echo -n "$PSUBDIR" | cut -c 1`" != "/" ] && PSUBDIR="/${PSUBDIR}" #add leading /.
+[ $psavemark ] && PSAVEMARK=$psavemark #100913 partition number that has/will-have save-file.
 
 #100915 requested by technosaurus (formats get changed further down)...
 [ $pupsfs ] && PUPSFS=$pupsfs #format partition:<path><filename> ex: sda2:/wary071/wary_071.sfs
@@ -290,14 +293,13 @@ if [ "$pfix" ];then
  done
 fi
 
-#for backwards naming compatibility... ex: idehd becomes atahd 101021: atacd,scsicd,usbcd to become just cd...
-PMEDIA="`echo -n "$PMEDIA" | sed -e 's%ide%ata%' -e 's%sata%ata%' -e 's%.*cd$%cd%'`"
-
+[ $pkeys ] && PKEYS=$pkeys #boot parameter, keyboard layout w476
 
 KERNELVER="`uname -r`"
-
-clear #clear the screen.
-[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootinit.log 2>&1 #remove o/p from console. v2.22 loglevel added.
+#does this initrd have all the zdrv components inside it?...
+ZDRVINIT='no'
+touch  /lib/modules/$KERNELVER/modules.dep
+[ `cat /lib/modules/$KERNELVER/modules.dep  | wc -l` -gt 200 ] && ZDRVINIT='yes'
 
 export TZ='XXX-23' #100318 imaginary place right around the world east of Greenwich.
 #...i think that this will give the most delayed time, so any file operations
@@ -306,10 +308,6 @@ export TZ='XXX-23' #100318 imaginary place right around the world east of Greenw
 #/bin/hwclock --hctosys --localtime #set system time (based on hw clock set to local time).
 #100427 crap, despite the help inside the hwclock applet, it doesn't accept long-options...
 /bin/hwclock -s -l #set system time (based on hw clock set to local time).
-
-#does this initrd have all the zdrv components inside it?...
-ZDRVINIT='no'
-[ `cat /lib/modules/$KERNELVER/modules.dep  | wc -l` -gt 200 ] && ZDRVINIT='yes'
 
 #120216 /PUPPYKEYMAP inserted in initrd by quicksetup (in future, by Woof too)...
 FONTMAP=""
@@ -385,7 +383,7 @@ fi
 echo -n "Loading drivers needed to access disk drives" >/dev/console #STEP ONE
 
 #100214 one config of 2.6.33 has base floppy and ps/2 mouse support not builtin...
-[ "`modinfo floppy 2>/dev/null`" ] && modprobe floppy
+[ "`modinfo floppy 2>/dev/null`" ]  && modprobe floppy
 [ "`modinfo psmouse 2>/dev/null`" ] && modprobe psmouse
 
 #w462 if present, load it. enables recognition of drives attached to parallel port.
@@ -400,6 +398,7 @@ if [ "`echo "$ELSPCI" | grep '060700'`" ];then
  echo -n "." >/dev/console
  sleep 2
 fi
+
 #v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid...
 [ "`echo "$ELSPCI" | grep '0C0320'`" ] && modprobe ehci-hcd
 
@@ -408,6 +407,17 @@ for ONEFSMOD in ext2 ext3 ext4 fat msdos vfat ntfs reiserfs udf f2fs
 do
  [ "`modinfo $ONEFSMOD 2>/dev/null`" ] && modprobe $ONEFSMOD
 done
+
+modprobe squashfs
+modprobe sr_mod #v3.93 now built-in to kernel.
+
+#filesystems...
+modprobe nls_cp437     #needed by windows filesystems.
+modprobe nls_iso8859-1 #needed by linux filesystems.
+#modprobe nls_utf8     #w007
+#modprobe nls_cp850    #w468 now default for fat f.s. (2.6.29.2 kernel)
+modprobe $LAYERFS      #unionfs or aufs.
+modprobe fuse          #for ntfs-3g driver.
 
 echo -n "." >/dev/console
 MODALIASES="`cat /sys/bus/pci/devices/*/modalias`" #important, save to variable before loop.
@@ -420,19 +430,7 @@ done
 #091222 some mmc/sd interfaces need this...
 #(above code loop may have loaded sdhci/sdhci_pci or tifm_core/tifm_7xx1)
 [ "`lsmod | grep '^sdhci'`" ] && modprobe mmc_core && modprobe mmc_block
-[ "`lsmod | grep '^tifm'`" ] && modprobe mmc_core && modprobe mmc_block && modprobe tifm_sd
-
-modprobe squashfs
-modprobe sr_mod #v3.93 now built-in to kernel.
-
-#filesystems...
-modprobe nls_cp437    #needed by windows filesystems.
-modprobe nls_iso8859-1 #needed by linux filesystems.
-#modprobe nls_utf8 #w007
-#modprobe nls_cp850 #w468 now default for fat f.s. (2.6.29.2 kernel)
-modprobe $LAYERFS #unionfs or aufs.
-modprobe fuse #for ntfs-3g driver.
-
+[ "`lsmod | grep '^tifm'`" ]  && modprobe mmc_core && modprobe mmc_block && modprobe tifm_sd
 
 
 #110126 define ATADRIVES as all internal ide/pata/sata (and mmc) drives (not usb), except optical...
