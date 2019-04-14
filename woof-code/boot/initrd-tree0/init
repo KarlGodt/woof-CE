@@ -122,6 +122,9 @@ ZDRVSFS="z${PREFIX1CHAR}${DISTRO_VERSION}${KERNEL3CHARS}.sfs"
 [ $psubdir ] && PSUBDIR=$psubdir #boot parameter, directory for puppy files. ex: puppy220
 [ $pkeys ]   && PKEYS=$pkeys     #boot parameter, keyboard layout w476
 
+# pupmode=NUMBER parameter to force PUPMODE ie 13 on hd install
+[ "$pupmode" ] && FPUPMODE="$pupmode" # force a PUPMODE
+
 #now supporting a boot menu...
 if [ "$pfix" ];then
  for ONEFIX in `echo -n "$pfix" | tr ',' ' '`
@@ -129,7 +132,14 @@ if [ "$pfix" ];then
   case $ONEFIX in
    ram)     PRAMONLY="yes";;      #run in ram only (do not load ${DISTRO_FILE_PREFIX}save).
    rdsh)    RDSH="yes";;          #exit to shell in initial ramdisk.
-   
+   rdsh0)   RDSH="0";;            #drop out early, before loading drivers.
+   rdsh1)   RDSH="1";;            # leave after loading drivers
+   rdsh2)   RDSH="2";;            # leave after search for pupfiles
+   rdsh3)   RDSH="3";;            # leave after selecting pupsave-file
+   rdsh4)   RDSH="4";;            # leave after defining PUPMODE
+   rdsh5)   RDSH="5";;            # leave after loading savefile or folders
+   rdsh6)   RDSH="6";;            # leave after loading sfs files
+   rdsh7)   RDSH="7";;            #w091027 drop out just before mount layerfs.
    nox)     PNOX="yes";;          #do not start X.
    clean)   PCLEAN="yes";;        #force version upgrade and cleanup.
    purge)   PPURGE="yes";;        #radical cleanup for broken system.
@@ -153,7 +163,12 @@ fi
 
 #does this initrd have all the zdrv components inside it?...
 ZDRVINIT='no'
-[ `wc -l /lib/modules/$KERNELVER/modules.dep  | tr -s ' ' | cut -f 2 -d ' '` -gt 200 ] && ZDRVINIT='yes'
+test -e  /lib/modules/$KERNELVER/modules.dep || {
+mkdir -p /lib/modules/$KERNELVER
+depmod
+}
+   touch /lib/modules/$KERNELVER/modules.dep
+[ `wc -l /lib/modules/$KERNELVER/modules.dep  | sed 's%^[[:blank:]]*%%' | cut -f 1 -d ' '` -gt 200 ] && ZDRVINIT='yes'
 
 
 
@@ -162,7 +177,7 @@ ZDRVINIT='no'
 fsck_func(){ #passed params: partition filesystem [filename]
  [ "$PFSCK" != "yes" ] && return 0 #v404 default is not do any checking.
  #v3.93 restrict to ext2 only...
- [ "$2" != "ext2" -a "$2" != "ext3" -a "$2" != "ext4" ] && return 0 #precaution.
+ [ "$2" = "ext2" -o "$2" = "ext3" -o "$2" = "ext4" ] || return 0 #precaution.
  
  CHKDEV=$1
  
@@ -275,6 +290,15 @@ test "$*" || return 1
   fusermount -u $MNT_DIR
  fi
  return $?
+}
+
+_dropout_rdsh(){
+ (
+  echo -e "\\033[0;39m"
+  test "$*" && echo -e "-*- $* -*-"
+  echo -e "$Dropping into initial ram console"
+  ) >/dev/console
+  exec /bin/sh >/dev/console 2>&1
 }
 
 check_status(){
@@ -481,6 +505,7 @@ do
  ONEDEV="`echo "$ONETRY" | cut -f 1 -d '|'`"
   ONEFS="`echo "$ONETRY" | cut -f 2 -d '|'`"
 
+ umnt_func /mnt/data
  #v403 nasty bug: usb optical drive showing as /sys/block/sr0, but won't mount, needs more delay...
  mnt_func $ONEFS /dev/$ONEDEV /mnt/data #-t $ONEFS /dev/$ONEDEV /mnt/data
  if [ $? -ne 0 ];then
@@ -492,19 +517,24 @@ do
  [ -f /mnt/data/etc/puppyversion ] && FND_FULLINSTALL="/etc/puppyversion" #pre-w464 installations.
  [ -f /mnt/data/etc/DISTRO_SPECS ] && FND_FULLINSTALL="/etc/DISTRO_SPECS"
 
-    FND_INITRDGZ="`find /mnt/data -maxdepth 2 -xdev -type f -name initrd.gz                                   | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`"
+     FND_INITRDGZ=`find /mnt/data -maxdepth 2 -xdev \( -type f -o -type l \) -iname "initrd*.gz"                  | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`
  #v3.01 '*' means zero or more extra characters. this is for custom naming...
-   FND_PUPXXXSFS="`find /mnt/data -maxdepth 2 -xdev -type f -name ${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`"
-     FND_ZDRVSFS="`find /mnt/data -maxdepth 2 -xdev -type f -name ${ZDRVSFS}                                  | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`"
-  FND_PUPSAVE2FS="`find /mnt/data -maxdepth 2 -xdev -type f -name ${DISTRO_FILE_PREFIX}save*.[23]fs           | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`"
- FND_SWAPFILEPUP="`find /mnt/data -maxdepth 2 -xdev -type f -name pupswap.swp                                 | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`"
+FND_OLD_PUPXXXSFS=`find /mnt/data -maxdepth 2 -xdev -type f -iname ${DISTRO_FILE_PREFIX}[-_]${DISTRO_VERSION}.sfs | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`
+FND_NEW_PUPXXXSFS=`find /mnt/data -maxdepth 2 -xdev -type f -iname ${DISTRO_PUPPYSFS:-NOT_AVAILABLE}              | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`
+  FND_OLD_ZDRVSFS=`find /mnt/data -maxdepth 2 -xdev -type f -iname ${ZDRVSFS}                                     | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`
+  FND_NEW_ZDRVSFS=`find /mnt/data -maxdepth 2 -xdev -type f -iname ${DISTRO_ZDRVSFS:-NOT_AVAILABLE}               | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`    
+   FND_PUPSAVE2FS=`find /mnt/data -maxdepth 2 -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs             | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`
+  FND_SWAPFILEPUP=`find /mnt/data -maxdepth 2 -xdev -type f -iname pupswap.swp                                    | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`
  #v2.22 improved folder name search, avoid false hits...
- FND_MULTIFOLDER="`find /mnt/data -maxdepth 1 -xdev -type d -name 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9] | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`"
+  FND_MULTIFOLDER=`find /mnt/data -maxdepth 1 -xdev -type d -name 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9] | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`
  [ "$FND_MULTIFOLDER" ] && echo "$ONEDEV $ONEFS $FND_MULTIFOLDER" >> /tmp/MULTIFOLDERS
 
  #all written on one line...
- echo -n "$ONEDEV $ONEFS " >> /tmp/PUPPYFILES
- echo "$FND_INITRDGZ $FND_PUPXXXSFS $FND_ZDRVSFS $FND_PUPSAVE2FS $FND_MULTIFOLDER $FND_FULLINSTALL $FND_SWAPFILEPUP" >> /tmp/PUPPYFILES
+ (
+ echo -n $ONEDEV $ONEFS" "
+ echo -n $FND_INITRDGZ $FND_OLD_PUPXXXSFS $FND_NEW_PUPXXXSFS $FND_OLD_ZDRVSFS
+ echo " "$FND_NEW_ZDRVSFS $FND_PUPSAVE2FS $FND_MULTIFOLDER $FND_FULLINSTALL $FND_SWAPFILEPUP
+ ) >> /tmp/PUPPYFILES
 
  [ -f /mnt/data/SAVEMARK ] && PSAVEMARK="`cat /mnt/data/SAVEMARK`" #v3.97 partition# that has or will-have ${DISTRO_FILE_PREFIX}save.
  umnt_func /mnt/data
@@ -528,19 +558,26 @@ if [ "$PSUBDIR" ];then
 else
  PUPPYFILES="`cat /tmp/PUPPYFILES | tr -s ' '`"
 fi
-echo "$PUPPYFILES" > /tmp/PUPPYFILES
+echo "${PUPPYFILES:-EMPTY_LIST}" > /tmp/PUPPYFILES
 }
 #_handle_psubdir
 
 _humongous_initrd(){
 #a humongous initrd has ${DISTRO_FILE_PREFIX}rxxx.sfs inside it...
 if [ -f /${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs ];then
- #and maybe also ${ZDRVSFS}...
- if [ -f /${ZDRVSFS} ];then
+  #and maybe also ${ZDRVSFS}...
+  if [ -f /${ZDRVSFS} ];then
   echo "rootfs rootfs /${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs /${ZDRVSFS}" >> /tmp/PUPPYFILES
- else
+  else
   echo "rootfs rootfs /${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs" >> /tmp/PUPPYFILES
- fi
+  fi
+ PUPPYFILES="`cat /tmp/PUPPYFILES`" #v3.91
+elif [ -f /${DISTRO_PUPPYSFS} ]; then
+  if [ -f /${DISTRO_ZDRVSFS} ];  then
+  echo "rootfs rootfs /${DISTRO_PUPPYSFS} /${DISTRO_ZDRVSFS}" >> /tmp/PUPPYFILES
+  else
+  echo "rootfs rootfs /${DISTRO_PUPPYSFS}" >> /tmp/PUPPYFILES
+  fi
  PUPPYFILES="`cat /tmp/PUPPYFILES`" #v3.91
 fi
 }
@@ -594,15 +631,18 @@ fi
 
 _prepare_puppyfiles_lists(){
 #find ${DISTRO_FILE_PREFIX}-xxx.sfs and ${DISTRO_FILE_PREFIX}save.2fs files...
-touch /tmp/PUPXXXSFSS
-touch /tmp/PUPSAVE2FSS
-NUMPARTS=`wc -l /tmp/PUPPYFILES | tr -s ' ' | cut -f 2 -d ' '`
+rm -f /tmp/PUPXXXSFSS /tmp/PUPSAVE2FSS /tmp/ZDRVXXXSFSS
+touch /tmp/PUPXXXSFSS /tmp/PUPSAVE2FSS /tmp/ZDRVXXXSFSS 
+
+NUMPARTS=`wc -l /tmp/PUPPYFILES | sed 's%^[[:blank:]]*%%' | cut -f 1 -d ' '`
 case $NUMPARTS in
  0) #nothing found.
  (
   echo -en "\\033[1;31m"  #31=red
-  echo -n "No Puppy files found. Dropping out to initial-ramdisk console..."
-  echo -e "\\033[0;39m"
+  echo "No Puppy files found. Dropping out to initial-ramdisk console..."
+  echo -en "\\033[0;39m"
+  echo "You might want to check the files in /tmp directory."
+  echo "To do so, do cd /tmp; ls; cat PUPPYFILES ..."
   ) >/dev/console
   exec /bin/sh >/dev/console 2>&1
   ;;
@@ -617,23 +657,40 @@ case $NUMPARTS in
        ONEFS="`echo "$ONELINE" | cut -f 2 -d ' '`"    #ex: ext3
    LINEFILES="`echo "$ONELINE" | cut -f 3-99 -d ' '`" #ex: /pup220/${DISTRO_FILE_PREFIX}save.2fs /pup220/${DISTRO_FILE_PREFIX}r220.sfs
 
-   APATTERN="/${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.*\\.sfs"
-   for ONEPUPXXXSFS in `echo "$LINEFILES" | tr ' ' '\n' | grep "$APATTERN" | tr '\n' ' '`
+   APATTERN="/${DISTRO_FILE_PREFIX}[-_]${DISTRO_VERSION}.*\\.sfs"
+   for ONEPUPXXXSFS in `echo "$LINEFILES" | tr ' ' '\n' | grep "$APATTERN"`
    do
+    test "$ONEPUPXXXSFS" || continue
     echo "$ONEDEV,$ONEFS,$ONEPUPXXXSFS"  >> /tmp/PUPXXXSFSS
    done
 
-   BPATTERN="/${DISTRO_FILE_PREFIX}save.*\\.[23]fs"
-   for ONEPUPSAVE2FS in `echo "$LINEFILES" | tr ' ' '\n' | grep "$BPATTERN" | tr '\n' ' '`
+   APATTERN="/${DISTRO_PUPPYSFS}"
+   for ONEPUPXXXSFS in `echo "$LINEFILES" | tr ' ' '\n' | grep "$APATTERN"`
    do
-    [ "$PUPSAVEDEV" ] && [ "$ONEDEV" != "$PUPSAVEDEV" ] && continue #v3.97
-    echo "$ONEDEV,$ONEFS,$ONEPUPSAVE2FS"  >> /tmp/PUPSAVE2FSS
+    test "$ONEPUPXXXSFS" || continue
+    echo "$ONEDEV,$ONEFS,$ONEPUPXXXSFS"  >> /tmp/PUPXXXSFSS
+   done
+   
+   ZPATTERN="/${ZDRVSFS}"
+   for ONEZDRVXXXSFS in `echo "$LINEFILES" | tr ' ' '\n' | grep "$ZPATTERN"`
+   do
+    test "$ONEZDRVXXXSFS" || continue
+    echo "$ONEDEV,$ONEFS,$ONEZDRVXXXSFS"  >> /tmp/ZDRVXXXSFSS #v2.22
    done
 
-   ZPATTERN="/${ZDRVSFS}"
-   for ONEZDRVXXXSFS in `echo "$LINEFILES" | tr ' ' '\n' | grep "$ZPATTERN" | tr '\n' ' '`
+   ZPATTERN="/${DISTRO_ZDRVSFS}"
+   for ONEZDRVXXXSFS in `echo "$LINEFILES" | tr ' ' '\n' | grep "$ZPATTERN"`
    do
+    test "$ONEZDRVXXXSFS" || continue
     echo "$ONEDEV,$ONEFS,$ONEZDRVXXXSFS"  >> /tmp/ZDRVXXXSFSS #v2.22
+   done
+
+   BPATTERN="/${DISTRO_FILE_PREFIX}save.*\\.[234]fs"
+   for ONEPUPSAVE2FS in `echo "$LINEFILES" | tr ' ' '\n' | grep "$BPATTERN"`
+   do
+    [ "$PUPSAVEDEV" ] && [ "$ONEDEV" != "$PUPSAVEDEV" ] && continue #v3.97
+    test "$ONEPUPSAVE2FS" || continue
+    echo "$ONEDEV,$ONEFS,$ONEPUPSAVE2FS"  >> /tmp/PUPSAVE2FSS
    done
    
   done
@@ -653,7 +710,7 @@ if [ -f /tmp/MULTIFOLDERS ];then #multisession cd/dvd.
   PUPSAVE="`cat /tmp/MULTIFOLDERS | cut -f 1-3 -d ' ' | tr ' ' ','`" #only record 1st folder.
  fi
 else
- NUMPUPSAVES=`wc -l /tmp/PUPSAVE2FSS | tr -s ' ' | cut -f 2 -d ' '`
+ NUMPUPSAVES=`wc -l /tmp/PUPSAVE2FSS | sed 's%^[[:blank:]]*%%' | cut -f 1 -d ' '`
  [ "$PRAMONLY" = "yes" ] && NUMPUPSAVES=0 #pfix=ram is a boot param.
  case $NUMPUPSAVES in
   0)
@@ -789,9 +846,17 @@ fi
 #_set_pupmode_6
 
 _set_final_pupmode(){
+
+echo "Detected PUPMODE '$PUPMODE'"
+test "$FPUPMODE" && {
+echo " Forcing PUPMODE '$PUPMODE'"
+PUPMODE=$FPUPMODE
+}
+
 #do we want a tmpfs top unionfs layer?...
 #only if ${DISTRO_FILE_PREFIX}save (or PDEV1 for DEV1PUP=yes, or first boot) on a flash drive, usb or internal...
 case $PUPMODE in
+ 2|3|5|7|13|77) :;;
  4) #so far have only got a ${DISTRO_FILE_PREFIX}-xxx.sfs. this is first boot or pfix=ram.
   PUPMODE=5 #`expr $PUPMODE + 1` #yes, want tmpfs top layer (PUPMODE=5).
   ;;
@@ -813,6 +878,7 @@ case $PUPMODE in
  76) #v3.01 64+8+4 multisession cd.
   PUPMODE=77 #`expr $PUPMODE + 1` #yes, want tmpfs top layer.
   ;;
+  *) _dropout_rdsh "Unhandled PUPMODE $PUPMODE" ;;
 esac
 }
 #_set_final_pupmode
@@ -904,7 +970,9 @@ esac
 _mount_367(){
 if [ "$CREATEPDEV1" ];then
  [ "$DEV1FS" = "ext2" -o "$DEV1FS" = "ext3" -o "$DEV1FS" = "ext4" ] && echo "/dev/$PDEV1 $CREATEPDEV1 $DEV1FS defaults  1 1" >> /etc/fstab #v2.21
+ echo -en "Mounting the puppy drive $DEV ...."  >/dev/console
  mount -t $DEV1FS /dev/$PDEV1 $CREATEPDEV1
+ check_status $?
  #save is not a ${DISTRO_FILE_PREFIX}save file, but a partition on a unionfs layer...
  if [ "$CREATEPDEV1" = "/pup_rw" -o "$CREATEPDEV1" = "/pup_ro1" ];then #v2.20b
   SMNTPT="$CREATEPDEV1"
@@ -916,13 +984,20 @@ fi
 
 _mount_1213(){
 if [ "$CREATEPUPSAVE2FS" ];then
-  PUPSAVEDEV="`echo -n "$PUPSAVE" | cut -f 1 -d ','`"
-   PUPSAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
- PUPSAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
+  PUPSAVEDEV="`echo "$PUPSAVE" | cut -f 1 -d ','`"
+   PUPSAVEFS="`echo "$PUPSAVE" | cut -f 2 -d ','`"
+ PUPSAVEFILE="`echo "$PUPSAVE" | cut -f 3 -d ','`"
+
  #normal ${DISTRO_FILE_PREFIX}save.2fs file. just mount it from where it is...
  echo -n "Loading personal file $PUPSAVEFILE ($PUPSAVEDEV)..." >/dev/console
- [ "$PUPSAVEFS" = "ext2" -o "$PUPSAVEFS" = "ext3" -o "$PUPSAVEFS" = "ext4" ] && echo "/dev/$PUPSAVEDEV /mnt/dev_save $PUPSAVEFS defaults  1 1" >> /etc/fstab #v2.21
- [ "$PUPSAVEFS" = "ext2" -o "$PUPSAVEFS" = "ext3" -o "$PUPSAVEFS" = "ext4" ] && fsck_func $PUPSAVEDEV $PUPSAVEFS #v3.01
+
+ #[ "$PUPSAVEFS" = "ext2" -o "$PUPSAVEFS" = "ext3" -o "$PUPSAVEFS" = "ext4" ] && echo "/dev/$PUPSAVEDEV /mnt/dev_save $PUPSAVEFS defaults  1 1" >> /etc/fstab #v2.21
+ #[ "$PUPSAVEFS" = "ext2" -o "$PUPSAVEFS" = "ext3" -o "$PUPSAVEFS" = "ext4" ] && fsck_func $PUPSAVEDEV $PUPSAVEFS #v3.01
+ case $PUPSAVEFS in ext[234])
+  echo "/dev/$PUPSAVEDEV /mnt/dev_save $PUPSAVEFS defaults  1 1" >> /etc/fstab #v2.21
+  fsck_func $PUPSAVEDEV $PUPSAVEFS #v3.01
+ ;; esac
+ 
  mnt_func $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_save noatime #-t $PUPSAVEFS -o noatime /dev/$PUPSAVEDEV /mnt/dev_save
  if [ $? -eq 0 ];then
   SMNTPT="/mnt/dev_save"
@@ -1088,9 +1163,9 @@ fi
 
 _cp_pupmode_77_to_ram(){
 if [ "$CREATEFOLDERS" ];then
-  PUPSAVEDEV="`echo -n "$PUPSAVE" | cut -f 1 -d ','`"
-   PUPSAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
- PUPSAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
+  PUPSAVEDEV="`echo "$PUPSAVE" | cut -f 1 -d ','`"
+   PUPSAVEFS="`echo "$PUPSAVE" | cut -f 2 -d ','`"
+ PUPSAVEFILE="`echo "$PUPSAVE" | cut -f 3 -d ','`"
  mount -o noatime -t $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_ro1 #mnt the cd.
 
  #create a tmpfs to load the folders...
