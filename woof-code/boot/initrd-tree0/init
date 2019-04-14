@@ -168,6 +168,15 @@ DEVTMPFSFLG=0 #130618 set it from 3builddistro.
 set -n
 
 
+_dropout_rdsh(){
+ (
+  echo -e "\\033[0;39m"
+  test "$*" && echo -e "-*- $* -*-"
+  echo -e "$Dropping into initial ram console"
+  ) >/dev/console
+  exec /bin/sh >/dev/console 2>&1
+}
+
 check_status(){
     
   if [ $1 -eq 0 ]
@@ -281,6 +290,14 @@ if [ "$pfix" ];then
    ram)     PRAMONLY="yes";;      #run in ram only (do not load ${DISTRO_FILE_PREFIX}save).
    rdsh)    RDSH="yes";;          #exit to shell in initial ramdisk.
    rdsh0)   RDSH="0";;            #drop out early, before loading drivers.
+   rdsh1)   RDSH="1";;            # leave after loading drivers
+   rdsh2)   RDSH="2";;            # leave after search for pupfiles
+   rdsh3)   RDSH="3";;            # leave after selecting pupsave-file
+   rdsh4)   RDSH="4";;            # leave after defining PUPMODE
+   rdsh5)   RDSH="5";;            # leave after loading savefile or folders
+   rdsh6)   RDSH="6";;            # leave after loading sfs files
+   rdsh7)   RDSH="7";;            #w091027 drop out just before mount layerfs.
+   rdsh0)   RDSH="0";;            #drop out early, before loading drivers.
    rdsh6)   RDSH="6";;            #w091027 drop out just before mount layerfs.
    nox)     PNOX="yes";;          #do not start X.
    clean)   PCLEAN="yes";;        #force version upgrade and cleanup.
@@ -294,6 +311,8 @@ if [ "$pfix" ];then
 fi
 
 [ $pkeys ] && PKEYS=$pkeys #boot parameter, keyboard layout w476
+# pupmode=NUMBER parameter to force PUPMODE ie 13 on hd install
+[ "$pupmode" ] && FPUPMODE="$pupmode" # force a PUPMODE
 
 KERNELVER="`uname -r`"
 #does this initrd have all the zdrv components inside it?...
@@ -646,7 +665,7 @@ search_func(){ #110425
     if [ "$ONEFS" != "iso9660" -a "$PMEDIA" = "cd" -a "$ONEFS" != "udf" ];then #101021 avoid finding vmlinuz on hd. 110204. 130128 also udf.
      echo "Bypass looking for vmlinuz on $ONEDEV"
     else
-     FND_FILES="`find /mnt/data${PSUBDIR} -maxdepth ${SEARCHDEPTH} -xdev -type f -iname kernel.qky -o -iname ${KERNELNAME} | grep -v ' ' | sed -e 's%^/mnt/data%%' | tr '\n' ' '`"
+     FND_FILES="`find /mnt/data${PSUBDIR} -maxdepth ${SEARCHDEPTH} -xdev \( -type f -o -type l \) -iname kernel.qky -o -iname ${KERNELNAME} | grep -v ' ' | sed -e 's%^/mnt/data%%' | tr '\n' ' '`"
      for ONEPUPFILE in $FND_FILES  #kernel.qky: see woof script 4quirkybuild.
      do
       ONEFULLSIZE=`stat -c %s /mnt/data${ONEPUPFILE}`
@@ -754,7 +773,7 @@ search_func(){ #110425
 #    echo
 #    echo "AN ERROR HAS OCCURRED. After bootup, please send the content of
 #/initrd/tmp/ERRORUSBSCAN to Barry Kauler http://bkhome.org/blog.
-#Paising 30 seconds..." >/dev/console
+#Pausing 30 seconds..." >/dev/console
 #    echo "AN ERROR HAS OCCURRED. The 'init' script has found this twice:
 #$ONEDEV $ONEFS $FND_PUPSAVES
 #search_func param=${1}
@@ -784,8 +803,11 @@ search_func(){ #110425
 
   #fix any improper shutdowns... fsckme.flg format: sda7,ext3,[/pupsave.2fs] (see rc.shutdown)
   FSCKME=""
-  [ -f /mnt/data/fsckme.flg ] && FSCKME="`cat /mnt/data/fsckme.flg | tr ',' ' ' | tr '\n' ' '`"
-  rm -f /mnt/data/fsckme.flg
+  if [ -f /mnt/data/fsckme.flg ]; then
+   FSCKME="`cat /mnt/data/fsckme.flg | tr ',' ' ' | tr '\n' ' '`"
+   mnt_func $ONEFS /dev/$ONEDEV /mnt/data remount,rw
+   rm -f /mnt/data/fsckme.flg
+  fi
   umnt_func /mnt/data
   [ "$FSCKME" ] && fsckme_func $FSCKME
  done
@@ -936,9 +958,16 @@ fi
 #if a ${DISTRO_FILE_PREFIX}save.2fs was not found, perhaps boot partition has a full install of puppy...
  [ ! "$PUPSAVE" ] && [ "$DEV1PUP" = "yes" -o "$DEV2PUP" ] && PUPMODE=$((PUPMODE + 2))
 
+echo "Detected PUPMODE '$PUPMODE'"
+test "$FPUPMODE" && {
+echo " Forcing PUPMODE '$PUPMODE'"
+PUPMODE=$FPUPMODE
+}
+
 #do we want a tmpfs top layered-fs layer? (set bit-0 of PUPMODE)...
 #only if ${DISTRO_FILE_PREFIX}save.2fs (or PDEV1 for DEV1PUP=yes, or first boot) on a flash drive, usb or internal...
 case $PUPMODE in
+ 2|3|5|7|13|77) :;;
  4) #so far have only got a puppy.sfs. this is first boot or pfix=ram.
   PUPMODE=5 #`expr $PUPMODE + 1` #yes, want tmpfs top layer (PUPMODE=5).
  ;;
@@ -963,6 +992,7 @@ case $PUPMODE in
  76) #v3.01 64+8+4 multisession cd.
   PUPMODE=77 #yes, want tmpfs top layer.
  ;;
+ *) _dropout_rdsh "Unhandled PUPMODE $PUPMODE" ;;
 esac
 
 ##if booted with PMEDIA=cd, refine it... 110126
@@ -1021,6 +1051,7 @@ if [ "$CREATEPDEV1" != "" ];then
  fi
  
  [ "`echo "$FS" | grep 'ext[234]'`" ] && echo "/dev/$DEV $CREATEPDEV1 $FS defaults  1 1" >> /etc/fstab #v2.21
+ echo -en "Mounting full install type $PUPMODE on $DEV at $CREATEPDEV1 type $FS" >/dev/console
  mount -t $FS /dev/$DEV $CREATEPDEV1
  check_status $?
  #save is not a ${DISTRO_FILE_PREFIX}save file, but a partition on a layered-fs layer...
@@ -1034,9 +1065,12 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
   PUPSAVEDEV="`echo "$PUPSAVE" | cut -f 1 -d ','`"
    PUPSAVEFS="`echo "$PUPSAVE" | cut -f 2 -d ','`"
  PUPSAVEFILE="`echo "$PUPSAVE" | cut -f 3 -d ','`"
+ 
  #normal ${DISTRO_FILE_PREFIX}save.2fs file. just mount it from where it is...
  echo -n "Loading personal file $PUPSAVEFILE ($PUPSAVEDEV)..." >/dev/console
+ 
  [ "`echo "$PUPSAVEFS" | grep 'ext[234]'`" ] && echo "/dev/$PUPSAVEDEV /mnt/dev_save $PUPSAVEFS defaults  1 1" >> /etc/fstab #v2.21
+
  mnt_func $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_save noatime #-t $PUPSAVEFS -o noatime /dev/$PUPSAVEDEV /mnt/dev_save
  if [ $? -eq 0 ];then
   SMNTPT="/mnt/dev_save"
@@ -1209,20 +1243,23 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
       sync
       umount $CREATEPUPSAVE2FS #unmount the save-file.
       PUPMODE=5
-      CREATETMPFS="";CREATEPDEV1="";CREATEPUPXXXSFS="";CREATEPUPSAVE2FS="";CREATEFOLDERS=""
+      unset CREATETMPFS CREATEPDEV1 CREATEPUPXXXSFS CREATEPUPSAVE2FS CREATEFOLDERS
       CREATETMPFS="/pup_rw";CREATEPUPXXXSFS="/pup_ro2"
       OLDFILESMNTPT="";NEWFILESMNTPT="/pup_ro2";UMNTMAIN="/pup_rw=rw:/pup_ro2=ro"
      fi
     fi
+
     #check if puppy.sfs copied to same place as save-file...
     #if [ "$BOOTDRV" = "sr" ];then #booting off cd.
     #if [ "`echo -n "$BOOTDRV" | grep -F "$OPTICALDRIVES0"`" ];then #110204 booting off cd.
     if [ "`echo -n "$BOOTDRV" | grep -f /tmp/OPTICALDRIVES0`" ];then #110205 booting off cd.
+
      if [ "$CREATEPUPSAVE2FS" ];then #did not do the backoff above.
        xPUPSFSDEV="`echo "$PUPSFS" | cut -f 1 -d ','`" #checking puppy.sfs file.
         xPUPSFSFS="`echo "$PUPSFS" | cut -f 2 -d ','`"
       xPUPSFSFILE="`echo "$PUPSFS" | cut -f 3 -d ','`"
       basepupsfs="`basename $xPUPSFSFILE`"
+
       #if [ "`echo "$xPUPSFSDEV | grep 'sr'"`" ];then
       #if [ "`echo -n "$xPUPSFSDEV" | grep -F "$OPTICALDRIVES0"`" ];then #110204
       if [ "`echo -n "$xPUPSFSDEV" | grep -f /tmp/OPTICALDRIVES0`" ];then #110205
@@ -1298,14 +1335,16 @@ fi
 [ $FREEK ] || FREEK=0
 
 if [ "$CREATEFOLDERS" != "" ];then
- PUPSAVEDEV="`echo -n "$PUPSAVE" | cut -f 1 -d ','`"
- PUPSAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
- PUPSAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
+  PUPSAVEDEV="`echo "$PUPSAVE" | cut -f 1 -d ','`"
+   PUPSAVEFS="`echo "$PUPSAVE" | cut -f 2 -d ','`"
+ PUPSAVEFILE="`echo "$PUPSAVE" | cut -f 3 -d ','`"
+
  mount -o noatime -t $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_ro1 #mnt the cd.
  #create a tmpfs to load the folders...
  #ALLOCK=`expr $RAMSIZE \/ 2 - 50000` #allocate half of physical ram. + leave 50M slack.
   ALLOCK=$(( (RAMSIZE / 2) - 50000 )) #allocate half of physical ram. + leave 50M slack.
  mount -t tmpfs -o size=${ALLOCK}k tmpfs $CREATEFOLDERS #/pup_ro1
+
  #load the folders from the cd...
   ####START LOAD FOLDERS####
   CDMNTPT="/mnt/dev_ro1" #where the multisession cd is mounted.
@@ -1351,20 +1390,20 @@ if [ "$CREATEFOLDERS" != "" ];then
    if [ $FREERAMDISK -gt $SIZESOURCE ];then
     #well, -u will only copy if files newer, so less stuff may get copied than calc'd above.
     #need to copy everything except archive folder...
-    [ -d $CDMNTPT/$ONEFOLDER/bin ] && cp -a -u $CDMNTPT/$ONEFOLDER/bin $DESTDIR/
-    [ -d $CDMNTPT/$ONEFOLDER/sbin ] && cp -a -u $CDMNTPT/$ONEFOLDER/sbin $DESTDIR/
-    [ -d $CDMNTPT/$ONEFOLDER/etc ] && cp -a -u $CDMNTPT/$ONEFOLDER/etc $DESTDIR/
-    [ -d $CDMNTPT/$ONEFOLDER/lib ] && cp -a -u $CDMNTPT/$ONEFOLDER/lib $DESTDIR/
-    [ -d $CDMNTPT/$ONEFOLDER/opt ] && cp -a -u $CDMNTPT/$ONEFOLDER/opt $DESTDIR/
+    [ -d $CDMNTPT/$ONEFOLDER/bin ]  && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/bin $DESTDIR/
+    [ -d $CDMNTPT/$ONEFOLDER/sbin ] && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/sbin $DESTDIR/
+    [ -d $CDMNTPT/$ONEFOLDER/etc ]  && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/etc $DESTDIR/
+    [ -d $CDMNTPT/$ONEFOLDER/lib ]  && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/lib $DESTDIR/
+    [ -d $CDMNTPT/$ONEFOLDER/opt ]  && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/opt $DESTDIR/
     if [ -d $CDMNTPT/$ONEFOLDER/root/.var_saved ];then #100820 see /etc/rc.d/functions4puppy
      mkdir -p $DESTDIR/var
-     cp -a -u $CDMNTPT/$ONEFOLDER/root/.var_saved/* $DESTDIR/var/
+     /bin/cp -a -u $CDMNTPT/$ONEFOLDER/root/.var_saved/* $DESTDIR/var/
     fi
-    [ -d $CDMNTPT/$ONEFOLDER/root ] && cp -a -u $CDMNTPT/$ONEFOLDER/root $DESTDIR/
+    [ -d $CDMNTPT/$ONEFOLDER/root ] && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/root $DESTDIR/
     [ -d $CDMNTPT/$ONEFOLDER/root/.var_saved ] && rm -rf $DESTDIR/root/.var_saved #100820
-    [ -d $CDMNTPT/$ONEFOLDER/usr ] && cp -a -u $CDMNTPT/$ONEFOLDER/usr $DESTDIR/
-    [ $DEVTMPFSFLG -eq 0 ] && [ -d $CDMNTPT/$ONEFOLDER/dev ] && cp -a -u $CDMNTPT/$ONEFOLDER/dev $DESTDIR/   #v411 130612
-    cp -a -u $CDMNTPT/$ONEFOLDER/*.sfs $DESTDIR/   #v3.97
+    [ -d $CDMNTPT/$ONEFOLDER/usr ] && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/usr $DESTDIR/
+    [ $DEVTMPFSFLG -eq 0 ] && [ -d $CDMNTPT/$ONEFOLDER/dev ] && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/dev $DESTDIR/   #v411 130612
+    /bin/cp -a -u $CDMNTPT/$ONEFOLDER/*.sfs $DESTDIR/   #v3.97
     #delete deleted files (.wh.filename)... 110212 screen out .wh..wh..opq
     WHITEOUTS="`find $DESTDIR -xdev -type f -name .wh.* | grep -v '__dir_opaque' | grep -v '.wh..wh.'`" #110212
     echo "$WHITEOUTS" |
@@ -2034,7 +2073,7 @@ fi
 
 #110114 if a drive unplugged in previous boot, but plugged in at bootup, device-nodes will be missing in main f.s...
 if [ $DEVTMPFSFLG -eq 0 ];then #130612
- cp -a -u -f /dev/* /pup_new/dev/
+ /bin/cp -a -u -f /dev/* /pup_new/dev/
 else
  mount -t devtmpfs devtmpfs /pup_new/dev
 fi
