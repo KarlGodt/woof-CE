@@ -231,9 +231,9 @@ _load_drive_drivers(){
 #[ "`modinfo ppa 2>/dev/null`" ] && modprobe ppa #also loads parport.ko
 #modprobe sr_mod > /dev/null 2>&1 #v3.93 now built-in to kernel.
 
-for ONEDRVMOD in floppy ppa sr_mod psmouse
+for oneDRVMOD in floppy ppa sr_mod psmouse
 do
- [ "`modinfo $ONEFSMOD 2>/dev/null`" ] && modprobe $ONEDRVMOD
+ [ "`modinfo $oneFSMOD 2>/dev/null`" ] && modprobe $oneDRVMOD
 done
 }
 _load_drive_drivers
@@ -263,9 +263,9 @@ _ass_layerfs
 
 _load_fs_drivers(){
 #121227 extra f.s. drivers may be modules (quirky6)... 130216 add f2fs...
-for ONEFSMOD in ext2 ext3 ext4 fat msdos vfat ntfs reiserfs udf f2fs squashfs $LAYERFS fuse
+for oneFSMOD in ext2 ext3 ext4 fat msdos vfat ntfs reiserfs udf f2fs squashfs $LAYERFS fuse
 do
- [ "`modinfo $ONEFSMOD 2>/dev/null`" ] && modprobe $ONEFSMOD
+ [ "`modinfo $oneFSMOD 2>/dev/null`" ] && modprobe $oneFSMOD
 done
 }
 _load_fs_drivers
@@ -274,9 +274,9 @@ echo -n "." >/dev/console
 
 _load_other_drivers(){
 MODALIASES="`cat /sys/bus/pci/devices/*/modalias`" #important, save to variable before loop.
-for ONEMODALIAS in $MODALIASES
+for oneMODALIAS in $MODALIASES
 do
-  modprobe -v $ONEMODALIAS #-v means verbose.
+  modprobe -v $oneMODALIAS #-v means verbose.
   #[ $? -eq 0 ] && echo -n "." >/dev/console
 done
 }
@@ -408,7 +408,7 @@ _test_kernel_param_root(){
 
 if test "$root"; then
 
-#. /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
+. /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
 
 
  case "$root" in
@@ -428,7 +428,7 @@ if test "$root"; then
     [ -L /mnt/data ] && rm -f /mnt/data
     mkdir -p /mnt/data
     mount -o ro "$root" /mnt/data || return 0
-    
+
     test -e /mnt/data/etc/DISTRO_SPECS || {
     umnt_func -lr /mnt/data
     return 0
@@ -528,7 +528,7 @@ export LANG=C #w004
 
 [ $loglevel ] && LOGLEVEL=$loglevel #v2.22
 clear #clear the screen.
-[ "$LOGLEVEL" -ge 5 ] && exec 1>/tmp/bootinit.log 2>&1 #remove o/p from console. v2.22 loglevel added.
+[ "${LOGLEVEL:-3}" -ge 5 ] || exec 1>/tmp/bootinit.log 2>&1 #remove o/p from console. v2.22 loglevel added.
 
 . /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
 [ "$DISTRO_DB_SUBNAME" ] || DISTRO_DB_SUBNAME="$DISTRO_COMPAT_VERSION" #121102 fallback if DISTRO_DB_SUBNAME not defined in file DISTRO_SPECS.
@@ -543,7 +543,7 @@ IDSTRING="$DISTRO_IDSTRING" #from DISTRO_SPECS, string appended to kernel.qky, v
 
 #100915 requested by technosaurus (formats get changed further down)...
 [ "$pupsfs" ] && PUPSFS="$pupsfs" #format partition:<path><filename> ex: sda2:/wary071/wary_071.sfs
-[ "$zdrv" ] && ZDRV="$zdrv" #ex: sda2:/wary071/zdrv_071.sfs
+[ "$zdrv" ]   &&   ZDRV="$zdrv" #ex: sda2:/wary071/zdrv_071.sfs
 
 # done in _ass_layerfs
 #[ $layerfs ] && LAYERFS=$layerfs
@@ -566,34 +566,42 @@ PMEDIA="`echo "$PMEDIA" | sed -e 's%ide%ata%' -e 's%sata%ata%' -e 's%.*cd$%cd%'`
 #now supporting a boot menu...
 RDSH=""
 if [ "$pfix" ];then
- for ONEFIX in `echo "$pfix" | tr ',' ' '`
+ for oneFIX in `echo "$pfix" | tr ',' ' '`
  do
-  case $ONEFIX in
+  case $oneFIX in
    ram)     PRAMONLY="yes";;      #run in ram only (do not load ${DISTRO_FILE_PREFIX}save).
    rdsh)    RDSH="yes";;          #exit to shell in initial ramdisk.
    rdsh0)   RDSH="0";;            #drop out early, before loading drivers.
-   rdsh6)   RDSH="6";;            #w091027 drop out just before mount layerfs.
+   rdsh1)   RDSH="1";;            # leave after loading drivers
+   rdsh2)   RDSH="2";;            # leave after search for pupfiles
+   rdsh3)   RDSH="3";;            # leave after selecting pupsave-file
+   rdsh4)   RDSH="4";;            # leave after defining PUPMODE
+   rdsh5)   RDSH="5";;            # leave after loading savefile or folders
+   rdsh6)   RDSH="6";;            # leave after loading sfs files
+   rdsh7)   RDSH="7";;            #w091027 drop out just before mount layerfs.
    nox)     PNOX="yes";;          #do not start X.
    clean)   PCLEAN="yes";;        #force version upgrade and cleanup.
    purge)   PPURGE="yes";;        #radical cleanup for broken system.
    copy)    PCOPY="yes";;         #copy .sfs files into ram.
    nocopy)  PNOCOPY="yes";;        #do not copy .sfs files into ram (default is copy if enough ram).
    fsck)    PFSCK="yes";;         #do a fsck of ${DISTRO_FILE_PREFIX}save file.
-   [0-9]*)  PIGNORELAST=$ONEFIX;; #blacklist last $ONEFIX folders (multisession).
+   [0-9]*)  PIGNORELAST=$oneFIX;; #blacklist last $oneFIX folders (multisession).
   esac
  done
 fi
 
-[ "$pkeys" ]     && PKEYS="$pkeys"     #boot parameter, keyboard layout w476
-
+[ "$pkeys" ]   && PKEYS="$pkeys"      #boot parameter, keyboard layout w476
+# pupmode=NUMBER parameter to force PUPMODE ie 13 on hd install
+[ "$pupmode" ] && FPUPMODE="$pupmode" # force a PUPMODE
 
 KERNELVER="`uname -r`"
 #does this initrd have all the zdrv components inside it?...
 ZDRVINIT='no'
-if [ -f /lib/modules/$KERNELVER/modules.dep ]; then
-[ `cat /lib/modules/$KERNELVER/modules.dep  | wc -l` -gt 200 ] && ZDRVINIT='yes'
+if  [ -f /lib/modules/$KERNELVER/modules.dep ]; then
+ [ "`cat /lib/modules/$KERNELVER/modules.dep | wc -l`" -gt 200 ] && ZDRVINIT='yes'
 else
-[ -d /lib/modules/$KERNELVER ] || mkdir -p /lib/modules/$KERNELVER
+ [ -d /lib/modules/$KERNELVER ] || mkdir -p /lib/modules/$KERNELVER
+depmod
 touch /lib/modules/$KERNELVER/modules.dep
 fi
 
@@ -693,13 +701,13 @@ ATAOPTICALDRIVES="`echo "$ALLDRVS0" | grep -E '^sr|^scd' | tr '\n' ' '`"
 [ "$ATAOPTICALDRIVES" = " " ] && ATAOPTICALDRIVES=""
 
 if [ -e /proc/ide ];then
- for ONEIDE in `ls -1 /proc/ide | grep '^hd'`
+ for oneIDE in `ls -1 /proc/ide | grep '^hd'`
  do
-  ALLDRVS="${ALLDRVS}${ONEIDE} "
-  if [ "`cat /proc/ide/${ONEIDE}/media`" = "cdrom" ];then
-   ATAOPTICALDRIVES="${ATAOPTICALDRIVES}${ONEIDE} "
+  ALLDRVS="${ALLDRVS}${oneIDE} "
+  if [ "`cat /proc/ide/${oneIDE}/media`" = "cdrom" ];then
+   ATAOPTICALDRIVES="${ATAOPTICALDRIVES}${oneIDE} "
   else
-   ATADRIVES="${ATADRIVES}${ONEIDE} "
+   ATADRIVES="${ATADRIVES}${oneIDE} "
   fi
  done
  ALLDRVS0="`echo "$ALLDRVS" | tr ' ' '\n'`"
@@ -743,7 +751,7 @@ if [ $3 ];then
   #the simplest implementation...
   PFSCK="yes"
 fi
- 
+
  case $2 in
   ext2|ext3|ext4)
 
@@ -751,9 +759,9 @@ fi
   echo -en "\\033[1;31m SORRY, cannot check filesystem \\033[0;39m" >/dev/console #31=red
   return 1
  fi
-  
+
    e2fsck -y -f /dev/$1 >/tmp/chkret &
-   
+
    echo -e "\\033[1;35m" >/dev/console #35=purple
    if [ "${1}" = "loop1" ];then
     echo -n " 'save file' filesystem check, please wait..." >/dev/console
@@ -772,7 +780,7 @@ fi
   *) echo -en "\\033[1;31m SORRY, fscheck of $2 currently not supported \\033[0;39m" >/dev/console #31=red
      return 2
  esac
-  
+
 }
 
 search_func(){ #110425
@@ -798,7 +806,7 @@ search_func(){ #110425
    ;;
   esac
  fi
- 
+
  [ "$LESSPARTS0" ] || return #nothing to search in.
  LESSPARTS="`echo "$LESSPARTS0" | tr '\n' ' '`"
  echo "$PCPARTSALL" > /tmp/PCPARTSALL_${1} #for debugging.
@@ -813,51 +821,52 @@ search_func(){ #110425
  SEARCHDEPTH=2
  [ "$PSUBDIR" ] && SEARCHDEPTH=1
 
- for ONETRY in $LESSPARTS
+ for oneTRY in $LESSPARTS
  do
-  ONEDEV="`echo "$ONETRY" | cut -f 1 -d '|'`"
-   ONEFS="`echo "$ONETRY" | cut -f 2 -d '|'`"
-  ONEDRV="`echo "$ONEDEV" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
+  oneDEV="`echo "$oneTRY" | cut -f 1 -d '|'`"
+   oneFS="`echo "$oneTRY" | cut -f 2 -d '|'`"
+  oneDRV="`echo "$oneDEV" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
 
   if [ "$IGNORE" = "optical" ];then #110126 ignore optical if boot partition found.
-   [ "`echo "$ONEDRV" | grep -f /tmp/OPTICALDRIVES0`" ] && continue #110205
+   [ "`echo "$oneDRV" | grep -f /tmp/OPTICALDRIVES0`" ] && continue #110205
   fi
 
+  umnt_func /mnt/data # might have been still or already mounted
   #v403 nasty bug: usb optical drive showing as /sys/block/sr0, but won't mount, needs more delay...
-  mnt_func $ONEFS /dev/$ONEDEV /mnt/data ro #-t $ONEFS /dev/$ONEDEV /mnt/data
+  mnt_func $oneFS /dev/$oneDEV /mnt/data ro #-t $oneFS /dev/$oneDEV /mnt/data
   if [ $? -ne 0 ];then
-   echo "PAUSE 5SEC: tried to mount /dev/${ONEDEV}, ${ONEFS} f.s." #101005 boot param loglevel=7 will show this.
+   echo "PAUSE 5SEC: tried to mount /dev/${oneDEV}, ${oneFS} f.s." #101005 boot param loglevel=7 will show this.
    echo -en " \\033[1;31mpausing\\033[0;39m" >/dev/console #31=red
    sleep 5 #2 wasn't enough.
-   mnt_func $ONEFS /dev/$ONEDEV /mnt/data ro #-t $ONEFS /dev/$ONEDEV /mnt/data
+   mnt_func $oneFS /dev/$oneDEV /mnt/data ro #-t $oneFS /dev/$oneDEV /mnt/data
    if [ $? -ne 0 ];then
-    echo "RETRY FAILED: mounting /dev/${ONEDEV}, ${ONEFS} f.s." #101005
+    echo "RETRY FAILED: mounting /dev/${oneDEV}, ${oneFS} f.s." #101005
     umnt_func /mnt/data # might have been already mounted
     continue
    fi
   fi
-  echo "ONEDEV=$ONEDEV ONEFS=$ONEFS ONEDRV=$ONEDRV PSUBDIR=$PSUBDIR" >> /tmp/puppy-file-search.log #101127 for debugging.
+  echo "oneDEV=$oneDEV oneFS=$oneFS oneDRV=$oneDRV PSUBDIR=$PSUBDIR" >> /tmp/puppy-file-search.log #101127 for debugging.
 
   if [ -d /mnt/data${PSUBDIR} ];then
 
    if [ "$VMLINUZ" = "" ];then #search for kernel.qky and vmlinuz...
-    if [ "$ONEFS" != "iso9660" -a "$PMEDIA" = "cd" -a "$ONEFS" != "udf" ];then #101021 avoid finding vmlinuz on hd. 110204. 130128 also udf.
-     echo "Bypass looking for vmlinuz on $ONEDEV"
+    if [ "$oneFS" != "iso9660" -a "$PMEDIA" = "cd" -a "$oneFS" != "udf" ];then #101021 avoid finding vmlinuz on hd. 110204. 130128 also udf.
+     echo "Bypass looking for vmlinuz on $oneDEV"
     else
-     FND_FILES="`find /mnt/data${PSUBDIR} -maxdepth ${SEARCHDEPTH} -xdev -type f -iname kernel.qky -o -iname ${KERNELNAME} | grep -v ' ' | sed -e 's%^/mnt/data%%' | tr '\n' ' '`"
-     for ONEPUPFILE in $FND_FILES  #kernel.qky: see woof script 4quirkybuild.
+     FND_FILES="`find /mnt/data${PSUBDIR} -maxdepth ${SEARCHDEPTH} -xdev \( -type f -o -type l \) -iname kernel.qky -o -iname ${KERNELNAME} | grep -v ' ' | sed -e 's%^/mnt/data%%' | tr '\n' ' '`"
+     for onePUPFILE in $FND_FILES  #kernel.qky: see woof script 4quirkybuild.
      do
-      ONEFULLSIZE=`stat -c %s /mnt/data${ONEPUPFILE}`
-      ONEORIGSIZE=$(( ONEFULLSIZE - 32 )) #110422
-      ONEIDSTRING="`dd if=/mnt/data${ONEPUPFILE} bs=1 skip=${ONEORIGSIZE} 2>/dev/null | sed -e 's%[^a-zA-Z0-9\.]%%g'`"
-      if [ "$ONEIDSTRING" = "$IDSTRING" ];then
-      #VMLINUZ="`basename $ONEPUPFILE`"
-       VMLINUZ=${ONEPUPFILE##*/}
-       PDEV1="$ONEDEV"
-       DEV1FS="$ONEFS"
-       BOOTDRV="$ONEDRV" #exs: sda sr0
-      #PSUBDIR="`dirname $ONEPUPFILE`" #ex: /puppies/wary071
-       PSUBDIR=${ONEPUPFILE%/*} #ex: /puppies/wary071
+      oneFULLSIZE=`stat -c %s /mnt/data${onePUPFILE}`
+      oneORIGSIZE=$(( oneFULLSIZE - 32 )) #110422
+      oneIDSTRING="`dd if=/mnt/data${onePUPFILE} bs=1 skip=${oneORIGSIZE} 2>/dev/null | sed -e 's%[^a-zA-Z0-9\.]%%g'`"
+      if [ "$oneIDSTRING" = "$IDSTRING" ];then
+      #VMLINUZ="`basename $onePUPFILE`"
+       VMLINUZ=${onePUPFILE##*/}
+       PDEV1="$oneDEV"
+       DEV1FS="$oneFS"
+       BOOTDRV="$oneDRV" #exs: sda sr0
+      #PSUBDIR="`dirname $onePUPFILE`" #ex: /puppies/wary071
+       PSUBDIR=${onePUPFILE%/*} #ex: /puppies/wary071
        [ "$PSUBDIR" = "/" ] && PSUBDIR=""
        #SAVEMARK: BootFlash utility can create 128MB boot partition, 2nd partition for pupsave...
        #101020 if pup installed in a subdir, look there for SAVEMARK...
@@ -871,12 +880,12 @@ search_func(){ #110425
         if [ "$FND_MULTIFOLDER" ];then #multisession cd/dvd
          if [ "$PRAMONLY" != "yes" ];then
           PUPMODE=72 #64+8, will become 77.
-          PUPSAVE="${ONEDEV},${ONEFS},${FND_MULTIFOLDER}"
+          PUPSAVE="${oneDEV},${oneFS},${FND_MULTIFOLDER}"
          fi
         fi
        fi
       else
-       echo "IDSTRING comparison failed for kernel search on $ONEPUPFILE"
+       echo "IDSTRING comparison failed for kernel search on $onePUPFILE"
        false
       fi
      done
@@ -887,20 +896,20 @@ search_func(){ #110425
 
    if [ "$PUPSFS" = "" ];then
     FND_FILES="`find /mnt/data${PSUBDIR} -maxdepth ${SEARCHDEPTH} -xdev -type f -iname ${PUPXXXSFS} | grep -v ' ' | sed -e 's%^/mnt/data%%' | tr '\n' ' '`"
-    for ONEPUPFILE in $FND_FILES
+    for onePUPFILE in $FND_FILES
     do
      if [ "$NAMETYPE" = "traditional" ];then
-      ONEIDSTRING="$IDSTRING" #found file based on it's name only.
+      oneIDSTRING="$IDSTRING" #found file based on it's name only.
      else
-      ONEFULLSIZE=`stat -c %s /mnt/data${ONEPUPFILE}`
-       ONEORIGSIZE=$((ONEFULLSIZE - 32))
-      ONEIDSTRING="`dd if=/mnt/data${ONEPUPFILE} bs=1 skip=${ONEORIGSIZE} 2>/dev/null | sed -e 's%[^a-zA-Z0-9\.]%%g'`"
+      oneFULLSIZE=`stat -c %s /mnt/data${onePUPFILE}`
+       oneORIGSIZE=$((oneFULLSIZE - 32))
+      oneIDSTRING="`dd if=/mnt/data${onePUPFILE} bs=1 skip=${oneORIGSIZE} 2>/dev/null | sed -e 's%[^a-zA-Z0-9\.]%%g'`"
      fi
-     if [ "$ONEIDSTRING" = "$IDSTRING" ];then
-      PUPSFS="${ONEDEV},${ONEFS},${ONEPUPFILE}"
+     if [ "$oneIDSTRING" = "$IDSTRING" ];then
+      PUPSFS="${oneDEV},${oneFS},${onePUPFILE}"
       break
      else
-       echo "IDSTRING comparison failed for PUPSFS search on $ONEPUPFILE"
+       echo "IDSTRING comparison failed for PUPSFS search on $onePUPFILE"
        false
      fi
     done
@@ -908,20 +917,20 @@ search_func(){ #110425
 
    if [ "$ZDRV" = "" ];then
     FND_FILES="`find /mnt/data${PSUBDIR} -maxdepth ${SEARCHDEPTH} -xdev -type f -iname ${ZDRVSFS} | grep -v ' ' | sed -e 's%^/mnt/data%%' | tr '\n' ' '`"
-    for ONEPUPFILE in $FND_FILES
+    for onePUPFILE in $FND_FILES
     do
      if [ "$NAMETYPE" = "traditional" ];then
-      ONEIDSTRING="$IDSTRING" #found file based on it's name only.
+      oneIDSTRING="$IDSTRING" #found file based on it's name only.
      else
-      ONEFULLSIZE=`stat -c %s /mnt/data${ONEPUPFILE}`
-      ONEORIGSIZE=$(( ONEFULLSIZE - 32 )) #110422
-      ONEIDSTRING="`dd if=/mnt/data${ONEPUPFILE} bs=1 skip=${ONEORIGSIZE} 2>/dev/null | sed -e 's%[^a-zA-Z0-9\.]%%g'`"
+      oneFULLSIZE=`stat -c %s /mnt/data${onePUPFILE}`
+      oneORIGSIZE=$(( oneFULLSIZE - 32 )) #110422
+      oneIDSTRING="`dd if=/mnt/data${onePUPFILE} bs=1 skip=${oneORIGSIZE} 2>/dev/null | sed -e 's%[^a-zA-Z0-9\.]%%g'`"
      fi
-     if [ "$ONEIDSTRING" = "$IDSTRING" ];then
-      ZDRV="${ONEDEV},${ONEFS},${ONEPUPFILE}"
+     if [ "$oneIDSTRING" = "$IDSTRING" ];then
+      ZDRV="${oneDEV},${oneFS},${onePUPFILE}"
       break
      else
-       echo "IDSTRING comparison failed for ZDRV search on $ONEPUPFILE"
+       echo "IDSTRING comparison failed for ZDRV search on $onePUPFILE"
        false
      fi
     done
@@ -932,14 +941,14 @@ search_func(){ #110425
 
   FND_PUPSAVES=""
   if [ "$SAVEPART" ];then #see SAVEMARK above. 101103 modified logic.
-   if [ "$SAVEPART" = "$ONEDEV" ];then
+   if [ "$SAVEPART" = "$oneDEV" ];then
     if [ "$PSUBDIR" ];then
      #look in same subdir, then in '/' (maxdepth=1)...
      [ -d /mnt/data${PSUBDIR} ] && FND_PUPSAVES="`find /mnt/data${PSUBDIR} -maxdepth 1 -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | grep -v ' ' | sed -e 's%^/mnt/data%%' | tr '\n' ' '`"
      [ "$FND_PUPSAVES" ] || FND_PUPSAVES="`find /mnt/data -maxdepth 1 -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | grep -v ' ' | sed -e 's%^/mnt/data%%' | tr '\n' ' '`"
     else
      FND_PUPSAVES="`find /mnt/data -maxdepth ${SEARCHDEPTH} -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs | grep -v ' ' | sed -e 's%^/mnt/data%%' | tr '\n' ' '`"
-     [ -f /mnt/data/etc/rc.d/PUPSTATE ] && DEV2PUP="${ONEDEV}|${ONEFS}" #full save to different partition than boot. 100919 101103 ignore if installed in a subdir.
+     [ -f /mnt/data/etc/rc.d/PUPSTATE ] && DEV2PUP="${oneDEV}|${oneFS}" #full save to different partition than boot. 100919 101103 ignore if installed in a subdir.
     fi
    fi
   else #101020
@@ -954,16 +963,16 @@ search_func(){ #110425
 
 #  if [ "$FND_PUPSAVES" ];then
 #   #111003 ldolse: pemasu 2.6.39 kernel showing usb at also ata, causing double writes here...
-#   grep "$ONEDEV $ONEFS $FND_PUPSAVES" /tmp/PUPSAVES >/dev/null 2>&1
+#   grep "$oneDEV $oneFS $FND_PUPSAVES" /tmp/PUPSAVES >/dev/null 2>&1
 #   if [ $? -ne 0 ];then
-#    echo "$ONEDEV $ONEFS $FND_PUPSAVES" >> /tmp/PUPSAVES
+#    echo "$oneDEV $oneFS $FND_PUPSAVES" >> /tmp/PUPSAVES
 #   else
 #    echo
 #    echo "AN ERROR HAS OCCURRED. After bootup, please send the content of
 #/initrd/tmp/ERRORUSBSCAN to Barry Kauler http://bkhome.org/blog.
-#Paising 30 seconds..." >/dev/console
+#Pausing 30 seconds..." >/dev/console
 #    echo "AN ERROR HAS OCCURRED. The 'init' script has found this twice:
-#$ONEDEV $ONEFS $FND_PUPSAVES
+#$oneDEV $oneFS $FND_PUPSAVES
 #search_func param=${1}
 #ATADRIVES=${ATADRIVES}
 #PCPARTS=${PCPARTS}
@@ -973,28 +982,31 @@ search_func(){ #110425
 #  fi
 
 
-  [ "$FND_PUPSAVES" ] && echo "$ONEDEV $ONEFS $FND_PUPSAVES" >> /tmp/PUPSAVES
+  [ "$FND_PUPSAVES" ] && echo "$oneDEV $oneFS $FND_PUPSAVES" >> /tmp/PUPSAVES
 
   #130513 if we find a rw f.s., create pupdesk.flg. only needed in PUPMODE=5, see /usr/sbin/quicksetup.
   if [ "$PRAMONLY" != "yes" -a $PUPDESKFLG -eq 1 ];then #130514 exclude. 130515
    if [ ! -f /tmp/RWPART ];then
     if [ "$LINUXFS" ];then
      RWPARTFLG=''
-     case $ONEFS in
+     case $oneFS in
       ext2|ext3|ext4|reiserfs|minix|f2fs)
-       RWPARTFLG="$(cat /proc/mounts | grep "/dev/${ONEDEV} " | grep ' rw,')" ;;
+       RWPARTFLG="$(cat /proc/mounts | grep "/dev/${oneDEV} " | grep ' rw,')" ;;
      esac
     else
-     RWPARTFLG="$(cat /proc/mounts | grep "/dev/${ONEDEV} " | grep ' rw,')"
+     RWPARTFLG="$(cat /proc/mounts | grep "/dev/${oneDEV} " | grep ' rw,')"
     fi
-    [ "$RWPARTFLG" ] && echo -n "${ONEDEV}|${ONEFS}" > /tmp/RWPART #where we intend to create pupdesk.flg, see further down.
+    [ "$RWPARTFLG" ] && echo -n "${oneDEV}|${oneFS}" > /tmp/RWPART #where we intend to create pupdesk.flg, see further down.
    fi
   fi
 
   #fix any improper shutdowns... fsckme.flg format: sda7,ext3,[/pupsave.2fs] (see rc.shutdown)
   FSCKME=""
-  [ -f /mnt/data/fsckme.flg ] && FSCKME="`cat /mnt/data/fsckme.flg | tr ',' ' ' | tr '\n' ' '`"
-  rm -f /mnt/data/fsckme.flg
+  if [ -f /mnt/data/fsckme.flg ]; then
+   FSCKME="`cat /mnt/data/fsckme.flg | tr ',' ' ' | tr '\n' ' '`"
+   mnt_func $oneF$ $oneDEV /mnt/data remount,rw
+   rm -f /mnt/data/fsckme.flg
+  fi
   umnt_func -lr /mnt/data
   [ "$FSCKME" ] && fsckme_func $FSCKME
 
@@ -1073,7 +1085,7 @@ fi
 
 cp -f /tmp/PUPSAVES /tmp/PUPSAVES-complete #101127 for debugging.
 
-
+_puppy_sfs_not_found(){
 #110116 jamesbond: for netboot, PDEV1 is empty, so don't want to fail here...
 #[ "$PDEV1" ] || DROPOUT="Boot partition"
 [ "$PUPSFS" ] || DROPOUT="${PUPXXXSFS}"
@@ -1085,17 +1097,7 @@ if [ "$DROPOUT" ];then
  ) >/dev/console
  exec /bin/sh >/dev/console 2>&1
 fi
-
-if [ "$VMLINUZ" = "" ];then #101103 maybe network boot, no local vmlinuz
- #well, to get this far, PDEV1 has been supplied.
- #110116 jamesbond,shinobar: no, for netboot, PDEV1 is empty, add test for $PDEV1...
- [ "$DEV1FS" = "" -a "$PDEV1" ] && DEV1FS="`echo "$LESSPARTS0" | grep "${PDEV1}|" | cut -f 2 -d '|'`"
- #BOOTDRVL="`echo -n "$PDEV1" | sed -e 's/[0-9]*$//' -e 's/p$//'`" #exs: sda sr   110126 mmcblk0p1 becomes mmcblk0
- #BOOTDRV="`echo -n "$PDEV1" | grep -o -F "$ALLDRVS0"`" #110204 ex: sda1 becomes sda.
- BOOTDRV="`echo "$PDEV1" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
- VMLINUZ='vmlinuz' # fallback
-fi
-
+}
 
  PUPMODE=$((PUPMODE + 4)) #puppy.sfs (PUPXXXSFS) exists.
 
@@ -1114,15 +1116,15 @@ if [ ! "$PUPSAVE" ];then
 
   if [ -s /tmp/PUPSAVES ];then #100922
    cat /tmp/PUPSAVES |
-   while read ONELINE
+   while read oneLINE
    do
-         ONEDEV="`echo "$ONELINE" | cut -f 1 -d ' '`"
-          ONEFS="`echo "$ONELINE" | cut -f 2 -d ' '`"
-    ONEPUPSAVES="`echo "$ONELINE" | cut -f 3-99 -d ' '`"
+         oneDEV="`echo "$oneLINE" | cut -f 1 -d ' '`"
+          oneFS="`echo "$oneLINE" | cut -f 2 -d ' '`"
+    onePUPSAVES="`echo "$oneLINE" | cut -f 3-99 -d ' '`"
 
-    for ONEPUPSAVE in $ONEPUPSAVES
+    for onePUPSAVE in $onePUPSAVES
     do
-     echo "${ONEDEV},${ONEFS},${ONEPUPSAVE}" >> /tmp/PUPSAVE2SFSS
+     echo "${oneDEV},${oneFS},${onePUPSAVE}" >> /tmp/PUPSAVE2SFSS
     done
    done
 
@@ -1139,11 +1141,11 @@ if [ ! "$PUPSAVE" ];then
     echo "0  none"
     ) >/dev/console
 
-    for ONECHOICE in `cat /tmp/PUPSAVE2SFSS`
+    for oneCHOICE in `cat /tmp/PUPSAVE2SFSS`
     do
-     ONEFILE="`echo "$ONECHOICE" | cut -f 3 -d ','`"
-     ONEPART="`echo "$ONECHOICE" | cut -f 1 -d ','`"
-     echo -e "${CNTSAVE}  ${ONEPART}\\033[10G${ONEFILE}" >/dev/console #10 means move to that column.
+     oneFILE="`echo "$oneCHOICE" | cut -f 3 -d ','`"
+     onePART="`echo "$oneCHOICE" | cut -f 1 -d ','`"
+     echo -e "${CNTSAVE}  ${onePART}\\033[10G${oneFILE}" >/dev/console #10 means move to that column.
      CNTSAVE=$((CNTSAVE + 1))
     done
     echo -en "\\033[0;39m" >/dev/console
@@ -1157,38 +1159,68 @@ if [ ! "$PUPSAVE" ];then
   [ "$PUPSAVE" ] && PUPMODE=$((PUPMODE + 8))
 fi
 
+# VMLINUZ set in search for kernel, might also fail due to being a link
+if [ "$VMLINUZ" = "" ];then #101103 maybe network boot, no local vmlinuz
+ #well, to get this far, PDEV1 has been supplied.
+ #110116 jamesbond,shinobar: no, for netboot, PDEV1 is empty, add test for $PDEV1...
+ [ "$DEV1FS" = "" -a "$PDEV1" ] && DEV1FS="`echo "$LESSPARTS0" | grep "${PDEV1}|" | cut -f 2 -d '|'`"
+ #BOOTDRVL="`echo -n "$PDEV1" | sed -e 's/[0-9]*$//' -e 's/p$//'`" #exs: sda sr   110126 mmcblk0p1 becomes mmcblk0
+ #BOOTDRV="`echo -n "$PDEV1" | grep -o -F "$ALLDRVS0"`" #110204 ex: sda1 becomes sda.
+ BOOTDRV="`echo -n "$PDEV1" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
+ VMLINUZ='vmlinuz'
+fi
+
 #refine the PUPMODE...
 #if a ${DISTRO_FILE_PREFIX}save.2fs was not found, perhaps boot partition has a full install of puppy...
- [ ! "$PUPSAVE" ] && [ "$DEV1PUP" = "yes" -o "$DEV2PUP" ] && PUPMODE=$((PUPMODE + 2))
+ [ ! "$PUPSAVE" ] && [ "$DEV1PUP" -o "$DEV2PUP" ] && PUPMODE=$((PUPMODE + 2))
+
+echo "Detected PUPMODE '$PUPMODE'"
+test "$FPUPMODE" && {
+echo " Forcing PUPMODE '$FPUPMODE'"
+PUPMODE=$FPUPMODE
+}
 
 #do we want a tmpfs top layered-fs layer? (set bit-0 of PUPMODE)...
 #only if ${DISTRO_FILE_PREFIX}save.2fs (or PDEV1 for DEV1PUP=yes, or first boot) on a flash drive, usb or internal...
 case $PUPMODE in
+ 2) ;;
+ 3) ;;
  4) #so far have only got a puppy.sfs. this is first boot or pfix=ram.
-  PUPMODE=5 #`expr $PUPMODE + 1` #yes, want tmpfs top layer (PUPMODE=5).
+    PUPMODE=5 #`expr $PUPMODE + 1` #yes, want tmpfs top layer (PUPMODE=5).
+    _puppy_sfs_not_found
  ;;
+ 5) _puppy_sfs_not_found ;;
  6) #4=puppy.sfs found, 2=session saved to entire partition. total=6
     #note: session saved in boot partition, or other specified by SAVEMARK (DEV2PUP).
-  DRVSAVE="`echo "$PDEV1" | sed -e 's/[0-9]*$//' -e 's/p$//'`" #ex: sda   110126 mmcblk0p1 becomes mmcblk0
-  REMOVABLEDRVSAVE="`cat /sys/block/$DRVSAVE/removable`"
-  #[ "$REMOVABLEDRVSAVE" = "1" ] && PUPMODE=7
-  [ "$REMOVABLEDRVSAVE" = "1" -a  "$PMEDIA" != "usbhd" ] && PUPMODE=7  #110116 shinobar.
-  #v3.96 Classmate laptop has internal usb flash, so really want the tmpfs layer...
-  # puppyinstaller created 'pmedia=usbflash' for the extlinux full hd install...
-  [ "$PMEDIA" = "usbflash" ] && PUPMODE=7
+    DRVSAVE="`echo "$PDEV1" | sed -e 's/[0-9]*$//' -e 's/p$//'`" #ex: sda   110126 mmcblk0p1 becomes mmcblk0
+    read REMOVABLEDRVSAVE </sys/block/$DRVSAVE/removable
+    #[ "$REMOVABLEDRVSAVE" = "1" ] && PUPMODE=7
+    [ "$REMOVABLEDRVSAVE" = "1" -a  "$PMEDIA" != "usbhd" ] && PUPMODE=7  #110116 shinobar.
+    #v3.96 Classmate laptop has internal usb flash, so really want the tmpfs layer...
+    # puppyinstaller created 'pmedia=usbflash' for the extlinux full hd install...
+    [ "$PMEDIA" = "usbflash" ] && PUPMODE=7
+    _puppy_sfs_not_found
  ;;
+ 7) _puppy_sfs_not_found ;;
  12) #4=puppy.sfs found, 8=${DISTRO_FILE_PREFIX}save.2fs found.  total=12
-  DRVSAVE="`echo "$PUPSAVE" | cut -f 1 -d ',' | sed -e 's/[0-9]*$//' -e 's/p$//'`" #ex: sda  110126 mmcblk0p1 becomes mmcblk0
-  REMOVABLEDRVSAVE="`cat /sys/block/$DRVSAVE/removable`"
-  #[ "$REMOVABLEDRVSAVE" = "1" ] && PUPMODE=13
-  [ "$REMOVABLEDRVSAVE" = "1"  -a  "$PMEDIA" != "usbhd" ] && PUPMODE=13  #110116 shinobar.
-  [ "$PMEDIA" = "usbflash" ] && PUPMODE=13 #v404 fix classmate, with internal usb flash.
-  [ "$PMEDIA" = "ataflash" ] && PUPMODE=13 #w019 constrain writes to internal flash drv.
+     DRVSAVE="`echo "$PUPSAVE" | cut -f 1 -d ',' | sed -e 's/[0-9]*$//' -e 's/p$//'`" #ex: sda  110126 mmcblk0p1 becomes mmcblk0
+     read REMOVABLEDRVSAVE </sys/block/$DRVSAVE/removable
+     #[ "$REMOVABLEDRVSAVE" = "1" ] && PUPMODE=13
+     [ "$REMOVABLEDRVSAVE" = "1"  -a  "$PMEDIA" != "usbhd" ] && PUPMODE=13  #110116 shinobar.
+     [ "$PMEDIA" = "usbflash" ] && PUPMODE=13 #v404 fix classmate, with internal usb flash.
+     [ "$PMEDIA" = "ataflash" ] && PUPMODE=13 #w019 constrain writes to internal flash drv.
+     _puppy_sfs_not_found
  ;;
+ 13) _puppy_sfs_not_found ;;
  76) #v3.01 64+8+4 multisession cd.
-  PUPMODE=77 #yes, want tmpfs top layer.
+     PUPMODE=77 #yes, want tmpfs top layer.
+     _puppy_sfs_not_found
  ;;
+ 77) _puppy_sfs_not_found ;;
+ *) RDSH="yes" ;;
 esac
+
+echo "  Finally set PUPMODE '$PUPMODE'"
 
 __refine_pmedia_cd__(){
 #if booted with PMEDIA=cd, refine it... 110126
@@ -1223,6 +1255,15 @@ STATUS=0
 unset CREATEPDEV1 CREATEPUPSAVE2FS CREATEPUPXXXSFS CREATEFOLDERS CREATETMPFS
 
 case $PUPMODE in #w003 changed some save-layer to 'ro+wh' so that whiteouts files are recognised...
+ 2)  CREATEPDEV1="/pup_rw"
+     CREATEPUPSAVE2FS=""
+     CREATEPUPXXXSFS=""
+     CREATETMPFS="";
+
+     OLDFILESMNTPT="/pup_rw";
+     NEWFILESMNTPT="/pup_rw";
+
+     UMNTMAIN="/pup_rw=rw";;
 
  3)  CREATEPDEV1="/pup_ro1"
      CREATEPUPSAVE2FS=""
@@ -1307,7 +1348,7 @@ if [ "$CREATEPDEV1" != "" ];then #pupmodes 3,6,7
  fi
 
  [ "`echo "$FS" | grep 'ext[234]'`" ] && echo "/dev/$DEV $CREATEPDEV1 $FS defaults  1 1" >> /etc/fstab #v2.21
- #mount -t $FS /dev/$DEV $CREATEPDEV1
+  echo -en "Mounting the puppy drive $DEV ...."  >/dev/console
   mnt_func $FS /dev/$DEV $CREATEPDEV1
  check_status $?
 
@@ -1322,9 +1363,12 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then # pupmode 12, 13
   PUPSAVEDEV="`echo "$PUPSAVE" | cut -f 1 -d ','`"
    PUPSAVEFS="`echo "$PUPSAVE" | cut -f 2 -d ','`"
  PUPSAVEFILE="`echo "$PUPSAVE" | cut -f 3 -d ','`"
+
  #normal ${DISTRO_FILE_PREFIX}save.2fs file. just mount it from where it is...
  echo -n "Loading personal file $PUPSAVEFILE ($PUPSAVEDEV)..." >/dev/console
+
  [ "`echo "$PUPSAVEFS" | grep 'ext[234]'`" ] && echo "/dev/$PUPSAVEDEV /mnt/dev_save $PUPSAVEFS defaults  1 1" >> /etc/fstab #v2.21
+
  mnt_func $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_save noatime #-t $PUPSAVEFS -o noatime /dev/$PUPSAVEDEV /mnt/dev_save
  if [ $? -eq 0 ];then
   SMNTPT="/mnt/dev_save"
@@ -1471,7 +1515,7 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then # pupmode 12, 13
       mnt_func $SFFS /dev/loop1 $CREATEPUPSAVE2FS noatime
     fi
    fi
-   
+
   fi
  fi
  STATUS=$? #101028
@@ -1514,12 +1558,13 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then # pupmode 12, 13
 
       UMNTMAIN="/pup_rw=rw:/pup_ro2=ro"
      fi
-    fi 
+    fi
 
     # ask if puppy.sfs to be copied to the same place as the save-file...
     #if [ "$BOOTDRV" = "sr" ];then #booting off cd.
     #if [ "`echo -n "$BOOTDRV" | grep -F "$OPTICALDRIVES0"`" ];then  #110204 booting off cd.
     if [ "`echo "$BOOTDRV" | grep -f /tmp/OPTICALDRIVES0`" ];then    #110205 booting off cd.
+
      if [ "$CREATEPUPSAVE2FS" ];then #did not do the backoff above.
        xPUPSFSDEV="`echo "$PUPSFS" | cut -f 1 -d ','`" #checking puppy.sfs file.
         xPUPSFSFS="`echo "$PUPSFS" | cut -f 2 -d ','`"
@@ -1540,7 +1585,7 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then # pupmode 12, 13
        echo -en "\\033[0;39m"
        ) >/dev/console
        read nocopysfs
-       
+
        if [ "$nocopysfs" = "" ];then
        (
         echo -en "\\033[1;35m" #35=purple
@@ -1572,14 +1617,14 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then # pupmode 12, 13
         sync
        fi
       fi  # copy puppy.sfs from cd to hd
-      
+
      fi
     fi # boot off cd
 
    fi # vercmp
   fi  # pupmode 12, 13
  fi   # STATUS=0
- 
+
 fi # CREATEPUPSAVE2FS ( pupmode 12,13 )
 
 #there are technical problems with loading a swap partition/file before the union
@@ -1641,18 +1686,18 @@ if [ "$CREATEFOLDERS" != "" ];then
   fi
   [ -f $DESTDIR/.badfolders ] && BKBADLIST="`cat $DESTDIR/.badfolders | tr "\n" " "`"
   BKFOLDERS="`echo "$BKFOLDERS" | tr "\n" " "`"
-  for ONEFOLDER in $BKFOLDERS
+  for oneFOLDER in $BKFOLDERS
   do
-   if [ "`echo "$BKBADLIST" | grep "$ONEFOLDER"`" != "" ];then
-    echo "Folder $ONEFOLDER marked bad." >/dev/console
+   if [ "`echo "$BKBADLIST" | grep "$oneFOLDER"`" != "" ];then
+    echo "Folder $oneFOLDER marked bad." >/dev/console
     continue #ignore bad folder.
    fi
-   echo -n "Loading folder $ONEFOLDER from CD/DVD..." >/dev/console
+   echo -n "Loading folder $oneFOLDER from CD/DVD..." >/dev/console
    #need to be careful not to overfill the ramdisk...
    FREERAMDISK=`df 2>/dev/null | grep "$DESTDIR" | head -n 1 | tr -s " " | cut -f 4 -d " "`
-   SIZEFOLDER=`du -k -s ${CDMNTPT}/${ONEFOLDER} | cut -f 1`
-   if [ -d ${CDMNTPT}/${ONEFOLDER}/archive ];then
-    SIZEARCHIVE=`du -k -s ${CDMNTPT}/${ONEFOLDER}/archive | cut -f 1`
+   SIZEFOLDER=`du -k -s ${CDMNTPT}/${oneFOLDER} | cut -f 1`
+   if [ -d ${CDMNTPT}/${oneFOLDER}/archive ];then
+    SIZEARCHIVE=`du -k -s ${CDMNTPT}/${oneFOLDER}/archive | cut -f 1`
    else
     SIZEARCHIVE=0
    fi
@@ -1660,20 +1705,20 @@ if [ "$CREATEFOLDERS" != "" ];then
    if [ $FREERAMDISK -gt $SIZESOURCE ];then
     #well, -u will only copy if files newer, so less stuff may get copied than calc'd above.
     #need to copy everything except archive folder...
-    [ -d $CDMNTPT/$ONEFOLDER/bin ]  && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/bin $DESTDIR/
-    [ -d $CDMNTPT/$ONEFOLDER/sbin ] && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/sbin $DESTDIR/
-    [ -d $CDMNTPT/$ONEFOLDER/etc ]  && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/etc $DESTDIR/
-    [ -d $CDMNTPT/$ONEFOLDER/lib ]  && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/lib $DESTDIR/
-    [ -d $CDMNTPT/$ONEFOLDER/opt ]  && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/opt $DESTDIR/
-    if [ -d $CDMNTPT/$ONEFOLDER/root/.var_saved ];then #100820 see /etc/rc.d/functions4puppy
+    [ -d $CDMNTPT/$oneFOLDER/bin ]  && /bin/cp -a -u $CDMNTPT/$oneFOLDER/bin $DESTDIR/
+    [ -d $CDMNTPT/$oneFOLDER/sbin ] && /bin/cp -a -u $CDMNTPT/$oneFOLDER/sbin $DESTDIR/
+    [ -d $CDMNTPT/$oneFOLDER/etc ]  && /bin/cp -a -u $CDMNTPT/$oneFOLDER/etc $DESTDIR/
+    [ -d $CDMNTPT/$oneFOLDER/lib ]  && /bin/cp -a -u $CDMNTPT/$oneFOLDER/lib $DESTDIR/
+    [ -d $CDMNTPT/$oneFOLDER/opt ]  && /bin/cp -a -u $CDMNTPT/$oneFOLDER/opt $DESTDIR/
+    if [ -d $CDMNTPT/$oneFOLDER/root/.var_saved ];then #100820 see /etc/rc.d/functions4puppy
      mkdir -p $DESTDIR/var
-     /bin/cp -a -u $CDMNTPT/$ONEFOLDER/root/.var_saved/* $DESTDIR/var/
+     /bin/cp -a -u $CDMNTPT/$oneFOLDER/root/.var_saved/* $DESTDIR/var/
     fi
-    [ -d $CDMNTPT/$ONEFOLDER/root ] && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/root $DESTDIR/
-    [ -d $CDMNTPT/$ONEFOLDER/root/.var_saved ] && rm -rf $DESTDIR/root/.var_saved #100820
-    [ -d $CDMNTPT/$ONEFOLDER/usr ]  && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/usr $DESTDIR/
-    [ $DEVTMPFSFLG -eq 0 ] && [ -d $CDMNTPT/$ONEFOLDER/dev ] && /bin/cp -a -u $CDMNTPT/$ONEFOLDER/dev $DESTDIR/   #v411 130612
-    /bin/cp -a -u $CDMNTPT/$ONEFOLDER/*.sfs $DESTDIR/   #v3.97
+    [ -d $CDMNTPT/$oneFOLDER/root ] && /bin/cp -a -u $CDMNTPT/$oneFOLDER/root $DESTDIR/
+    [ -d $CDMNTPT/$oneFOLDER/root/.var_saved ] && rm -rf $DESTDIR/root/.var_saved #100820
+    [ -d $CDMNTPT/$oneFOLDER/usr ]  && /bin/cp -a -u $CDMNTPT/$oneFOLDER/usr $DESTDIR/
+    [ $DEVTMPFSFLG -eq 0 ] && [ -d $CDMNTPT/$oneFOLDER/dev ] && /bin/cp -a -u $CDMNTPT/$oneFOLDER/dev $DESTDIR/   #v411 130612
+    /bin/cp -a -u $CDMNTPT/$oneFOLDER/*.sfs $DESTDIR/   #v3.97
     #delete deleted files (.wh.filename)... 110212 screen out .wh..wh..opq
     WHITEOUTS="`find $DESTDIR -xdev -type f -name .wh.* | grep -v '__dir_opaque' | grep -v '.wh..wh.'`" #110212
     echo "$WHITEOUTS" |
@@ -1712,10 +1757,10 @@ vercmp $DISTRO_VERSION gt $OLDDISTRO_VERSION && REASON='upgrade' #110422
 #110810 some builds may have many scsi drivers in initrd, if needed will have already loaded, so delete them...
 if [ "$REASON" != "" ];then
  mkdir /tmp/scsi-keep
- for ONEKEEP in imm.ko ppa.ko raid_class.ko sg.ko scsi_wait_scan.ko
+ for oneKEEP in imm.ko ppa.ko raid_class.ko sg.ko scsi_wait_scan.ko
  do
-  ONEFND="`find /lib/modules/$KERNELVER/kernel/drivers/scsi -type f -name $ONEKEEP`"
-  [ "$ONEFND" ] && cp -a $ONEFND /tmp/scsi-keep/
+  oneFND="`find /lib/modules/$KERNELVER/kernel/drivers/scsi -type f -name $oneKEEP`"
+  [ "$oneFND" ] && cp -a $oneFND /tmp/scsi-keep/
  done
  rm -rf /lib/modules/$KERNELVER/kernel/drivers/scsi
  cp -a /tmp/scsi-keep /lib/modules/$KERNELVER/kernel/drivers/scsi #restore needed.
@@ -1993,33 +2038,33 @@ if [ "$PUPSAVE" != "" ];then
 
    #130514 shinobar: extra sfs in the order of EXTRASFSLIST, subdir first
    #ls -1 $SFSSDIR/*.sfs $xSFSSDIRx |
-   #while read ONEEXTRA
+   #while read oneEXTRA
    #do
-   # ONEBASE="`basename $ONEEXTRA`"
+   # oneBASE="`basename $oneEXTRA`"
    # exPATTERN="^z|^pup_" #w478
-   # [ "`echo "$ONEBASE" | grep -E "$exPATTERN"`" ] && continue
-   # [ "`grep "$ONEBASE" /tmp/EXTRASFSS`" ] && continue #100711 avoid loading duplicates.
-   # [ "`echo "$EXTRASFSLIST" | grep "$ONEBASE"`" ] && echo "${ONEEXTRA}" >> /tmp/EXTRASFSS
+   # [ "`echo "$oneBASE" | grep -E "$exPATTERN"`" ] && continue
+   # [ "`grep "$oneBASE" /tmp/EXTRASFSS`" ] && continue #100711 avoid loading duplicates.
+   # [ "`echo "$EXTRASFSLIST" | grep "$oneBASE"`" ] && echo "${oneEXTRA}" >> /tmp/EXTRASFSS
    #done
-   
-   for ONEEXTRA in $EXTRASFSLIST ; do
-   #ONEBASE="`basename $ONEEXTRA`"
-    ONEBASE=${ONEEXTRA##*/}
-    echo "$ONEBASE" | grep -qE '^z|^pup[_-]'   && continue
-    echo "/tmp/EXTRASFSS" | grep -q "$ONEBASE" && continue # avoid loading duplicates.
-    [ "$xPSUBDIR" ] && [ -s "$SFSSDIR$xPSUBDIR/$ONEBASE" ] && echo "$SFSSDIR$xPSUBDIR/$ONEBASE" >> /tmp/EXTRASFSS && continue
-    [ -s "$SFSSDIR/$ONEBASE" ] && echo "$SFSSDIR/$ONEBASE" >> /tmp/EXTRASFSS && continue
+
+   for oneEXTRA in $EXTRASFSLIST ; do
+   #oneBASE="`basename $oneEXTRA`"
+    oneBASE=${oneEXTRA##*/}
+    echo "$oneBASE" | grep -qE '^z|^pup[_-]'   && continue
+    echo "/tmp/EXTRASFSS" | grep -q "$oneBASE" && continue # avoid loading duplicates.
+    [ "$xPSUBDIR" ] && [ -s "$SFSSDIR$xPSUBDIR/$oneBASE" ] && echo "$SFSSDIR$xPSUBDIR/$oneBASE" >> /tmp/EXTRASFSS && continue
+    [ -s "$SFSSDIR/$oneBASE" ] && echo "$SFSSDIR/$oneBASE" >> /tmp/EXTRASFSS && continue
    done
 
   fi
   EXTRASFSLIST=""
   if [ -s /tmp/EXTRASFSS ];then #100711
-   for ONEEXTRA in `cat /tmp/EXTRASFSS`
+   for oneEXTRA in `cat /tmp/EXTRASFSS`
    do
-   #ONEBASE="`basename $ONEEXTRA`"
-    ONEBASE=${ONEEXTRA##*/}
-    EXTRASFSLIST="${EXTRASFSLIST}${ONEBASE} " #construct list of actually used.
-    losetup /dev/loop${CNTLOOP} $ONEEXTRA
+   #oneBASE="`basename $oneEXTRA`"
+    oneBASE=${oneEXTRA##*/}
+    EXTRASFSLIST="${EXTRASFSLIST}${oneBASE} " #construct list of actually used.
+    losetup /dev/loop${CNTLOOP} $oneEXTRA
     mount -r -t squashfs -o noatime /dev/loop${CNTLOOP} /pup_ro${CNTLOOP}
     [ $? -eq 0 ] && UMNTRO="${UMNTRO}:/pup_ro${CNTLOOP}=ro"
      CNTLOOP=$((CNTLOOP + 1))
@@ -2144,19 +2189,19 @@ if [ "$OLDFILESMNTPT" != "" ];then
   #responsible, recently upx-ed all the execs, now restore busybox, grep, cp.
   DOTCNT=0
   /bin/find ./ -noleaf -type f | sed -e 's/^\.//g' |
-  while read ONENEW
+  while read oneNEW
   do
     DOTCNT=$((DOTCNT + 1))
    [ $DOTCNT -gt 100 ] && DOTCNT=0 #display a dot every time cnts to 100.
    [ $DOTCNT -eq 100 ] && echo -n '*' >/dev/console #v2.12
    #note, screens out spaces also...
-   [ "`echo "$ONENEW" | grep -E '^/dev|^/tmp|^/proc| '`" != "" ] && continue
-  #ONEBASE="`basename $OLDFILESMNTPT$ONENEW`"
-  # OLDDIR="`dirname  $OLDFILESMNTPT$ONENEW`"
-   ONEBASE=${OLDFILESMNTPT$ONENEW##*/}
-    OLDDIR=${OLDFILESMNTPT$ONENEW%/*}
+   [ "`echo "$oneNEW" | grep -E '^/dev|^/tmp|^/proc| '`" != "" ] && continue
+  oneBASE="`basename $OLDFILESMNTPT$oneNEW`"
+   OLDDIR="`dirname  $OLDFILESMNTPT$oneNEW`"
+  #oneBASE=${OLDFILESMNTPT$oneNEW##*/} # bad substitution
+  # OLDDIR=${OLDFILESMNTPT$oneNEW%/*}
    #a whiteout file 'on top' will hide the 'official' file...
-   [ -f $OLDDIR/.wh.$ONEBASE ] && rm -f $OLDDIR/.wh.$ONEBASE
+   [ -f $OLDDIR/.wh.$oneBASE ] && rm -f $OLDDIR/.wh.$oneBASE
    [ -f $OLDDIR/.wh.__dir_opaque ] && rm -f $OLDDIR/.wh.__dir_opaque #v424 not needed for aufs2
    [ -f $OLDDIR/.wh..wh..opq ] && rm -f $OLDDIR/.wh..wh..opq #110212 recent aufs2, but probably not needed.
    #let's get paranoid and imagine upper-directories also wiped...
@@ -2170,19 +2215,19 @@ if [ "$OLDFILESMNTPT" != "" ];then
     [ -f $OLDDIR/.wh..wh..opq ] && rm -f $OLDDIR/.wh..wh..opq #110212 recent aufs2, but probably not needed.
    done
    #now check for 'old' files on top layer...
-   if [ -f $OLDFILESMNTPT$ONENEW ];then
+   if [ -f $OLDFILESMNTPT$oneNEW ];then
     #note, this is inaccurate due to local timezone not yet set...
     #i got this 'stat' off ibiblio, v3.3. i think older version than in main puppy f.s...
-    MODIFOLD=`$PUPFILESDIR/bin/stat -c %Y $OLDFILESMNTPT$ONENEW`
-    MODIFNEW=`$PUPFILESDIR/bin/stat -c %Y $NEWFILESMNTPT$ONENEW`
+    MODIFOLD=`$PUPFILESDIR/bin/stat -c %Y $OLDFILESMNTPT$oneNEW`
+    MODIFNEW=`$PUPFILESDIR/bin/stat -c %Y $NEWFILESMNTPT$oneNEW`
      [ "$PPURGE" = "yes" ] && MODIFNEW=$((MODIFOLD + 1)) #force overwrite all.
     if [ $MODIFNEW -ge $MODIFOLD ];then
-     echo -n " $ONENEW " >/dev/console
-    #ONEDIR="`dirname $ONENEW`"
-     ONEDIR=${ONENEW%/*}
-     mkdir -p $OLDFILESMNTPT/tmp/versioncleanup$ONEDIR
-     cp -af $OLDFILESMNTPT$ONENEW $OLDFILESMNTPT/tmp/versioncleanup$ONEDIR/
-     rm -f $OLDFILESMNTPT$ONENEW
+     echo -n " $oneNEW " >/dev/console
+    #oneDIR="`dirname $oneNEW`"
+     oneDIR=${oneNEW%/*}
+     mkdir -p $OLDFILESMNTPT/tmp/versioncleanup$oneDIR
+     cp -af $OLDFILESMNTPT$oneNEW $OLDFILESMNTPT/tmp/versioncleanup$oneDIR/
+     rm -f $OLDFILESMNTPT$oneNEW
     fi
    fi
   done
@@ -2194,17 +2239,17 @@ if [ "$OLDFILESMNTPT" != "" ];then
   #find all .wh.__dir_opaque files at the OLDFILESMNTPT layer... v424 bugfixes... 110212 .wh..wh..opq ...
   cd $OLDFILESMNTPT
   /bin/find ./ -noleaf -type f -name ".wh.*" | sed -e 's/^\.//g' |
-  while read ONEOPAQUE #examples: /usr/src/.wh.__dir_opaque, /usr/src/.wh.bin
+  while read oneOPAQUE #examples: /usr/src/.wh.__dir_opaque, /usr/src/.wh.bin
   do
-  #ONEDIR="`dirname  $ONEOPAQUE`" #ex: /usr/src
-  #WHBASE="`basename $ONEOPAQUE`" #ex: .wh.bin
-   ONEDIR=${ONEOPAQUE%/*} #ex: /usr/src
-   WHBASE=${ONEOPAQUE##*/} #ex: .wh.bin
+  #oneDIR="`dirname  $oneOPAQUE`" #ex: /usr/src
+  #WHBASE="`basename $oneOPAQUE`" #ex: .wh.bin
+   oneDIR=${oneOPAQUE%/*} #ex: /usr/src
+   WHBASE=${oneOPAQUE##*/} #ex: .wh.bin
    if [ "$WHBASE" != ".wh.__dir_opaque" -a "$WHBASE" != ".wh..wh..opq" ];then #aufs2 always enter this condition... 110212 extra test.
     #example, .wh.bin alongside bin directory means it is deleted...
-    ONEDEL="`echo "$WHBASE" | sed -e 's/^\\.wh\\.//g'`" #ex: bin
-    ONEDIR="${ONEDIR}/${ONEDEL}" #ex: /usr/src/bin
-    [ -e ".${ONEDIR}" ] || continue
+    oneDEL="`echo "$WHBASE" | sed -e 's/^\\.wh\\.//g'`" #ex: bin
+    oneDIR="${oneDIR}/${oneDEL}" #ex: /usr/src/bin
+    [ -e ".${oneDIR}" ] || continue
    fi
    #if same dir exists lower layer, then wipe the opaque file...
 
@@ -2214,19 +2259,19 @@ if [ "$OLDFILESMNTPT" != "" ];then
     while [ true ];
     do
     c=$((c+1))
-    [ -d /pup_ro${c}${ONEDIR} ] && rm -f ${OLDFILESMNTPT}${ONEOPAQUE}
+    [ -d /pup_ro${c}${oneDIR} ] && rm -f ${OLDFILESMNTPT}${oneOPAQUE}
     [ $c -ge $maxFOLDERS ] && break
     done
     unset c
 
    __old_layer_opaq_remove__(){
-   [ -d /pup_ro3${ONEDIR} ] && rm -f ${OLDFILESMNTPT}${ONEOPAQUE}
-   [ -d /pup_ro4${ONEDIR} ] && rm -f ${OLDFILESMNTPT}${ONEOPAQUE}
-   [ -d /pup_ro5${ONEDIR} ] && rm -f ${OLDFILESMNTPT}${ONEOPAQUE}
-   [ -d /pup_ro6${ONEDIR} ] && rm -f ${OLDFILESMNTPT}${ONEOPAQUE}
-   [ -d /pup_ro7${ONEDIR} ] && rm -f ${OLDFILESMNTPT}${ONEOPAQUE}
-   [ -d /pup_ro8${ONEDIR} ] && rm -f ${OLDFILESMNTPT}${ONEOPAQUE}
-   [ -d /pup_ro9${ONEDIR} ] && rm -f ${OLDFILESMNTPT}${ONEOPAQUE}
+   [ -d /pup_ro3${oneDIR} ] && rm -f ${OLDFILESMNTPT}${oneOPAQUE}
+   [ -d /pup_ro4${oneDIR} ] && rm -f ${OLDFILESMNTPT}${oneOPAQUE}
+   [ -d /pup_ro5${oneDIR} ] && rm -f ${OLDFILESMNTPT}${oneOPAQUE}
+   [ -d /pup_ro6${oneDIR} ] && rm -f ${OLDFILESMNTPT}${oneOPAQUE}
+   [ -d /pup_ro7${oneDIR} ] && rm -f ${OLDFILESMNTPT}${oneOPAQUE}
+   [ -d /pup_ro8${oneDIR} ] && rm -f ${OLDFILESMNTPT}${oneOPAQUE}
+   [ -d /pup_ro9${oneDIR} ] && rm -f ${OLDFILESMNTPT}${oneOPAQUE}
     }
 
   done
@@ -2340,13 +2385,13 @@ mkdir -p /pup_new/initrd/mnt/zdrv
 mkdir -p /pup_new/initrd/tmp
 }
 
-for ONEMNT in `mount | cut -f 3 -d ' ' | grep -v 'pup_new' | grep '^/pup_'`
+for oneMNT in `mount | cut -f 3 -d ' ' | grep -v 'pup_new' | grep '^/pup_'`
 do
- mount -o move $ONEMNT /pup_new/initrd${ONEMNT}
+ mount -o move $oneMNT /pup_new/initrd${oneMNT}
 done
-for ONEMNT in `mount | cut -f 3 -d ' ' | grep '^/mnt/'`
+for oneMNT in `mount | cut -f 3 -d ' ' | grep '^/mnt/'`
 do
- mount -o move $ONEMNT /pup_new/initrd${ONEMNT}
+ mount -o move $oneMNT /pup_new/initrd${oneMNT}
 done
 
 #v4.02 bring back, but allocate more space (/4 instead of /8)....
@@ -2394,11 +2439,11 @@ fi
 
 #091225 copy exes to main f.s.
 if [ -f /bin/TARGETEXES ];then
- for ONEEXE in `cat /bin/TARGETEXES` #ex: sbin/e2fsck
+ for oneEXE in `cat /bin/TARGETEXES` #ex: sbin/e2fsck
  do
- #BASEEXE="`basename $ONEEXE`"
-  BASEEXE=${ONEEXE##*/}
-  [ -e /pup_new/$ONEEXE ] || /bin/cp -f -a /bin/$BASEEXE /pup_new/$ONEEXE
+ #BASEEXE="`basename $oneEXE`"
+  BASEEXE=${oneEXE##*/}
+  [ -e /pup_new/$oneEXE ] || /bin/cp -f -a /bin/$BASEEXE /pup_new/$oneEXE
  done
  cp -f /bin/TARGETEXES /pup_new/bin/ #100113 puppyinstaller needs this.
 fi
