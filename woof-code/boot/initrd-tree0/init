@@ -204,11 +204,11 @@ export LANG=C #w004
 
 [ $loglevel ] && LOGLEVEL=$loglevel #v2.22
 clear #clear the screen.
-[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootinit.log 2>&1 #remove o/p from console. v2.22 loglevel added.
+[ "$LOGLEVEL" ] || exec 1>/tmp/bootinit.log 2>&1 #remove o/p from console. v2.22 loglevel added.
 
 
 . /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
-[ ! "$DISTRO_DB_SUBNAME" ] && DISTRO_DB_SUBNAME="$DISTRO_COMPAT_VERSION" #121102 fallback if DISTRO_DB_SUBNAME not defined in file DISTRO_SPECS.
+[ "$DISTRO_DB_SUBNAME" ] || DISTRO_DB_SUBNAME="$DISTRO_COMPAT_VERSION" #121102 fallback if DISTRO_DB_SUBNAME not defined in file DISTRO_SPECS.
 
 #100911 simple filenames specified in DISTRO_SPECS: DISTRO_ZDRVSFS, DISTRO_PUPPYSFS...
 ZDRVSFS="$DISTRO_ZDRVSFS"
@@ -276,6 +276,8 @@ if [ "$pfix" ];then
  done
 fi
 
+# pupmode=NUMBER parameter to force PUPMODE ie 13 on hd install
+[ "$pupmode" ] && FPUPMODE="$pupmode" # force a PUPMODE
 
 
 #100318 perform a f.s. check...
@@ -374,6 +376,15 @@ test "$*" || return 1
   fusermount -u $MNT_DIR
  fi
  return $?
+}
+
+_dropout_rdsh(){
+ (
+  echo -e "\\033[0;39m"
+  test "$*" && echo -e "-*- $* -*-"
+  echo -e "$Dropping into initial ram console"
+  ) >/dev/console
+  exec /bin/sh >/dev/console 2>&1
 }
 
 check_status(){
@@ -483,7 +494,7 @@ search_func(){ #110425
     if [ "$oneFS" != "iso9660" -a "$PMEDIA" = "cd" -a "$oneFS" != "udf" ];then #101021 avoid finding vmlinuz on hd. 110204. 130128 also udf.
      echo "Bypass looking for vmlinuz on $oneDEV"
     else
-     FND_FILES="`find /mnt/data${PSUBDIR} -maxdepth ${SEARCHDEPTH} -xdev -type f -iname kernel.qky -o -iname ${KERNELNAME} | grep -v ' ' | sed -e 's%^/mnt/data%%' | tr '\n' ' '`"
+     FND_FILES="`find /mnt/data${PSUBDIR} -maxdepth ${SEARCHDEPTH} -xdev \( -type f -o -type l \) -iname kernel.qky -o -iname ${KERNELNAME} | grep -v ' ' | sed -e 's%^/mnt/data%%' | tr '\n' ' '`"
      for onePUPFILE in $FND_FILES  #kernel.qky: see woof script 4quirkybuild.
      do
       oneFULLSIZE=`stat -c %s /mnt/data${onePUPFILE}`
@@ -633,7 +644,7 @@ search_func(){ #110425
 #    echo
 #    echo "AN ERROR HAS OCCURRED. After bootup, please send the content of
 #/initrd/tmp/ERRORUSBSCAN to Barry Kauler http://bkhome.org/blog.
-#Paising 30 seconds..." >/dev/console
+#Pausing 30 seconds..." >/dev/console
 #    echo "AN ERROR HAS OCCURRED. The 'init' script has found this twice:
 #$oneDEV $oneFS $FND_PUPSAVES
 #search_func param=${1}
@@ -664,8 +675,11 @@ search_func(){ #110425
 
   #fix any improper shutdowns... fsckme.flg format: sda7,ext3,[/pupsave.2fs] (see rc.shutdown)
   FSCKME=""
-  [ -f /mnt/data/fsckme.flg ] && FSCKME="`cat /mnt/data/fsckme.flg | tr ',' ' ' | tr '\n' ' '`"
-  rm -f /mnt/data/fsckme.flg
+  if [ -f /mnt/data/fsckme.flg ]; then
+   FSCKME="`cat /mnt/data/fsckme.flg | tr ',' ' ' | tr '\n' ' '`"
+   mnt_func $oneFS /dev/$oneDEV /mnt/data remount,rw
+   rm -f /mnt/data/fsckme.flg
+  fi
   umnt_func /mnt/data
   [ "$FSCKME" ] && fsckme_func $FSCKME
   
@@ -1096,9 +1110,16 @@ _choose_pupsave
 #if a ${DISTRO_FILE_PREFIX}save.2fs was not found, perhaps boot partition has a full install of puppy...
  [ ! "$PUPSAVE" ] && [ "$DEV1PUP" = "yes" -o "$DEV2PUP" ] && PUPMODE=$((PUPMODE + 2))
 
+echo "Detected PUPMODE '$PUPMODE'"
+test "$FPUPMODE" && {
+echo " Forcing PUPMODE '$PUPMODE'"
+PUPMODE=$FPUPMODE
+}
+
 #do we want a tmpfs top layered-fs layer? (set bit-0 of PUPMODE)...
 #only if ${DISTRO_FILE_PREFIX}save.2fs (or PDEV1 for DEV1PUP=yes, or first boot) on a flash drive, usb or internal...
 case $PUPMODE in
+ 2|3|5|7|13|77) :;;
  4) #so far have only got a puppy.sfs. this is first boot or pfix=ram.
   PUPMODE=5 #`expr $PUPMODE + 1` #yes, want tmpfs top layer (PUPMODE=5).
  ;;
@@ -1123,6 +1144,7 @@ case $PUPMODE in
  76) #v3.01 64+8+4 multisession cd.
   PUPMODE=77 #yes, want tmpfs top layer.
  ;;
+ *) _dropout_rdsh "Unhandled PUPMODE $PUPMODE" ;;
 esac
 
 ##if booted with PMEDIA=cd, refine it... 110126
@@ -1185,6 +1207,7 @@ if [ "$CREATEPDEV1" != "" ];then  # pupmode 3, 6, 7
  fi
  
  [ "`echo "$FS" | grep 'ext[234]'`" ] && echo "/dev/$DEV $CREATEPDEV1 $FS defaults  1 1" >> /etc/fstab #v2.21
+ echo -en "Mounting the puppy drive $DEV ...."  >/dev/console
  mount -t $FS /dev/$DEV $CREATEPDEV1
  check_status $?
  #save is not a ${DISTRO_FILE_PREFIX}save file, but a partition on a layered-fs layer...
@@ -1201,7 +1224,9 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then # pupmode 12, 13
  
  #normal ${DISTRO_FILE_PREFIX}save.2fs file. just mount it from where it is...
  echo -n "Loading personal file $PUPSAVEFILE ($PUPSAVEDEV)..." >/dev/console
+ 
  [ "`echo "$PUPSAVEFS" | grep 'ext[234]'`" ] && echo "/dev/$PUPSAVEDEV /mnt/dev_save $PUPSAVEFS defaults  1 1" >> /etc/fstab #v2.21
+
  mnt_func $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_save noatime #-t $PUPSAVEFS -o noatime /dev/$PUPSAVEDEV /mnt/dev_save
  if [ $? -eq 0 ];then
   SMNTPT="/mnt/dev_save"
@@ -1374,7 +1399,7 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then # pupmode 12, 13
       sync
       umount $CREATEPUPSAVE2FS #unmount the save-file.
       PUPMODE=5
-      CREATETMPFS="";CREATEPDEV1="";CREATEPUPXXXSFS="";CREATEPUPSAVE2FS="";CREATEFOLDERS=""
+      unset CREATETMPFS CREATEPDEV1 CREATEPUPXXXSFS CREATEPUPSAVE2FS CREATEFOLDERS
       CREATETMPFS="/pup_rw";CREATEPUPXXXSFS="/pup_ro2"
       OLDFILESMNTPT="";NEWFILESMNTPT="/pup_ro2";UMNTMAIN="/pup_rw=rw:/pup_ro2=ro"
      fi
@@ -1384,11 +1409,13 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then # pupmode 12, 13
     #if [ "$BOOTDRV" = "sr" ];then #booting off cd.
     #if [ "`echo -n "$BOOTDRV" | grep -F "$OPTICALDRIVES0"`" ];then #110204 booting off cd.
     if [ "`echo -n "$BOOTDRV" | grep -f /tmp/OPTICALDRIVES0`" ];then #110205 booting off cd.
+
      if [ "$CREATEPUPSAVE2FS" ];then #did not do the backoff above.
        xPUPSFSDEV="`echo "$PUPSFS" | cut -f 1 -d ','`" #checking puppy.sfs file.
         xPUPSFSFS="`echo "$PUPSFS" | cut -f 2 -d ','`"
       xPUPSFSFILE="`echo "$PUPSFS" | cut -f 3 -d ','`"
       basepupsfs="`basename $xPUPSFSFILE`"
+
       #if [ "`echo "$xPUPSFSDEV | grep 'sr'"`" ];then
       #if [ "`echo -n "$xPUPSFSDEV" | grep -F "$OPTICALDRIVES0"`" ];then #110204
       if [ "`echo "$xPUPSFSDEV" | grep -f /tmp/OPTICALDRIVES0`" ];then #110205
@@ -1516,11 +1543,11 @@ if [ "$CREATEFOLDERS" != "" ];then # pupmode 77
    if [ $FREERAMDISK -gt $SIZESOURCE ];then
     #well, -u will only copy if files newer, so less stuff may get copied than calc'd above.
     #need to copy everything except archive folder...
-    [ -d $CDMNTPT/$oneFOLDER/bin ] && /bin/cp -a -u $CDMNTPT/$oneFOLDER/bin $DESTDIR/
+    [ -d $CDMNTPT/$oneFOLDER/bin ]  && /bin/cp -a -u $CDMNTPT/$oneFOLDER/bin $DESTDIR/
     [ -d $CDMNTPT/$oneFOLDER/sbin ] && /bin/cp -a -u $CDMNTPT/$oneFOLDER/sbin $DESTDIR/
-    [ -d $CDMNTPT/$oneFOLDER/etc ] && /bin/cp -a -u $CDMNTPT/$oneFOLDER/etc $DESTDIR/
-    [ -d $CDMNTPT/$oneFOLDER/lib ] && /bin/cp -a -u $CDMNTPT/$oneFOLDER/lib $DESTDIR/
-    [ -d $CDMNTPT/$oneFOLDER/opt ] && /bin/cp -a -u $CDMNTPT/$oneFOLDER/opt $DESTDIR/
+    [ -d $CDMNTPT/$oneFOLDER/etc ]  && /bin/cp -a -u $CDMNTPT/$oneFOLDER/etc $DESTDIR/
+    [ -d $CDMNTPT/$oneFOLDER/lib ]  && /bin/cp -a -u $CDMNTPT/$oneFOLDER/lib $DESTDIR/
+    [ -d $CDMNTPT/$oneFOLDER/opt ]  && /bin/cp -a -u $CDMNTPT/$oneFOLDER/opt $DESTDIR/
     if [ -d $CDMNTPT/$oneFOLDER/root/.var_saved ];then #100820 see /etc/rc.d/functions4puppy
      mkdir -p $DESTDIR/var
      /bin/cp -a -u $CDMNTPT/$oneFOLDER/root/.var_saved/* $DESTDIR/var/
@@ -1974,7 +2001,7 @@ if [ "$OLDFILESMNTPT" != "" ];then
   echo "(with a slow CPU this may take sometime, please be patient)"
   ) >/dev/console
   #v2.16 do not overwrite rox desktop setup, as /etc/rc.d/rc.update now handles it...
-  [ -f $OLDFILESMNTPT/root/Choices/ROX-Filer/PuppyPin ] && touch $OLDFILESMNTPT/root/Choices/ROX-Filer/PuppyPin
+  [ -f $OLDFILESMNTPT/root/Choices/ROX-Filer/PuppyPin ]  && touch $OLDFILESMNTPT/root/Choices/ROX-Filer/PuppyPin
   [ -f $OLDFILESMNTPT/root/Choices/ROX-Filer/globicons ] && touch $OLDFILESMNTPT/root/Choices/ROX-Filer/globicons
   mkdir $OLDFILESMNTPT/tmp/versioncleanup
   #make sure that the official boot scripts will be visible at top... 110722 fix...
