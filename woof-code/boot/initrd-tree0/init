@@ -520,7 +520,7 @@ if [ ! $1 ];then
 
 
  [ $plang ] && PLANG=$plang #boot parameter
- [ "`echo -n "$PLANG" | grep '_'`" ] || PLANG="" #120222 PLANG must be complete, ex: de_DE.UTF-8.
+ [ "`echo "$PLANG" | grep '_'`" ] || PLANG="" #120222 PLANG must be complete, ex: de_DE.UTF-8.
  [ ! "$PLANG" ] && [ -f /PUPPYLANG ] && PLANG=`cat /PUPPYLANG` #so Woof can specify a default lang.
  #note, a running puppy could also open initrd.gz and stick PUPPYLANG inside (i plan for chooselocale to do that!)
  if [ "$PLANG" ];then
@@ -560,15 +560,15 @@ _do_devtmpfs
 
 
 . /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
-[ ! "$DISTRO_DB_SUBNAME" ] && DISTRO_DB_SUBNAME="$DISTRO_COMPAT_VERSION" #121102 fallback if DISTRO_DB_SUBNAME not defined in file DISTRO_SPECS.
+[ "$DISTRO_DB_SUBNAME" ] || DISTRO_DB_SUBNAME="$DISTRO_COMPAT_VERSION" #121102 fallback if DISTRO_DB_SUBNAME not defined in file DISTRO_SPECS.
 
 KERNELVER="`uname -r`"
 
 #100911 simple filenames specified in DISTRO_SPECS: DISTRO_ZDRVSFS, DISTRO_PUPPYSFS...
 ZDRVSFS="$DISTRO_ZDRVSFS"
 #w020 compose name of 'zdrv', to fit 8+3 filename...
-PREFIX1CHAR="`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`"
-KERNEL3CHARS="`echo -n "$KERNELVER" | tr -d '.' | tr -d '\-' | tr -d '[a-z]' | rev | cut -c 1,2,3 | rev`"
+PREFIX1CHAR="`echo "$DISTRO_FILE_PREFIX" | cut -c 1`"
+KERNEL3CHARS="`echo "$KERNELVER" | tr -d '.' | tr -d '\-' | tr -d '[a-z]' | rev | cut -c 1,2,3 | rev`"
 [ "$ZDRVSFS" ] || ZDRVSFS="z${PREFIX1CHAR}${DISTRO_VERSION}${KERNEL3CHARS}.sfs"
 PUPXXXSFS="$DISTRO_PUPPYSFS"
 [ "$PUPXXXSFS" ] || PUPXXXSFS="${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs"  #before September 2010
@@ -609,7 +609,7 @@ fi
 #now supporting a boot menu...
 RDSH=""
 if [ "$pfix" ];then
- for oneFIX in `echo -n "$pfix" | tr ',' ' '`
+ for oneFIX in `echo "$pfix" | tr ',' ' '`
  do
   case $oneFIX in
    ram)     PRAMONLY="yes";;      #run in ram only (do not load ${DISTRO_FILE_PREFIX}save).
@@ -622,6 +622,8 @@ if [ "$pfix" ];then
    rdsh5)   RDSH="5";;            # leave after loading savefile or folders
    rdsh6)   RDSH="6";;            # leave after loading sfs files
    rdsh7)   RDSH="7";;            #w091027 drop out just before mount layerfs.
+   rdsh8)   RDSH="8";;            # leave after mounting of layerfs
+   rdsh9)   RDSH="9";;            # leave at the very end before switch or pivot root
    nox)     PNOX="yes";;          #do not start X.
    clean)   PCLEAN="yes";;        #force version upgrade and cleanup.
    purge)   PPURGE="yes";;        #radical cleanup for broken system.
@@ -643,7 +645,7 @@ PMEDIA="`echo "$PMEDIA" | sed -e 's%ide%ata%' -e 's%sata%ata%' -e 's%.*cd$%cd%'`
 [ "$pdev1" ]   && PDEV1="$pdev1"     #boot parameter, partition have booted off. ex: hda3
 [ "$PDEV1" ]   && PDEV1=`basename "$PDEV1"`
 [ "$psubdir" ] && PSUBDIR="$psubdir" #boot parameter, directory for puppy files. ex: puppy220
-#[ "$PSUBDIR" ] && [ "`echo -n "$PSUBDIR" | cut -c 1`" != "/" ] && PSUBDIR="/${PSUBDIR}" #add leading /.
+#[ "$PSUBDIR" ] && [ "`echo "$PSUBDIR" | cut -c 1`" != "/" ] && PSUBDIR="/${PSUBDIR}" #add leading /.
 [ "$PSUBDIR" ] && PSUBDIR=`echo "/${PSUBDIR}" | tr -s '/'` #add leading /.
 [ "$psavemark" ] && PSAVEMARK="$psavemark" #100913 partition number that has/will-have save-file.
 
@@ -775,14 +777,14 @@ if [ "$PKEYS" ];then
   case $PKEYS in #note, same code in /etc/rc.d/rc.country, /usr/sbin/input-wizard and init.
    de*|be*|br*|dk*|es*|fi*|fr*|it*|no*|se*|pt*)
     modprobe nls_cp850
-    [ ! "$PLANG" ] && FONTMAP="lat1-12.psfu" #120216
+    [ "$PLANG" ] || FONTMAP="lat1-12.psfu" #120216
     CODEPAGE="850"
     VFAT_OUT_PARAM="$OUT_PARAM"',codepage=850'
    ;;
    cz*|hu*|pl*|ro*|sk*|croat*|slovene*)
     modprobe nls_cp852
     modprobe nls_iso8859-2
-    [ ! "$PLANG" ] && FONTMAP="lat2-12.psfu" #120216
+    [ "$PLANG" ] || FONTMAP="lat2-12.psfu" #120216
     CODEPAGE="852"
     VFAT_OUT_PARAM="$OUT_PARAM"',codepage=852,iocharset=iso8859-2'
    ;;
@@ -813,6 +815,8 @@ case $player in
 risk*) _load_modules;_ass_layerfs;;
 *)     _load_drivers;;
 esac
+
+[ "$RDSH" = 1 ] && exec /bin/sh >/dev/console 2>&1
 ##############END MODULE LOADING TO ACCESS DRIVES####################
 
 #110126 define ATADRIVES as all internal ide/pata/sata (and mmc) drives (not usb), except optical...
@@ -834,12 +838,12 @@ if [ -e /proc/ide ];then
    ATADRIVES="${ATADRIVES}${oneIDE} "
   fi
  done
- ALLDRVS0="`echo -n "$ALLDRVS" | tr ' ' '\n'`"
+ ALLDRVS0="`echo "$ALLDRVS" | tr ' ' '\n'`"
 fi
-ATADRIVES0="`echo -n "$ATADRIVES" | tr ' ' '\n'`"
+ATADRIVES0="`echo "$ATADRIVES" | tr ' ' '\n'`"
 touch /tmp/ATADRIVES0 #110509 fix for LF only messes up grep later.
 [ "$ATADRIVES" ] && echo "$ATADRIVES0" > /tmp/ATADRIVES0 #110205 broken busybox grep -F. 110509
-ATAOPTICALDRIVES0="`echo -n "$ATAOPTICALDRIVES" | tr ' ' '\n'`"
+ATAOPTICALDRIVES0="`echo "$ATAOPTICALDRIVES" | tr ' ' '\n'`"
 touch /tmp/ALLDRVS0
 [ "$ALLDRVS" ] && echo "$ALLDRVS0" > /tmp/ALLDRVS0 #all drives *except* usb.
 
@@ -1044,7 +1048,7 @@ search_func(){ #110425
   oneDRV="`echo "$oneDEV" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
 
   if [ "$IGNORE" = "optical" ];then #110126 ignore optical if boot partition found.
-   [ "`echo -n "$oneDRV" | grep -f /tmp/OPTICALDRIVES0`" ] && continue #110205
+   [ "`echo "$oneDRV" | grep -f /tmp/OPTICALDRIVES0`" ] && continue #110205
   fi
 
   test "$PDEV1" && { [ "$PDEV1" = "$oneDEV" ] || continue; }
@@ -1117,7 +1121,7 @@ search_func(){ #110425
        fi
        echo "PSAVEMARK='$PSAVEMARK' DEV1PUP='$DEV1PUP'"
 
-       if [ "`echo -n "$BOOTDRV" | grep -f /tmp/OPTICALDRIVES0`" = "" ];then #110205 test not optical.
+       if [ "`echo "$BOOTDRV" | grep -f /tmp/OPTICALDRIVES0`" = "" ];then #110205 test not optical.
         IGNORE='optical' #refinement, if vmlinuz not on optical drive, don't probe it. 110126
        else #booting on optical, is it multisession?...
         FND_MULTIFOLDER="`find /mnt/$oneDEV -maxdepth 1 -xdev -type d -name 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9] | grep -v ' ' | sed -e "s%^/mnt/$oneDEV%%" | head -n 1`"
@@ -1148,7 +1152,7 @@ search_func(){ #110425
     fi
    fi
 
-   #[ "$PSUBDIR" ] && SEARCHDEPTH=1
+   [ "$PSUBDIR" ] && SEARCHDEPTH=1
 
    if [ "$PUPSFS" = "" ];then
     FND_FILES="`find /mnt/${oneDEV}${PSUBDIR} -maxdepth ${SEARCHDEPTH} -xdev -type f -iname ${PUPXXXSFS} | sed -e "s%^/mnt/$oneDEV%%"`"
@@ -1255,7 +1259,8 @@ LESSPARTS=${LESSPARTS}" > /tmp/ERRORUSBSCAN
     if [ "$LINUXFS" ];then
      RWPARTFLG=''
      case $oneFS in
-      ext2|ext3|ext4|reiserfs|minix|f2fs|btrfs|xfs|jfs) RWPARTFLG="$(cat /proc/mounts | grep "/dev/${oneDEV} " | grep ' rw,')" ;;
+      ext2|ext3|ext4|reiserfs|minix|f2fs|btrfs|xfs|jfs)
+       RWPARTFLG="$(cat /proc/mounts | grep "/dev/${oneDEV} " | grep ' rw,')" ;;
      esac
     else
      RWPARTFLG="$(cat /proc/mounts | grep "/dev/${oneDEV} " | grep ' rw,')"
@@ -1325,7 +1330,7 @@ if [ -s /tmp/flag-usb-ready ];then #110710 has stuff in it if usb drives exist.
  ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr' | tr '\n' ' '`" #110204
  [ "$ALLDRVS" = " " ] && ALLDRVS=""
  [ -e /proc/ide ] && ALLDRVS="${ALLDRVS}`ls -1 /proc/ide | grep '^hd' | tr '\n' ' '`" #110204 ex: sda sdb sr0 hda
- ALLDRVS0="`echo -n "$ALLDRVS" | tr -s ' ' | tr ' ' '\n'`" #110205
+ ALLDRVS0="`echo "$ALLDRVS" | tr -s ' ' | tr ' ' '\n'`" #110205
  echo "$ALLDRVS0" > /tmp/ALLDRVS0 #110205
 
  PCPARTSALL="`probepart_init -k`"
@@ -1419,9 +1424,11 @@ _search_loop
 break
 done
 
-#================ SEARCH LOOP =================================================
-
 cp -f /tmp/PUPSAVES /tmp/PUPSAVES-complete #101127 for debugging.
+
+[ "$RDSH" = 2 ] && exec /bin/sh >/dev/console 2>&1 
+
+#================ SEARCH LOOP =================================================
 
 __first_attempt_to_pupmode__(){
 # PUPMODE 3 presets:
@@ -1455,7 +1462,7 @@ if [ "$VMLINUZ" = "" ];then #101103 maybe network boot, no local vmlinuz
  [ "$DEV1FS" = "" -a "$PDEV1" ] && DEV1FS="`echo "$LESSPARTS0" | grep "${PDEV1}|" | cut -f 2 -d '|'`"
  #BOOTDRVL="`echo -n "$PDEV1" | sed -e 's/[0-9]*$//' -e 's/p$//'`" #exs: sda sr   110126 mmcblk0p1 becomes mmcblk0
  #BOOTDRV="`echo -n "$PDEV1" | grep -o -F "$ALLDRVS0"`" #110204 ex: sda1 becomes sda.
- BOOTDRV="`echo -n "$PDEV1" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
+ BOOTDRV="`echo "$PDEV1" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
  VMLINUZ='vmlinuz'
 fi
 
@@ -1518,8 +1525,8 @@ if [ ! "$PUPSAVE" ];then
     ) >/dev/console
     for oneCHOICE in `cat /tmp/PUPSAVE2SFSS`
     do
-     oneFILE="`echo -n "$oneCHOICE" | cut -f 3- -d ','`"
-     onePART="`echo -n "$oneCHOICE" | cut -f 1 -d ','`"
+     oneFILE="`echo "$oneCHOICE" | cut -f 3- -d ','`"
+     onePART="`echo "$oneCHOICE" | cut -f 1 -d ','`"
      echo -e "${CNTSAVE}  ${onePART}\\033[10G${oneFILE}" >/dev/console #10 means move to that column.
      CNTSAVE=$((CNTSAVE + 1))
     done
@@ -1619,8 +1626,8 @@ if [ ! "$PUPSAVE" ];then
 
     for oneCHOICE in `cat /tmp/PUPSAVE2SFSS`
     do
-     oneFILE="`echo -n "$oneCHOICE" | cut -f 3- -d ','`"
-     onePART="`echo -n "$oneCHOICE" | cut -f 1 -d ','`"
+     oneFILE="`echo "$oneCHOICE" | cut -f 3- -d ','`"
+     onePART="`echo "$oneCHOICE" | cut -f 1 -d ','`"
      echo -e "${CNTSAVE}  ${onePART}\\033[10G${oneFILE}" >/dev/console #10 means move to that column.
      CNTSAVE=$((CNTSAVE + 1))
     done
@@ -1657,7 +1664,7 @@ if [ "$VMLINUZ" = "" ];then #101103 maybe network boot, no local vmlinuz
  [ "$DEV1FS" = "" -a "$PDEV1" ] && DEV1FS="`echo "$LESSPARTS0" | grep "${PDEV1}|" | cut -f 2 -d '|'`"
  #BOOTDRVL="`echo -n "$PDEV1" | sed -e 's/[0-9]*$//' -e 's/p$//'`" #exs: sda sr   110126 mmcblk0p1 becomes mmcblk0
  #BOOTDRV="`echo -n "$PDEV1" | grep -o -F "$ALLDRVS0"`" #110204 ex: sda1 becomes sda.
- BOOTDRV="`echo -n "$PDEV1" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
+ BOOTDRV="`echo "$PDEV1" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
  VMLINUZ='vmlinuz'
 fi
 
@@ -1667,14 +1674,14 @@ _ask_for_savefile $PUPMODE
 echo "DETECTED PUPMODE='$PUPMODE'"
 [ "$FPUPMODE" ] && { PUPMODE=$FPUPMODE; echo "FORCED PUPMODE='$PUPMODE'"; }
 
-
+[ "$RDSH" = 3 ] && exec /bin/sh >/dev/console 2>&1
 #do we want a tmpfs top layered-fs layer? (set bit-0 of PUPMODE)...
 #only if ${DISTRO_FILE_PREFIX}save.2fs (or PDEV1 for DEV1PUP=yes, or first boot) on a flash drive, usb or internal...
 
 _check_removable(){
  test "$*" || case $PUPMODE in 12) set - "$PUPSAVE";; 6) set - "$PDEV1";; esac
  local DRVSAVE REMOVABLEDRVSAVE=0
- DRVSAVE="`echo -n "$*" | cut -f 1 -d ',' | sed -e 's/[0-9]*$//' -e 's/p$//'`" #ex: sda  110126 mmcblk0p1 becomes mmcblk0
+ DRVSAVE="`echo "$*" | cut -f 1 -d ',' | sed -e 's/[0-9]*$//' -e 's/p$//'`" #ex: sda  110126 mmcblk0p1 becomes mmcblk0
  [ -f /sys/block/$DRVSAVE/removable ] && read REMOVABLEDRVSAVE </sys/block/$DRVSAVE/removable
  return $REMOVABLEDRVSAVE
 }
@@ -1727,8 +1734,8 @@ esac
 
 ##if booted with PMEDIA=cd, refine it... 110126
 #if [ "$PMEDIA" = "cd" ];then
-# pdPATTERN="`echo -n "$PDEV1" | sed -e 's/[0-9]*$//' -e 's/p$//'` " #ex: sda   110126 mmcblk0p1 becomes mmcblk0
-# if [ "`echo -n "$ATADRIVES" | grep "$pdPATTERN"`" ];then
+# pdPATTERN="`echo "$PDEV1" | sed -e 's/[0-9]*$//' -e 's/p$//'` " #ex: sda   110126 mmcblk0p1 becomes mmcblk0
+# if [ "`echo "$ATADRIVES" | grep "$pdPATTERN"`" ];then
 #  PMEDIA="atacd"
 # else
 #  PMEDIA="usbcd"
@@ -1739,7 +1746,7 @@ check_status 0
 
 ########################END FINDING PUPPY FILES############################
 echo "FINALLY SET PUPMODE='$PUPMODE'"
-
+[ "$RDSH" = 4 ] && exec /bin/sh >/dev/console 2>&1
 ##########################LOADING PUPPY FILES###########################
 RAMSIZE=`free | grep -o 'Mem: .*' | tr -s ' ' | cut -f 2 -d ' '` #total physical ram (less shared video). 110405
 CRYPTO=""
@@ -1935,7 +1942,7 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
  if [ $? -eq 0 ];then
   SMNTPT="/mnt/dev_save"
   #is the ${DISTRO_FILE_PREFIX}save encrypted?...
-  if [ ! "`echo "$PUPSAVEFILE" | grep '_crypt'`" = "" ];then
+  if [ "`echo "$PUPSAVEFILE" | grep '_crypt'`" != "" ];then
    case $PUPSAVEFILE in
     *cryptx*) #see /etc/rc.d/rc.shutdown.
      CRYPTO='-E 1' #v2.16final '-e xor' --bug, loads xor.ko which is something else.
@@ -2074,7 +2081,7 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
      echo -n "...successfully mounted" >/dev/console
      break
     else
-     [ ! -e /bin/e2fsck ] && break #111120
+     [ -e /bin/e2fsck ] || break #111120
      (
      echo -en "\\033[1;31m" #31=red
      echo "Can't mount file, press ENTER key to try again."
@@ -2192,7 +2199,7 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
     #check if puppy.sfs copied to same place as save-file...
     #if [ "$BOOTDRV" = "sr" ];then #booting off cd.
     #if [ "`echo -n "$BOOTDRV" | grep -F "$OPTICALDRIVES0"`" ];then #110204 booting off cd.
-    if [ "`echo -n "$BOOTDRV" | grep -f /tmp/OPTICALDRIVES0`" ];then #110205 booting off cd.
+    if [ "`echo "$BOOTDRV" | grep -f /tmp/OPTICALDRIVES0`" ];then #110205 booting off cd.
 
      if [ "$CREATEPUPSAVE2FS" ];then #did not do the backoff above.
        xPUPSFSDEV="`echo "$PUPSFS" | cut -f 1 -d ','`" #checking puppy.sfs file.
@@ -2202,7 +2209,7 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
 
       #if [ "`echo "$xPUPSFSDEV | grep 'sr'"`" ];then
       #if [ "`echo -n "$xPUPSFSDEV" | grep -F "$OPTICALDRIVES0"`" ];then #110204
-      if [ "`echo -n "$xPUPSFSDEV" | grep -f /tmp/OPTICALDRIVES0`" ];then #110205
+      if [ "`echo "$xPUPSFSDEV" | grep -f /tmp/OPTICALDRIVES0`" ];then #110205
        #it is on the cd, so checkout copying it to hd...
        (
        echo -e "\\033[1;36m" #36=aquablue
@@ -2234,9 +2241,9 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
 
         __do_not_copy__(){
         #110204 dir name to be 8+3 chars ex w0901010.083 (<fileprefix1stchar><version><year><month>.<day><kernel3rdchar>) (see also rc.shutdown)
-        ID8CHARS="`echo -n "${DISTRO_IDSTRING}" | cut -c 1-8`" #limit dir name to 8 chars. see file DISTRO_SPECS.
-        KERNEL3RDCHAR="`echo -n "${KERNELVER}" | tr -d '.' | cut -c 3`"
-        IDDAY="`echo -n "${DISTRO_IDSTRING}" | cut -c 9-10`"
+        ID8CHARS="`echo "${DISTRO_IDSTRING}" | cut -c 1-8`" #limit dir name to 8 chars. see file DISTRO_SPECS.
+        KERNEL3RDCHAR="`echo "${KERNELVER}" | tr -d '.' | cut -c 3`"
+        IDDAY="`echo "${DISTRO_IDSTRING}" | cut -c 9-10`"
         IDDIR="${ID8CHARS}.${IDDAY}${KERNEL3RDCHAR}"
         mkdir -p /mnt/dev_save/${IDDIR}
         cp -f ${PUPSFSDEVMNTPT}/*.sfs  /mnt/dev_save/${IDDIR}/ #110204
@@ -2259,7 +2266,7 @@ fi
 #created here, set it's size in anticipation of a swap being loaded...
 EXTRAALLOCK=0
 SWAPPART="`echo "$PCPARTSALL" | grep '|swap|' | head -n 1`"
-[ "$SWAPPART" ] && SWAPPARTSIZE=`echo -n "$SWAPPART" | cut -f 3 -d '|'`
+[ "$SWAPPART" ] && SWAPPARTSIZE=`echo "$SWAPPART" | cut -f 3 -d '|'`
  [ $SWAPPARTSIZE ] && EXTRAALLOCK=$((SWAPPARTSIZE / 2))
 if [ $EXTRAALLOCK -eq 0 ];then
  [ -f ${SMNTPT}/pupswap.swp ] && SWAPFILESIZEBYTES=`stat -c %s ${SMNTPT}/pupswap.swp`
@@ -2304,7 +2311,7 @@ if [ "$CREATEFOLDERS" != "" ];then
    BKBADLIST="`echo "$BKFOLDERS" | head -n ${PIGNORELAST}`"
    if [ -f $CDMNTPT/$BKLASTFOLDER/.badfolders ];then
     cp $CDMNTPT/$BKLASTFOLDER/.badfolders $DESTDIR/
-    if [ ! $? -eq 0 ];then
+    if [ $? -ne 0 ];then
      #fallback, in case last folder badly corrupted...
      BKPREVFOLDER="`echo "$BKFOLDERS" | head -n 2 | tail -n 1`"
      [ -f $CDMNTPT/$BKPREVFOLDER/.badfolders ] && cp $CDMNTPT/$BKPREVFOLDER/.badfolders $DESTDIR/
@@ -2317,10 +2324,10 @@ if [ "$CREATEFOLDERS" != "" ];then
    [ -f $CDMNTPT/$BKLASTFOLDER/.badfolders ] && cp $CDMNTPT/$BKLASTFOLDER/.badfolders $DESTDIR/
   fi
   [ -f $DESTDIR/.badfolders ] && BKBADLIST="`cat $DESTDIR/.badfolders | tr "\n" " "`"
-  BKFOLDERS="`echo -n "$BKFOLDERS" | tr "\n" " "`"
+  BKFOLDERS="`echo "$BKFOLDERS" | tr "\n" " "`"
   for oneFOLDER in $BKFOLDERS
   do
-   if [ ! "`echo -n "$BKBADLIST" | grep "$oneFOLDER"`" = "" ];then
+   if [ "`echo "$BKBADLIST" | grep "$oneFOLDER"`" != "" ];then
     echo "Folder $oneFOLDER marked bad." >/dev/console
     continue #ignore bad folder.
    fi
@@ -2356,7 +2363,7 @@ if [ "$CREATEFOLDERS" != "" ];then
     echo "$WHITEOUTS" |
     while read DELWHITE
     do
-     DELFILE="`echo -n "$DELWHITE" | sed -e 's/\\.wh\\.//g'`"
+     DELFILE="`echo "$DELWHITE" | sed -e 's/\\.wh\\.//g'`"
      if [ -e "$DELFILE" ];then
       rm -rf "$DELFILE"
       rm -rf "$DELWHITE"
@@ -2450,6 +2457,9 @@ else
  #[ -f /${ZDRVSFS} ] && [ ! -f /pup_rw/${ZDRVSFS} ] && [ ! -f /pup_ro1/${ZDRVSFS} ] && cp -a /${ZDRVSFS} /pup_rw/
 fi
 count_status $?
+
+[ "$RDSH" = 5 ] && exec /bin/sh >/dev/console 2>&1
+
 COPY2RAM=""
 COPYMSG='copying to ram' #purple
 
@@ -2493,7 +2503,7 @@ if [ "$CREATEPUPXXXSFS" != "" ];then
  pdPATTERN="`echo "$PUPSFSDEV" | sed -e 's/[0-9]*$//'` "
  echo "CREATEPUPXXXSFS:PNOCOPY=$PNOCOPY"
  if [ "$PNOCOPY" != "yes" ];then
-  [ "`echo -n "$ATADRIVES" | grep "$pdPATTERN"`" ] || COPYCONTENDER='yes' #test if not fast internal drive.
+  [ "`echo "$ATADRIVES" | grep "$pdPATTERN"`" ] || COPYCONTENDER='yes' #test if not fast internal drive.
   [ "$DEV1FS" = "iso9660" ] && COPYCONTENDER='yes'
   [ "$DEV1FS" = "udf" ]     && COPYCONTENDER='yes' #130128
   [ $PUPMODE -eq 5 ]        && COPYCONTENDER='yes'
@@ -2699,11 +2709,14 @@ case $PUPMODE in
 *) check_status $STATUS;;
 esac
 #check_status 0 #$?
+
+[ "$RDSH" = 6 ] && exec /bin/sh >/dev/console 2>&1
+
 ########################END LOADING PUPPY FILES########################
 
 #120215 may have PSUBDIR already, but use this method... (i want to be able to locate the initrd.gz)
 zPSUBDIR=''
-[ "$PUPSFS" ] && zPSUBDIR="`echo -n "$PUPSFS" | cut -f 3- -d ',' | sed -e 's%/[^/]*$%%'`" #ex: sda3,ext2,/pup220/xxx.sfs will return /pup220
+[ "$PUPSFS" ] && zPSUBDIR="`echo "$PUPSFS" | cut -f 3- -d ',' | sed -e 's%/[^/]*$%%'`" #ex: sda3,ext2,/pup220/xxx.sfs will return /pup220
 [ "$zPSUBDIR" = "" -o "$zPSUBDIR" = "/" ] && zPSUBDIR="$PSUBDIR"
 #...this will be written to /etc/rc.d/PUPSTATE
 
@@ -2770,11 +2783,11 @@ if [ "$PUPSAVE" != "" ];then
   xSFSSDIRx="" #100711
   #[ "$PSUBDIR" ] && SFSSDIR="${SMNTPT}/${PSUBDIR}" #100710
   #100710 no, don't rely on psubdir boot param, more generic solution...
-  xPSUBDIR="`echo -n "$PUPSAVE" | cut -f 3- -d ',' | sed -e 's%/[^/]*$%%'`" #ex: sda3,ext2,/pup220/spupsave.2fs will return /pup220
+  xPSUBDIR="`echo "$PUPSAVE" | cut -f 3- -d ',' | sed -e 's%/[^/]*$%%'`" #ex: sda3,ext2,/pup220/spupsave.2fs will return /pup220
   [ "$xPSUBDIR" ] && xSFSSDIRx="${SMNTPT}${xPSUBDIR}"'/*.sfs' #100711
   [ $PUPMODE -eq 77 ] && SFSSDIR="$DESTDIR" #v3.97
   #find all the extra sfs files...
-  touch /tmp/LOGONEBASES
+  #touch /tmp/LOGONEBASES # unused
   #v424 modified to only load selection made in BootManager...
   if [ "$EXTRASFSLIST" != "" ];then #in /etc/rc.d/BOOTCONFIG
 
@@ -2830,9 +2843,9 @@ if [ "$PUPSAVE" != "" ];then
    done
   fi
   #keep a record of different layer configurations...
-  SAVEFILE="`echo -n "$PUPSAVE" | cut -f 3- -d ','`"
+  SAVEFILE="`echo "$PUPSAVE" | cut -f 3- -d ','`"
   [ "$SAVEFILE" ] && SAVEFILENAMEONLY="`basename $SAVEFILE`"
-  SFSFILE="`echo -n "$PUPSFS" | cut -f 3- -d ','`"
+  SFSFILE="`echo "$PUPSFS" | cut -f 3- -d ','`"
   # pupmode 3 has PUPSAVE set but not PUPSFS
   [ "$SFSFILE" ] && SFSFILENAMEONLY="`basename $SFSFILE`"
   RECORDLIST="$SAVEFILENAMEONLY $SFSFILENAMEONLY $EXTRASFSLIST $ZFACTOR" #v426
@@ -2862,14 +2875,14 @@ if [ "$UNDERDOG" ];then #note, 'underdog' can also be specified on kernel comman
   udPTN2="^/dev/${UNDERDOG} "
   UDMNTPT="`mount | grep "$udPTN2" | tr -s ' ' | cut -f 3 -d ' '`"
   if [ ! "$UDMNTPT" ];then #must not be mounted.
-   udFS="`echo -n "$FNDPART" | cut -f 2 -d '|'`"
+   udFS="`echo "$FNDPART" | cut -f 2 -d '|'`"
    mount -r -t $udFS /dev/$UNDERDOG /pup_ro${CNTLOOP}
    if [ $? -eq 0 ];then
     UMNTRO="${UMNTRO}:/pup_ro${CNTLOOP}=ro"
     UL_ADD="${UL_ADD}:/pup_ro${CNTLOOP}=ro"
     #fixes to prevent library clashes... (got out of puppy 2.x)
     MNTFIX='/pup_rw'
-     [ "`echo -n "$UMNTRO" | grep 'pup_ro1'`" ] && MNTFIX='/pup_ro1'
+     [ "`echo "$UMNTRO" | grep 'pup_ro1'`" ] && MNTFIX='/pup_ro1'
     #[ "`echo -n "$UL_ADD" | grep 'pup_ro1'`" ] && MNTFIX='/pup_ro1'
     [ -f $MNTFIX/lib/.wh.i686 ] || touch /pup_rw/lib/.wh.i686 #hides /lib/i686
     #puppy needs dir name /usr/lib/qt at bootup (see rc.profile)...
@@ -2960,7 +2973,7 @@ if [ "$OLDFILESMNTPT" != "" ];then
    [ $DOTCNT -gt 100 ] && DOTCNT=0 #display a dot every time cnts to 100.
    [ $DOTCNT -eq 100 ] && echo -n '*' >/dev/console #v2.12
    #note, screens out spaces also...
-   [ "`echo -n "$oneNEW" | grep -E '^/dev|^/tmp|^/proc| '`" ] && continue
+   [ "`echo "$oneNEW" | grep -E '^/dev|^/tmp|^/proc| '`" ] && continue
    oneBASE="`basename $OLDFILESMNTPT$oneNEW`"
 
    OLDDIR="`dirname $OLDFILESMNTPT$oneNEW`"
@@ -2970,7 +2983,7 @@ if [ "$OLDFILESMNTPT" != "" ];then
    [ -f $OLDDIR/.wh.__dir_opaque ] && rm -f $OLDDIR/.wh.__dir_opaque #v424 not needed for aufs2
    [ -f $OLDDIR/.wh..wh..opq ]     && rm -f $OLDDIR/.wh..wh..opq     #110212 recent aufs2, but probably not needed.
    #let's get paranoid and imagine upper-directories also wiped...
-   while [ ! "$OLDDIR" = "/" ];do
+   while [ "$OLDDIR" != "/" ];do
     #OLDDIR="`dirname $OLDDIR`"
     OLDDIR="${OLDDIR%/*}"
     #UP1BASE="`basename $OLDDIR`"
@@ -3012,9 +3025,9 @@ if [ "$OLDFILESMNTPT" != "" ];then
     WHBASE="${oneOPAQUE##*/}"      #ex: .wh.bin
    if [ "$WHBASE" != ".wh.__dir_opaque" -a "$WHBASE" != ".wh..wh..opq" ];then #aufs2 always enter this condition... 110212 extra test.
     #example, .wh.bin alongside bin directory means it is deleted...
-    oneDEL="`echo -n "$WHBASE" | sed -e 's/^\\.wh\\.//g'`" #ex: bin
+    oneDEL="`echo "$WHBASE" | sed -e 's/^\\.wh\\.//g'`" #ex: bin
     oneDIR="${oneDIR}/${oneDEL}" #ex: /usr/src/bin
-    [ ! -e ".${oneDIR}" ] && continue
+    [ -e ".${oneDIR}" ] || continue
    fi
    #if same dir exists lower layer, then wipe the opaque file...
     c=2
@@ -3051,13 +3064,13 @@ if [ "$OLDFILESMNTPT" != "" ];then
  fi
 fi
 
-[ "$RDSH" = "6" ] && exec /bin/sh >/dev/console 2>&1 #w091027
+[ "$RDSH" = "7" ] && exec /bin/sh >/dev/console 2>&1 #w091027
 
 #create the layered f.s.... ***THE BIG EVENT***
 
 _old_mount_union(){
 if [ "$LAYERFS" = "unionfs" ];then
- UMNTMAIN="`echo -n "$UMNTMAIN" | sed -e 's/+wh//g'`" #w003 'ro+wh' not accepted by unionfs, change back to 'ro'.
+ UMNTMAIN="`echo "$UMNTMAIN" | sed -e 's/+wh//g'`" #w003 'ro+wh' not accepted by unionfs, change back to 'ro'.
  echo "About to:mount -t unionfs -o dirs=${UMNTMAIN}${ZLAYER}${UMNTRO} unionfs /pup_new"
  mount -t unionfs -o dirs=${UMNTMAIN}${ZLAYER}${UMNTRO} unionfs /pup_new
 else #aufs
@@ -3068,7 +3081,7 @@ fi
 
 _new_mount_union(){
 if [ "$LAYERFS" = "unionfs" ];then
- UMNTRW="`echo -n "$UMNTRW" | sed -e 's/+wh//g'`" #w003 'ro+wh' not accepted by unionfs, change back to 'ro'.
+ UMNTRW="`echo "$UMNTRW" | sed -e 's/+wh//g'`" #w003 'ro+wh' not accepted by unionfs, change back to 'ro'.
  echo "About to:mount -t unionfs -o dirs=${UMNTRW}${UMNTRO0}${ALAYER}${YLAYER}${UMNTRO1}${ZLAYER}${UMNTRO} unionfs /pup_new"
  mount -t unionfs -o dirs=${UMNTRW}${UMNTRO0}${ALAYER}${YLAYER}${UMNTRO1}${ZLAYER}${UMNTRO} unionfs /pup_new
 else #unionfs
@@ -3116,6 +3129,9 @@ _new_mount_union
 esac
 
 check_status $? #END STEP FIVE
+
+[ "$RDSH" = 8 ] && exec /bin/sh >/dev/console 2>&1
+
 #######################END SETUP UNIONFS LAYERED FILESYSTEM###################
 
 _fix_bin_sh(){
@@ -3179,6 +3195,7 @@ echo -n "Preparing the 'switch_root' to the layered filesystem..." >/dev/console
 #cpio archive does switch_root, lose the initial-ramfs, so move all mntd...
 mkdir -p /pup_new/initrd
 mount -t ramfs initrdramfs /pup_new/initrd
+
 __make_folders__(){
 maxLAYERS=9
 while :; do
@@ -3196,6 +3213,7 @@ for d in data dev_ro1 dev_ro2 dev_save swap tmpfs tmpfs2 zdrv; do
 [ -d /pup_new/initrd/$d ] || mkdir -p /pup_new/initrd/mnt/$d; done
 unset d
 }
+
 for oneMNT in `mount | cut -f 3 -d ' ' | grep -v 'pup_new' | grep '^/pup_'`
 do
  [ -d /pup_new/initrd${oneMNT} ] || mkdir -p /pup_new/initrd${oneMNT}
@@ -3215,7 +3233,7 @@ if [ "$CREATETMPFS" != "/pup_rw" ];then #test if no tmpfs on unionfs top layer.
 
  #v424 don't create tmpfs if have versioncleanup dir... 100423 try again...
  #mount -t tmpfs -o size=${ALLOCK}k tmpfs /pup_new/tmp
- [ ! -e /pup_new/tmp/versioncleanup ] && mount -t tmpfs -o size=${ALLOCK}k puptmpfs /pup_new/tmp
+ [ -e /pup_new/tmp/versioncleanup ] || mount -t tmpfs -o size=${ALLOCK}k puptmpfs /pup_new/tmp
 
  __version_cleanup_fix1__(){
  #v412 bugfix, versioncleanup dir gets overwritten by this tmpfs on tmp...
@@ -3251,9 +3269,9 @@ cp -a -f /lib/keymaps/* /pup_new/lib/keymaps/
 mkdir -p /pup_new/lib/consolefonts
 cp -a -f /lib/consolefonts/* /pup_new/lib/consolefonts/
 if [ "$KMAP" ];then #because PKEYS boot param was defined.
-  echo -n "$KMAP" > /pup_new/etc/keymap
-  echo -n "$FONTMAP" > /pup_new/etc/fontmap
-  echo -n "$CODEPAGE" > /pup_new/etc/codepage
+  echo -n "$KMAP"     >/pup_new/etc/keymap
+  echo -n "$FONTMAP"  >/pup_new/etc/fontmap
+  echo -n "$CODEPAGE" >/pup_new/etc/codepage
 fi
 
 #091225 copy exes to main f.s.
@@ -3300,7 +3318,7 @@ fi
 check_status $?
 
 #RDSH is a boot param. exit to initial ramdisk shell...
-if [ "$RDSH" = "yes" ];then
+if [ "$RDSH" = "yes" -o "$RDSH" = 9 ];then
 (
  echo
  echo "Dropped to initramfs shell. Type 'exec switch' to continue booting Puppy." ) >/dev/console
