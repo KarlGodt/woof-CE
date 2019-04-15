@@ -579,6 +579,8 @@ if [ "$pfix" ];then
    rdsh5)   RDSH="5";;            # leave after loading savefile or folders
    rdsh6)   RDSH="6";;            # leave after loading sfs files
    rdsh7)   RDSH="7";;            #w091027 drop out just before mount layerfs.
+   rdsh8)   RDSH="8";;            # leave after mounting of layerfs
+   rdsh9)   RDSH="9";;            # leave at the very end before switch or pivot root
    nox)     PNOX="yes";;          #do not start X.
    clean)   PCLEAN="yes";;        #force version upgrade and cleanup.
    purge)   PPURGE="yes";;        #radical cleanup for broken system.
@@ -660,14 +662,14 @@ if [ "$PKEYS" ];then
   case $PKEYS in #note, same code in /etc/rc.d/rc.country, /usr/sbin/input-wizard and init.
    de*|be*|br*|dk*|es*|fi*|fr*|it*|no*|se*|pt*)
     modprobe nls_cp850
-    [ ! "$PLANG" ] && FONTMAP="lat1-12.psfu" #120216
+    [ "$PLANG" ] || FONTMAP="lat1-12.psfu" #120216
     CODEPAGE="850"
     VFAT_OUT_PARAM="$OUT_PARAM"',codepage=850'
    ;;
    cz*|hu*|pl*|ro*|sk*|croat*|slovene*)
     modprobe nls_cp852
     modprobe nls_iso8859-2
-    [ ! "$PLANG" ] && FONTMAP="lat2-12.psfu" #120216
+    [ "$PLANG" ] || FONTMAP="lat2-12.psfu" #120216
     CODEPAGE="852"
     VFAT_OUT_PARAM="$OUT_PARAM"',codepage=852,iocharset=iso8859-2'
    ;;
@@ -738,6 +740,8 @@ else
 fi
 
 check_status 0 #END STEP ONE
+
+[ "$RDSH" = 1 ] && exec /bin/sh >/dev/console 2>&1
 ##############END MODULE LOADING TO ACCESS DRIVES####################
 
 #100318 perform a f.s. check...
@@ -1085,6 +1089,8 @@ fi
 
 cp -f /tmp/PUPSAVES /tmp/PUPSAVES-complete #101127 for debugging.
 
+[ "$RDSH" = 2 ] && exec /bin/sh >/dev/console 2>&1 
+
 _puppy_sfs_not_found(){
 #110116 jamesbond: for netboot, PDEV1 is empty, so don't want to fail here...
 #[ "$PDEV1" ] || DROPOUT="Boot partition"
@@ -1124,15 +1130,15 @@ if [ ! "$PUPSAVE" ];then
 
     for onePUPSAVE in $onePUPSAVES
     do
-     echo "${oneDEV},${oneFS},${onePUPSAVE}" >> /tmp/PUPSAVE2SFSS
+     echo "${oneDEV},${oneFS},${onePUPSAVE}" >> /tmp/PUPSAVES2FSS
     done
    done
 
-    tmpPUPSAVE2SFSS=`sort -u /tmp/PUPSAVE2SFSS`
-   echo "$tmpPUPSAVE2SFSS" > /tmp/PUPSAVE2SFSS
-   NUMPUPSAVES=`cat /tmp/PUPSAVE2SFSS | wc -l`
+    tmpPUPSAVES2FSS=`sort -u /tmp/PUPSAVES2FSS`
+   echo "$tmpPUPSAVES2FSS" > /tmp/PUPSAVES2FSS
+   NUMPUPSAVES=`cat /tmp/PUPSAVES2FSS | wc -l`
    if [ $NUMPUPSAVES -eq 1 ];then
-    PUPSAVE="`cat /tmp/PUPSAVE2SFSS`"
+    PUPSAVE="`cat /tmp/PUPSAVES2FSS`"
    else
     CNTSAVE=1
     (
@@ -1141,7 +1147,7 @@ if [ ! "$PUPSAVE" ];then
     echo "0  none"
     ) >/dev/console
 
-    for oneCHOICE in `cat /tmp/PUPSAVE2SFSS`
+    for oneCHOICE in `cat /tmp/PUPSAVES2FSS`
     do
      oneFILE="`echo "$oneCHOICE" | cut -f 3 -d ','`"
      onePART="`echo "$oneCHOICE" | cut -f 1 -d ','`"
@@ -1150,8 +1156,8 @@ if [ ! "$PUPSAVE" ];then
     done
     echo -en "\\033[0;39m" >/dev/console
     read NUMSAVE
-    #[ $NUMSAVE -ne 0 ] && PUPSAVE="`cat /tmp/PUPSAVE2SFSS | tr '\n' ' ' | cut -f $NUMSAVE -d ' '`"
-    [ "$NUMSAVE" = 0 ] || PUPSAVE="`cat /tmp/PUPSAVE2SFSS | sed -n "$NUMSAVE p"`"
+    #[ $NUMSAVE -ne 0 ] && PUPSAVE="`cat /tmp/PUPSAVES2FSS | tr '\n' ' ' | cut -f $NUMSAVE -d ' '`"
+    [ "$NUMSAVE" = 0 ] || PUPSAVE="`cat /tmp/PUPSAVES2FSS | sed -n "$NUMSAVE p"`"
    fi
   fi
 
@@ -1166,7 +1172,7 @@ if [ "$VMLINUZ" = "" ];then #101103 maybe network boot, no local vmlinuz
  [ "$DEV1FS" = "" -a "$PDEV1" ] && DEV1FS="`echo "$LESSPARTS0" | grep "${PDEV1}|" | cut -f 2 -d '|'`"
  #BOOTDRVL="`echo -n "$PDEV1" | sed -e 's/[0-9]*$//' -e 's/p$//'`" #exs: sda sr   110126 mmcblk0p1 becomes mmcblk0
  #BOOTDRV="`echo -n "$PDEV1" | grep -o -F "$ALLDRVS0"`" #110204 ex: sda1 becomes sda.
- BOOTDRV="`echo -n "$PDEV1" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
+ BOOTDRV="`echo "$PDEV1" | grep -o -f /tmp/ALLDRVS0`" #110205 ex: sda1 becomes sda.
  VMLINUZ='vmlinuz'
 fi
 
@@ -1179,6 +1185,8 @@ test "$FPUPMODE" && {
 echo " Forcing PUPMODE '$FPUPMODE'"
 PUPMODE=$FPUPMODE
 }
+
+[ "$RDSH" = 3 ] && exec /bin/sh >/dev/console 2>&1
 
 #do we want a tmpfs top layered-fs layer? (set bit-0 of PUPMODE)...
 #only if ${DISTRO_FILE_PREFIX}save.2fs (or PDEV1 for DEV1PUP=yes, or first boot) on a flash drive, usb or internal...
@@ -1237,6 +1245,7 @@ fi
 check_status 0
 ########################END FINDING PUPPY FILES############################
 
+[ "$RDSH" = 4 ] && exec /bin/sh >/dev/console 2>&1
 ##########################LOADING PUPPY FILES###########################
 RAMSIZE=`free | grep -o 'Mem: .*' | tr -s ' ' | cut -f 2 -d ' '` #total physical ram (less shared video). 110405
 CRYPTO=""
@@ -1373,7 +1382,7 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then # pupmode 12, 13
  if [ $? -eq 0 ];then
   SMNTPT="/mnt/dev_save"
   #is the ${DISTRO_FILE_PREFIX}save encrypted?...
-  if [ ! "`echo "$PUPSAVEFILE" | grep '_crypt'`" = "" ];then
+  if [ "`echo "$PUPSAVEFILE" | grep '_crypt'`" != "" ];then
    case $PUPSAVEFILE in
     *cryptx*) #see /etc/rc.d/rc.shutdown.
      CRYPTO='-E 1' #v2.16final '-e xor' --bug, loads xor.ko which is something else.
@@ -1382,8 +1391,8 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then # pupmode 12, 13
     *)
      CRYPTO='-e aes'
      modprobe cryptoloop
-     modprobe aes_generic #v407 aes name change.
-     modprobe aes         #for older kernel <2.6.25
+     modprobe aes_generic      #v407 aes name change.
+     modprobe aes              #for older kernel <2.6.25
      modprobe crypto_blkcipher #v407 blkcipher name change.
      modprobe blkcipher        #old kernel.
      modprobe cbc
@@ -1657,41 +1666,50 @@ if [ "$CREATEFOLDERS" != "" ];then
    PUPSAVEFS="`echo "$PUPSAVE" | cut -f 2 -d ','`"
  PUPSAVEFILE="`echo "$PUPSAVE" | cut -f 3 -d ','`"
  mount -o noatime -t $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_ro1 #mnt the cd.
+
  #create a tmpfs to load the folders...
   ALLOCK=$(( (RAMSIZE / 2) - 50000 )) #allocate half of physical ram. + leave 50M slack.
  #mount -t tmpfs -o size=${ALLOCK}k tmpfs $CREATEFOLDERS #/pup_ro1
   mnt_func tmpfs tmpfs $CREATEFOLDERS size=${ALLOCK}k #/pup_ro1
+
  #load the folders from the cd...
   ####START LOAD FOLDERS####
-  CDMNTPT="/mnt/dev_ro1" #where the multisession cd is mounted.
+  CDMNTPT="/mnt/dev_ro1"   #where the multisession cd is mounted.
   DESTDIR="$CREATEFOLDERS" #dest dir has a tmpfs mntd on it, into which to copy folders.
   BKFOLDERS="`ls -1 -r $CDMNTPT | grep '^20[0-9][0-9]'`"
   BKLASTFOLDER="`echo "$BKFOLDERS" | head -n 1`"
+
   #a boot option allows ignore last n sessions, also need to create a badlist...
   if [ "$PIGNORELAST" ];then
    BKBADLIST="`echo "$BKFOLDERS" | head -n ${PIGNORELAST}`"
+
    if [ -f $CDMNTPT/$BKLASTFOLDER/.badfolders ];then
     cp $CDMNTPT/$BKLASTFOLDER/.badfolders $DESTDIR/
-    if [ ! $? -eq 0 ];then
+    if [ $? -ne 0 ];then
      #fallback, in case last folder badly corrupted...
      BKPREVFOLDER="`echo "$BKFOLDERS" | head -n 2 | tail -n 1`"
      [ -f $CDMNTPT/$BKPREVFOLDER/.badfolders ] && cp $CDMNTPT/$BKPREVFOLDER/.badfolders $DESTDIR/
     fi
    fi
    echo "$BKBADLIST" >> $DESTDIR/.badfolders
+
    #note, rc.shutdown and savesession-dvd 'touch' this file so it will get saved.
    sync
+
   else
    [ -f $CDMNTPT/$BKLASTFOLDER/.badfolders ] && cp $CDMNTPT/$BKLASTFOLDER/.badfolders $DESTDIR/
   fi
+
   [ -f $DESTDIR/.badfolders ] && BKBADLIST="`cat $DESTDIR/.badfolders | tr "\n" " "`"
   BKFOLDERS="`echo "$BKFOLDERS" | tr "\n" " "`"
+
   for oneFOLDER in $BKFOLDERS
   do
    if [ "`echo "$BKBADLIST" | grep "$oneFOLDER"`" != "" ];then
     echo "Folder $oneFOLDER marked bad." >/dev/console
     continue #ignore bad folder.
    fi
+
    echo -n "Loading folder $oneFOLDER from CD/DVD..." >/dev/console
    #need to be careful not to overfill the ramdisk...
    FREERAMDISK=`df 2>/dev/null | grep "$DESTDIR" | head -n 1 | tr -s " " | cut -f 4 -d " "`
@@ -1702,6 +1720,7 @@ if [ "$CREATEFOLDERS" != "" ];then
     SIZEARCHIVE=0
    fi
     SIZESOURCE=$((SIZEFOLDER - SIZEARCHIVE))
+
    if [ $FREERAMDISK -gt $SIZESOURCE ];then
     #well, -u will only copy if files newer, so less stuff may get copied than calc'd above.
     #need to copy everything except archive folder...
@@ -1719,6 +1738,7 @@ if [ "$CREATEFOLDERS" != "" ];then
     [ -d $CDMNTPT/$oneFOLDER/usr ]  && /bin/cp -a -u $CDMNTPT/$oneFOLDER/usr $DESTDIR/
     [ $DEVTMPFSFLG -eq 0 ] && [ -d $CDMNTPT/$oneFOLDER/dev ] && /bin/cp -a -u $CDMNTPT/$oneFOLDER/dev $DESTDIR/   #v411 130612
     /bin/cp -a -u $CDMNTPT/$oneFOLDER/*.sfs $DESTDIR/   #v3.97
+
     #delete deleted files (.wh.filename)... 110212 screen out .wh..wh..opq
     WHITEOUTS="`find $DESTDIR -xdev -type f -name .wh.* | grep -v '__dir_opaque' | grep -v '.wh..wh.'`" #110212
     echo "$WHITEOUTS" |
@@ -1731,6 +1751,7 @@ if [ "$CREATEFOLDERS" != "" ];then
      fi
     done
     check_status 0 #display 'done' for each folder loaded.
+
    else
    (
     echo -en "\\033[70G\\033[1;31m" #red text on column 70.
@@ -1739,11 +1760,13 @@ if [ "$CREATEFOLDERS" != "" ];then
     ) >/dev/console
     break
    fi
+
   done
   sync
   ####END LOAD FOLDERS####
  umount /mnt/dev_ro1 #unmount the cd.
 fi
+
 
 OLDDISTRO_VERSION="$DISTRO_VERSION" #110422
 [ -f $OLDFILESMNTPT/etc/puppyversion ] && OLDDISTRO_VERSION="`cat $OLDFILESMNTPT/etc/puppyversion`" #old pre-w464 installation. 110422
@@ -1766,15 +1789,16 @@ if [ "$REASON" != "" ];then
  cp -a /tmp/scsi-keep /lib/modules/$KERNELVER/kernel/drivers/scsi #restore needed.
 fi
 
+
 #110810 problem kernel numbering 2.6.32-40, 2.6.32-44 both in /lib/modules/2.6.32...
 if [ "$REASON" = "upgrade" ];then
   if [ -d /pup_rw/lib/modules/initrd ];then
    rm -rf /pup_rw/lib/modules/initrd
-   rm -f /pup_rw/lib/modules/modules.*
+   rm -f  /pup_rw/lib/modules/modules.*
   fi
   if [ -d /pup_ro1/lib/modules/initrd ];then
    rm -rf /pup_ro1/lib/modules/initrd
-   rm -f /pup_ro1/lib/modules/modules.*
+   rm -f  /pup_ro1/lib/modules/modules.*
   fi
 fi
 
@@ -1785,20 +1809,23 @@ if [ "$ZDRVINIT" = "yes" ];then
  ZDRV='' #/sbin/modprobe needs this.
  #what if deleted modules due to lack space in ${DISTRO_FILE_PREFIX}save, but now more free space?... v4.01...
  [ ! -d /pup_rw/lib/modules/all-firmware ] && [ ! -d /pup_ro1/lib/modules/all-firmware ] && [ $FREEK -gt 24000 ] && REASON='restore'
+
  if [ "$REASON" != "" ];then
   [ -d /pup_rw/lib/modules ] && rm -rf /pup_rw/lib/modules
   [ -d /pup_ro1/lib/modules ] && rm -rf /pup_ro1/lib/modules
   mkdir -p /pup_rw/lib
-  mv /lib/modules /pup_rw/lib/
+  mv       /lib/modules /pup_rw/lib/
   mkdir -p /pup_rw/initrd
-  cp -af /DISTRO_SPECS /pup_rw/initrd/
-  cp -af /init /pup_rw/initrd/
+  cp -f  /DISTRO_SPECS /pup_rw/initrd/ # cp -a would copy the link, not the link target
+  cp -f  /init /pup_rw/initrd/
   sync
  fi
+
 else
  #the initrd does have some modules, move them to the main layered f.s...
  #v4.02 moved this up. had it down after the the unionfs setup (just want it same place as the above code).
  [ ! -d /pup_rw/lib/modules/$KERNELVER/initrd ] && [ ! -d /pup_ro1/lib/modules/$KERNELVER/initrd ] && REASON="new"
+
  if [ "$REASON" = "new" ];then #110810 change test.
   mkdir -p /pup_rw/lib/modules/$KERNELVER #PUPMODE=5, this dir not exist.
   mv /lib/modules/$KERNELVER /pup_rw/lib/modules/$KERNELVER/initrd
@@ -1806,9 +1833,12 @@ else
   sync
   #note: /etc/rc.d/rc.sysinit will detect them and run depmod.
  fi
+
  #v3.91 a humongous initrd may have zdrv file... 101101 remove...
  #[ -f /${ZDRVSFS} ] && [ ! -f /pup_rw/${ZDRVSFS} ] && [ ! -f /pup_ro1/${ZDRVSFS} ] && cp -a /${ZDRVSFS} /pup_rw/
 fi
+
+[ "$RDSH" = 5 ] && exec /bin/sh >/dev/console 2>&1
 
 COPY2RAM=""
 COPYMSG='copying to ram' #purple
@@ -1821,6 +1851,7 @@ if [ "$CREATEPUPXXXSFS" != "" ];then
 #basepupsfs="`basename $PUPSFSFILE`"
  basepupsfs=${PUPSFSFILE##*/}
  echo -n "Loading the '${basepupsfs}' main file..." >/dev/console
+
  if [ "$PUPSFSDEV" = "rootfs" ];then #humongous initrd.
   PUPSFSDEVMNTPT="" #actually it's '/'.
   COPY2RAM='yes' #actually it is already in ram, but code below puts it in a tmpfs.
@@ -1836,6 +1867,7 @@ if [ "$CREATEPUPXXXSFS" != "" ];then
     UMOUNTME="$PUPSFSDEVMNTPT"
   fi
  fi
+
  #if there's heaps of ram, copy puppy.sfs to a tmpfs...
  #v405 fast media plus more than 256MB ram then definitely worth copying to ram...
  SIZESFSK=`du -k ${PUPSFSDEVMNTPT}${PUPSFSFILE} | cut -f 1`
@@ -1863,9 +1895,11 @@ if [ "$CREATEPUPXXXSFS" != "" ];then
    cp -af ${PUPSFSDEVMNTPT}${PUPSFSFILE} /mnt/tmpfs/
   fi
   sync
+
  #SFSBASENAME="`basename $PUPSFSFILE`"
   SFSBASENAME=${PUPSFSFILE##*/}
   losetup /dev/loop0 /mnt/tmpfs/${SFSBASENAME}
+
 #101013 moved down  [ "$UMOUNTME" != "" ] && umnt_func $UMOUNTME
  else
   losetup /dev/loop0 ${PUPSFSDEVMNTPT}${PUPSFSFILE}
@@ -1879,12 +1913,14 @@ ZLAYER='' #v4.02
 ZFACTOR='' #v426
 #note, traditionally, loop2 kept free for scripts to use.
 if [ "$ZDRVINIT" != "yes" ];then
+
  #v4.02 if ZDRV located, and mounted, put it into the layered-fs...
  if [ "$ZDRV" != "" ];then
    ZDEV="`echo "$ZDRV" | cut -f 1 -d ','`"
     ZFS="`echo "$ZDRV" | cut -f 2 -d ','`"
   ZFILE="`echo "$ZDRV" | cut -f 3 -d ','`"
   MNT_ZFILE=""
+
   if [ "$ZDEV" = "rootfs" ];then #101102 humongous initrd.
    MNT_ZFILE=""    #actually it's '/'.
     COPY2RAM='yes' #actually it is already in ram, but code below puts it in a tmpfs.
@@ -1896,9 +1932,11 @@ if [ "$ZDRVINIT" != "yes" ];then
    zPATTERN="/dev/$ZDEV "
    MNT_ZFILE="`mount | grep "$zPATTERN" | cut -f 3 -d ' '`"
   fi
+  
  #ZBASENAME="`basename $ZFILE`" #v426 moved up.
   ZBASENAME=${ZFILE##*/} #v426 moved up
   if [ "$MNT_ZFILE" != "" ];then
+
    if [ "$COPY2RAM" = "yes" ];then
     SIZEZK=`du -k ${MNT_ZFILE}${ZFILE} | cut -f 1`
     SIZEZK=$((SIZEZK + 1000)) #some slack.
@@ -1914,12 +1952,15 @@ if [ "$ZDRVINIT" != "yes" ];then
    else
     losetup /dev/loop3 ${MNT_ZFILE}${ZFILE}
    fi
+
    mount -r -t squashfs -o noatime /dev/loop3 /pup_z
    if [ $? -eq 0 ];then
     ZLAYER=':/pup_z=ro'
     ZFACTOR="$ZBASENAME" #v426
    fi
+
   fi
+
  fi
 fi
 
@@ -1930,6 +1971,7 @@ if [ $PUPMODE -eq 5 ];then
   pdDEV="$(cat /tmp/RWPART | cut -f 1 -d '|')"
    pdFS="$(cat /tmp/RWPART | cut -f 2 -d '|')"
   pdMNTPT="$(cat /proc/mounts | grep "/dev/${pdDEV} " | cut -f 2 -d ' ')"
+
   if [ ! "$pdMNTPT" ];then
    mkdir -p /mnt/$pdDEV
    #mount -t $pdFS /dev/$pdDEV /mnt/$pdDEV
@@ -1937,6 +1979,7 @@ if [ $PUPMODE -eq 5 ];then
    pdFLG=1
    pdMNTPT="/mnt/${pdDEV}"
   fi
+
   if [ ! -f ${pdMNTPT}/pupdesk.flg ];then
    touch ${pdMNTPT}/pupdesk.flg #read in quicksetup.
   else
@@ -1948,28 +1991,30 @@ if [ $PUPMODE -eq 5 ];then
    #...see also /etc/rc.d/rc.sysinit
   fi
   [ $pdFLG -eq 1 ] && umnt_func $pdMNTPT
+
  fi
 else
  [ -f /tmp/RWPART ] && rm -f /tmp/RWPART
 fi
 
 [ "$UMOUNTME" ] && umnt_func $UMOUNTME #101013 puppy.sfs was copied to tmpfs so can unmount partition.
-
 check_status 0 #$?
+
+[ "$RDSH" = 6 ] && exec /bin/sh >/dev/console 2>&1
+
 ########################END LOADING PUPPY FILES########################
 
 #120215 may have PSUBDIR already, but use this method... (i want to be able to locate the initrd.gz)
 zPSUBDIR=''
 [ "$PUPSFS" ] && zPSUBDIR="`echo "$PUPSFS" | cut -f 3 -d ',' | sed -e 's%/[^/]*$%%'`" #ex: sda3,ext2,/pup220/xxx.sfs will return /pup220
 [ "$zPSUBDIR" = "" -o "$zPSUBDIR" = "/" ] && zPSUBDIR="$PSUBDIR"
-#...this will be written to /etc/rc.d/PUPSTATE
 
+#...this will be written to /etc/rc.d/PUPSTATE
 #/etc/PUPSTATE passes useful variables to the running puppy...
 mkdir -p /pup_rw/etc/rc.d
 
 rm -f /pup_rw/etc/rc.d/PUPSTATE
 
-#while [ true ]; do
 (
 echo "PUPMODE=$PUPMODE"
 echo "PDEV1='$PDEV1'"
@@ -2002,8 +2047,6 @@ OUTPUT_CHARSET=UTF-8
 export OUTPUT_CHARSET"
 fi
 echo "PSUBDIR='${zPSUBDIR}'" #120215
-#break
-#done >> /pup_rw/etc/rc.d/PUPSTATE 2>/dev/null
 ) >> /pup_rw/etc/rc.d/PUPSTATE
 
 #older ${DISTRO_FILE_PREFIX}save.2fs <v2.16 will not have this file...
@@ -2017,22 +2060,26 @@ echo "PSUBDIR='${zPSUBDIR}'" #120215
 
 ######################SETUP LAYERED FILESYSTEM########################
 echo -n "Setting up the layered filesystem..." >/dev/console #STEP FIVE
+
 #are there any other sfs files to load at bottom layers?...
 NEWUNIONRECORD=""
 CNTLOOP=4 ; UMNTRO=""
+
 if [ "$PUPSAVE" != "" ];then
  if [ "$SMNTPT" -o $PUPMODE -eq 77 ];then #v3.97
   touch /tmp/EXTRASFSS #100711
   SFSSDIR="$SMNTPT"
   #100711 look in top and in psubdir...
   xSFSSDIRx="" #100711
+
   #[ "$PSUBDIR" ] && SFSSDIR="${SMNTPT}/${PSUBDIR}" #100710
   #100710 no, don't rely on psubdir boot param, more generic solution...
   xPSUBDIR="`echo "$PUPSAVE" | cut -f 3 -d ',' | sed -e 's%/[^/]*$%%'`" #ex: sda3,ext2,/pup220/spupsave.2fs will return /pup220
   [ "$xPSUBDIR" ] && xSFSSDIRx="${SMNTPT}${xPSUBDIR}"'/*.sfs' #100711
   [ $PUPMODE -eq 77 ] && SFSSDIR="$DESTDIR" #v3.97
+
   #find all the extra sfs files...
-  touch /tmp/LOGONEBASES
+  #touch /tmp/LOGONEBASES # unused
   #v424 modified to only load selection made in BootManager...
   if [ "$EXTRASFSLIST" != "" ];then #in /etc/rc.d/BOOTCONFIG
 
@@ -2129,11 +2176,13 @@ echo "LASTUNIONRECORD='$NEWUNIONRECORD'" >> /pup_rw/etc/rc.d/BOOTCONFIG
 #...if layers changed since last boot, code further down will do whiteout files purge.
 #.../etc/rc.d/rc.update reads BOOTCONFIG, updates menu (etc) if layers changed.
 
+
 #after switch_root, rc.sysinit calls rc.update, but need to do pre-cleaning...
 if [ "$OLDFILESMNTPT" != "" ];then
  #an empty tmp is required for mounting a tmpfs onto later...
  rm -rf $OLDFILESMNTPT/tmp/*
  rm -rf $OLDFILESMNTPT/tmp/.[0-9a-zA-Z]*
+
  if [ ! -L $OLDFILESMNTPT/usr/X11R6 ];then #test if a symlink.
   #this is supposed to be a link to X11R7. <2.10 it won't be...
   if [ -d $OLDFILESMNTPT/usr/X11R6 ];then
@@ -2143,8 +2192,10 @@ if [ "$OLDFILESMNTPT" != "" ];then
   fi
   ln -s X11R7 $OLDFILESMNTPT/usr/X11R6
  fi
+
  rm -rf $OLDFILESMNTPT/root/tmp
  rm -f $OLDFILESMNTPT/root/.wh.tmp
+
  NEWPVERSION="$DISTRO_VERSION" #110422
  if [ -f $OLDFILESMNTPT/etc/puppyversion ];then
   OLDPVERSION="`cat $OLDFILESMNTPT/etc/puppyversion`" #old pre-w464 installation. 110422
@@ -2168,9 +2219,11 @@ if [ "$OLDFILESMNTPT" != "" ];then
   echo -en "\\033[0;39m"
   echo "(with a slow CPU this may take sometime, please be patient)"
   ) >/dev/console
+  
   #v2.16 do not overwrite rox desktop setup, as /etc/rc.d/rc.update now handles it...
-  [ -f $OLDFILESMNTPT/root/Choices/ROX-Filer/PuppyPin ] && touch $OLDFILESMNTPT/root/Choices/ROX-Filer/PuppyPin
+  [ -f $OLDFILESMNTPT/root/Choices/ROX-Filer/PuppyPin ]  && touch $OLDFILESMNTPT/root/Choices/ROX-Filer/PuppyPin
   [ -f $OLDFILESMNTPT/root/Choices/ROX-Filer/globicons ] && touch $OLDFILESMNTPT/root/Choices/ROX-Filer/globicons
+
   mkdir $OLDFILESMNTPT/tmp/versioncleanup
   #make sure that the official boot scripts will be visible at top... 110722 fix...
   rm -f $OLDFILESMNTPT/etc/rc.d/functions
@@ -2181,6 +2234,7 @@ if [ "$OLDFILESMNTPT" != "" ];then
   rm -f $OLDFILESMNTPT/etc/rc.d/rc.shutdown
   rm -f $OLDFILESMNTPT/etc/rc.d/rc.sysinit
   rm -f $OLDFILESMNTPT/etc/rc.d/rc.update
+  
   #i think if a file exists both in OLDFILESMNTPT and in NEWFILESMNTPT, remove
   #it from OLDFILESMNTPT (as OLDFILESMNTPT is upper layer and will hide the
   #'official' file. But, only do it if 'official' file has a newer modify date...
@@ -2194,33 +2248,38 @@ if [ "$OLDFILESMNTPT" != "" ];then
     DOTCNT=$((DOTCNT + 1))
    [ $DOTCNT -gt 100 ] && DOTCNT=0 #display a dot every time cnts to 100.
    [ $DOTCNT -eq 100 ] && echo -n '*' >/dev/console #v2.12
+
    #note, screens out spaces also...
    [ "`echo "$oneNEW" | grep -E '^/dev|^/tmp|^/proc| '`" != "" ] && continue
   oneBASE="`basename $OLDFILESMNTPT$oneNEW`"
    OLDDIR="`dirname  $OLDFILESMNTPT$oneNEW`"
   #oneBASE=${OLDFILESMNTPT$oneNEW##*/} # bad substitution
   # OLDDIR=${OLDFILESMNTPT$oneNEW%/*}
+
    #a whiteout file 'on top' will hide the 'official' file...
-   [ -f $OLDDIR/.wh.$oneBASE ] && rm -f $OLDDIR/.wh.$oneBASE
+   [ -f $OLDDIR/.wh.$oneBASE ]     && rm -f $OLDDIR/.wh.$oneBASE
    [ -f $OLDDIR/.wh.__dir_opaque ] && rm -f $OLDDIR/.wh.__dir_opaque #v424 not needed for aufs2
-   [ -f $OLDDIR/.wh..wh..opq ] && rm -f $OLDDIR/.wh..wh..opq #110212 recent aufs2, but probably not needed.
+   [ -f $OLDDIR/.wh..wh..opq ]     && rm -f $OLDDIR/.wh..wh..opq #110212 recent aufs2, but probably not needed.
+
    #let's get paranoid and imagine upper-directories also wiped...
-   while [ ! "$OLDDIR" = "/" ];do
+   while [ "$OLDDIR" != "/" ];do
    # OLDDIR="`dirname  $OLDDIR`"
    #UP1BASE="`basename $OLDDIR`"
      OLDDIR=${OLDDIR%/*}
     UP1BASE=${OLDDIR##*/}
-    [ -f $OLDDIR/.wh.$UP1BASE ] && rm -f $OLDDIR/.wh.$UP1BASE
+    [ -f $OLDDIR/.wh.$UP1BASE ]     && rm -f $OLDDIR/.wh.$UP1BASE
     [ -f $OLDDIR/.wh.__dir_opaque ] && rm -f $OLDDIR/.wh.__dir_opaque #v424 not needed for aufs2
-    [ -f $OLDDIR/.wh..wh..opq ] && rm -f $OLDDIR/.wh..wh..opq #110212 recent aufs2, but probably not needed.
+    [ -f $OLDDIR/.wh..wh..opq ]     && rm -f $OLDDIR/.wh..wh..opq #110212 recent aufs2, but probably not needed.
    done
+   
    #now check for 'old' files on top layer...
-   if [ -f $OLDFILESMNTPT$oneNEW ];then
+   if [ -f ${OLDFILESMNTPT}$oneNEW ];then
     #note, this is inaccurate due to local timezone not yet set...
     #i got this 'stat' off ibiblio, v3.3. i think older version than in main puppy f.s...
     MODIFOLD=`$PUPFILESDIR/bin/stat -c %Y $OLDFILESMNTPT$oneNEW`
     MODIFNEW=`$PUPFILESDIR/bin/stat -c %Y $NEWFILESMNTPT$oneNEW`
      [ "$PPURGE" = "yes" ] && MODIFNEW=$((MODIFOLD + 1)) #force overwrite all.
+
     if [ $MODIFNEW -ge $MODIFOLD ];then
      echo -n " $oneNEW " >/dev/console
     #oneDIR="`dirname $oneNEW`"
@@ -2229,11 +2288,13 @@ if [ "$OLDFILESMNTPT" != "" ];then
      cp -af $OLDFILESMNTPT$oneNEW $OLDFILESMNTPT/tmp/versioncleanup$oneDIR/
      rm -f $OLDFILESMNTPT$oneNEW
     fi
+
    fi
   done
   echo >/dev/console
   cd /
  fi
+
  #need to cleanup whiteout files if a new .sfs layer has been added...
  if [ "$NEWUNIONRECORD" -o "$PPURGE" = "yes" ];then
   #find all .wh.__dir_opaque files at the OLDFILESMNTPT layer... v424 bugfixes... 110212 .wh..wh..opq ...
@@ -2277,6 +2338,7 @@ if [ "$OLDFILESMNTPT" != "" ];then
   done
   cd /
  fi
+
  [ "$xOLDPVERSION" ] || xOLDPVERSION=$NEWPVERSION
  #if [ $NEWPVERSION -gt $xOLDPVERSION ];then #110122 mod
  if vercmp $NEWPVERSION gt $xOLDPVERSION ; then #110422
@@ -2285,6 +2347,7 @@ if [ "$OLDFILESMNTPT" != "" ];then
   sed -e "$vPATTERN" $OLDFILESMNTPT/etc/DISTRO_SPECS > /tmp/distro_specs_old
   cp -f /tmp/distro_specs_old $OLDFILESMNTPT/etc/DISTRO_SPECS #so rc.update will run.
   sync
+
   OLDstr='to'
   [ "$xOLDPVERSION" != "0.0" ] && OLDstr="from version $xOLDPVERSION to"
   (
@@ -2300,7 +2363,7 @@ if [ "$OLDFILESMNTPT" != "" ];then
  fi
 fi
 
-[ "$RDSH" = "6" ] && exec /bin/sh >/dev/console 2>&1 #w091027
+[ "$RDSH" = "7" ] && exec /bin/sh >/dev/console 2>&1 #w091027
 
 #create the layered f.s.... ***THE BIG EVENT***
 if [ "$LAYERFS" = "aufs" ];then
@@ -2310,6 +2373,9 @@ else #unionfs
  mount -t unionfs -o dirs=${UMNTMAIN}${ZLAYER}${UMNTRO} unionfs /pup_new
 fi
 check_status $? #END STEP FIVE
+
+[ "$RDSH" = 8 ] && exec /bin/sh >/dev/console 2>&1
+
 #######################END SETUP UNIONFS LAYERED FILESYSTEM###################
 
 #101127 pakt: code adapted from bchafy's Xin
@@ -2344,6 +2410,7 @@ echo -n "Preparing the 'switch_root' to the layered filesystem..." >/dev/console
 #prepare everything for doing a switch_root...
 #cpio archive does switch_root, lose the initial-ramfs, so move all mntd...
 mkdir -p /pup_new/initrd
+mnt_func ramfs initrdramfs /pup_new/initrd
 
 maxFOLDERS=9
 while [ true ]; do
@@ -2467,7 +2534,7 @@ fi
 check_status $?
 
 #RDSH is a boot param. exit to initial ramdisk shell...
-if [ "$RDSH" = "yes" ];then
+if [ "$RDSH" = "yes" -o "$RDSH" = 9 ];then
 (
  echo
  echo "Dropped to initramfs shell. Type 'exec switch' to continue booting Puppy." ) >/dev/console
@@ -2508,6 +2575,7 @@ _unmount_pseudofs
 #now using cpio archive for initramfs 'initial ramdisk'...
 #exec switch_root -c /dev/console /pup_new /bin/busybox init 3
 exec switch_root /pup_new /sbin/init
+
 else
 echo -n "Performing a 'pivot_root' to the layered filesystem..." >/dev/console
 # assuming old-style
@@ -2528,14 +2596,14 @@ echo "$UNMOUNT_DIRS" | while read dev on mnt type fs mops n m;
   *oldstyle_initramdisk*)
   umount -lr "$mnt"
 
-  if test $? != 0; then
+  if test $? != 0; then # if unmounting fails, restore a working ram shell
 
    oldPATH="$PATH"
    PATH="oldstyle_initramdisk/bin:oldstyle_initramdisk/sbin:$PATH"
    echo -e "\n\\033[0;33mFAILURE unmounting $mnt\\033[0;39m" >/dev/console
    mkdir oldstyle_initrd
    if [ $? = 0 ]; then
-    cp -a oldstyle_initramdisk/bin oldstyle_initrd/bin
+    cp -a oldstyle_initramdisk/bin  oldstyle_initrd/bin
     cp -a oldstyle_initramdisk/sbin oldstyle_initrd/sbin
    else
     false
@@ -2544,13 +2612,15 @@ echo "$UNMOUNT_DIRS" | while read dev on mnt type fs mops n m;
     PATH="/oldstyle_initrd/bin:/oldstyle_initrd/sbin:$PATH"
     export PATH
    fi
+   
    echo -en "\\033[0;33m]"
    dmesg | tail -n 7
    echo -en "\\033[0;39m]"
+   
    echo -e "\\033[0;31mDropping out to console. Good Luck.......\\033[0;39m"
    exec chroot . /bin/sh </dev/console >/dev/console 2>&1
 
-  fi
+  fi 
 
   ;;
   esac
