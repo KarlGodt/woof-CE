@@ -178,7 +178,7 @@ _dropout_rdsh(){
 }
 
 check_status(){
-    
+
   if [ $1 -eq 0 ]
   then
   (
@@ -214,12 +214,53 @@ check_status(){
   fi
 }
 
+_do_devtmpfs(){
+# always use DEVTMPFS now.
+if grep $Q "[[:blank:]]\+devtmpfs$" /proc/filesystems; then
+DEVTMPFSFLG=1 #130618 set it from 3builddistro.
+ if grep $Q ' /dev ' /proc/mounts; then
+ DEVTMPFSFLG=2
+ elif [ "`which mdev`" -o "`which mknod`" ]; then
+  mount -t devtmpfs devtmpfs /dev
+  if [ $? = 0 ]; then
+   if [ "`which mdev`" ]; then
+    mdev -s
+   else
+     oldIFS="$IFS"
+     IFS=$'\n'
+     find /sys -type f -name uevent -perm 644 |
+     while read oneFILE
+     do
+     unset K MAJOR MINOR DEVPATH DEVNAME DEVTYPE DRIVER DEVICE PRODUCT TYPE BUSNUM DEVNUM INTERFACE MODALIAS DEVMODE
+     source "$oneFILE" 2>>$ERR  || continue
+     test "$MAJOR" -a "$MINOR"      || continue
+     test "$DEVNAME" && { test -e /dev/$DEVNAME && continue; } || { DEVNAME=${oneFILE%/uevent*}; DEVNAME=${DEVNAME##*/}; test -e /dev/$DEVNAME && continue; }
+     test "$DEVMODE" && DEVMODE=-m\ $DEVMODE
+     test -e /dev/$DEVPATH/$DEVNAME || {
+     test "$DEVTYPE" = disk -o "$DEVTYPE" = partition && K=b || K=c
+     test ${DEVNAME%/*} = $DEVNAME || { test -d /dev/$DEVPATH/${DEVNAME%/*} || mkdir $VERB -p /dev/$DEVPATH/${DEVNAME%/*}; }
+     mknod $DEVMODE /dev/$DEVPATH/$DEVNAME $K $MAJOR $MINOR
+      }
+     done
+     IFS="$oldIFS"
+   fi
+  else
+   DEVTMPFSFLG=0
+  fi
+ else
+  DEVTMPFSFLG=0
+ fi
+fi
+}
+
 #120215 internationalize... (based on work by L18L)
 if [ ! $1 ];then
  mount -t proc  none /proc
  mount -t sysfs none /sys
  mount -t rootfs -o remount,rw rootfs /
  ln -s /proc/mounts /etc/mtab #resize2fs,e2fsck need this.
+
+ _do_devtmpfs
 
  [ $plang ] && PLANG=$plang #boot parameter
  [ "`echo "$PLANG" | grep '_'`" ] || PLANG="" #120222 PLANG must be complete, ex: de_DE.UTF-8.
@@ -508,7 +549,7 @@ fsckme_func(){ #passed params: partition filesystem [pupsavefile]
   echo -en "\\033[1;31m SORRY, cannot check filesystem \\033[0;39m" >/dev/console #31=red
   return
  fi
- 
+
  if [ $3 ];then
   #rc.shutdown has created /fsckme.flg with this 3rd parameter.
   #this is a pupsave file, which has a ext2/3/4 f.s (based on .2fs, .3fs, .4fs ext)
@@ -548,10 +589,10 @@ test "$*" || return 1
  case $MNT_O in *remount*) :;;
  *) grep $Q " $MNT_DIR " /proc/mounts && { echo "NOTICE:$* already mounted"; return 0; }
  ;; esac
- 
+
  [ -d "$MNT_DIR" ] || mkdir -p "$MNT_DIR"
 
- 
+
  case $MNT_T in
   ntfs)
    ntfs-3g $MNT_DEV $MNT_DIR -o umask=0,no_def_opts,noatime,rw,silent #default is rw. 130211 add silent.
@@ -591,7 +632,7 @@ test "$*" || return 1
 
  test -d "$MNT_DIR" || return 0
  mount | grep $Q " on $MNT_DIR type " || return 0 # not mounted
- 
+
  if [ "`mount | grep " on $MNT_DIR type " | grep -E 'ntfs|fuse'`" = "" ];then
   umount $@
  else
@@ -698,13 +739,13 @@ search_func(){ #110425
          fi
         fi
        fi
-       
+
       else
        echo "IDSTRING comparison failed for kernel search on $onePUPFILE"
        false #wrong IDSTRING
       fi
      done
-     
+
     fi
    fi
 
@@ -891,7 +932,7 @@ fi
 
 cp -f /tmp/PUPSAVES /tmp/PUPSAVES-complete #101127 for debugging.
 
-[ "$RDSH" = 2 ] && exec /bin/sh >/dev/console 2>&1 
+[ "$RDSH" = 2 ] && exec /bin/sh >/dev/console 2>&1
 
 #110116 jamesbond: for netboot, PDEV1 is empty, so don't want to fail here...
 #[ "$PDEV1" ] || DROPOUT="Boot partition"
@@ -1068,7 +1109,7 @@ if [ "$CREATEPDEV1" != "" ];then
   DEV="$PDEV1"
    FS="$DEV1FS"
  fi
- 
+
  [ "`echo "$FS" | grep 'ext[234]'`" ] && echo "/dev/$DEV $CREATEPDEV1 $FS defaults  1 1" >> /etc/fstab #v2.21
  echo -en "Mounting full install type $PUPMODE on $DEV at $CREATEPDEV1 type $FS" >/dev/console
  mount -t $FS /dev/$DEV $CREATEPDEV1
@@ -1084,10 +1125,10 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
   PUPSAVEDEV="`echo "$PUPSAVE" | cut -f 1 -d ','`"
    PUPSAVEFS="`echo "$PUPSAVE" | cut -f 2 -d ','`"
  PUPSAVEFILE="`echo "$PUPSAVE" | cut -f 3 -d ','`"
- 
+
  #normal ${DISTRO_FILE_PREFIX}save.2fs file. just mount it from where it is...
  echo -n "Loading personal file $PUPSAVEFILE ($PUPSAVEDEV)..." >/dev/console
- 
+
  [ "`echo "$PUPSAVEFS" | grep 'ext[234]'`" ] && echo "/dev/$PUPSAVEDEV /mnt/dev_save $PUPSAVEFS defaults  1 1" >> /etc/fstab #v2.21
 
  mnt_func $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_save noatime #-t $PUPSAVEFS -o noatime /dev/$PUPSAVEDEV /mnt/dev_save
