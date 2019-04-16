@@ -173,16 +173,53 @@ depmod
 [ `wc -l /lib/modules/$KERNELVER/modules.dep  | sed 's%^[[:blank:]]*%%' | cut -f 1 -d ' '` -gt 200 ] && ZDRVINIT='yes'
 
 
-
+_do_devtmpfs(){
+# always use DEVTMPFS now.
+if grep $Q "[[:blank:]]\+devtmpfs$" /proc/filesystems; then
+DEVTMPFSFLG=1 #130618 set it from 3builddistro.
+ if grep $Q ' /dev ' /proc/mounts; then
+ DEVTMPFSFLG=2
+ elif [ "`which mdev`" -o "`which mknod`" ]; then
+  mount -t devtmpfs devtmpfs /dev
+  if [ $? = 0 ]; then
+   if [ "`which mdev`" ]; then
+    mdev -s
+   else
+     oldIFS="$IFS"
+     IFS=$'\n'
+     find /sys -type f -name uevent -perm 644 |
+     while read oneFILE
+     do
+     unset K MAJOR MINOR DEVPATH DEVNAME DEVTYPE DRIVER DEVICE PRODUCT TYPE BUSNUM DEVNUM INTERFACE MODALIAS DEVMODE
+     source "$oneFILE" 2>>$ERR  || continue
+     test "$MAJOR" -a "$MINOR"      || continue
+     test "$DEVNAME" && { test -e /dev/$DEVNAME && continue; } || { DEVNAME=${oneFILE%/uevent*}; DEVNAME=${DEVNAME##*/}; test -e /dev/$DEVNAME && continue; }
+     test "$DEVMODE" && DEVMODE=-m\ $DEVMODE
+     test -e /dev/$DEVPATH/$DEVNAME || {
+     test "$DEVTYPE" = disk -o "$DEVTYPE" = partition && K=b || K=c
+     test ${DEVNAME%/*} = $DEVNAME || { test -d /dev/$DEVPATH/${DEVNAME%/*} || mkdir $VERB -p /dev/$DEVPATH/${DEVNAME%/*}; }
+     mknod $DEVMODE /dev/$DEVPATH/$DEVNAME $K $MAJOR $MINOR
+      }
+     done
+     IFS="$oldIFS"
+   fi
+  else
+   DEVTMPFSFLG=0
+  fi
+ else
+  DEVTMPFSFLG=0
+ fi
+fi
+}
 
 #v3.01 fsck for ext2/3 prior to mounting...
 fsck_func(){ #passed params: partition filesystem [filename]
  [ "$PFSCK" != "yes" ] && return 0 #v404 default is not do any checking.
  #v3.93 restrict to ext2 only...
  [ "$2" = "ext2" -o "$2" = "ext3" -o "$2" = "ext4" ] || return 0 #precaution.
- 
+
  CHKDEV=$1
- 
+
  e2fsck -y /dev/$1 >/tmp/chkret &
  #sleep 1
  #if [ "`grep ': clean, ' /tmp/chkret`" = "" ];then
@@ -194,7 +231,7 @@ fsck_func(){ #passed params: partition filesystem [filename]
  echo -en "\\033[1;35m" >/dev/console #35=purple
  MSGFSCK=" ${1} filesystem check, please wait..............."
  MSGFSCNT=1
- 
+
  while [ "`pidof e2fsck`" ];do
   if [ "${1}" = "loop1" ];then
    [ $MSGFSCNT -eq 1 ] && echo -n "filesystem check..." >/dev/console
@@ -225,7 +262,7 @@ test "$*" || return 1
  ;; esac
 
  test -d "$MNT_DIR" || mkdir -p "$MNT_DIR"
- 
+
  case $MNT_T in
   ntfs)
    ntfs-3g $MNT_DEV $MNT_DIR -o umask=0,no_def_opts,noatime,rw #default is rw
@@ -243,7 +280,7 @@ test "$*" || return 1
     ntfs-3g $MNT_DEV $MNT_DIR -o umask=0,no_def_opts,noatime,rw,force
    fi
   ;;
-  
+
   vfat) #w476
    ####TODO#### need to get rid of the old 2-letter keyboard layout, so PKEYS boot
    # param works for the main kbd layouts.
@@ -285,7 +322,7 @@ test "$*" || return 1
 
  test -d "$MNT_DIR" || return 0
  mount | grep $Q " on $MNT_DIR type " || return 0
-  
+
  if [ "`mount | grep " on $MNT_DIR type " | grep -E 'ntfs|fuse'`" = "" ];then
   umount $@
  else
@@ -304,7 +341,7 @@ _dropout_rdsh(){
 }
 
 check_status(){
-    
+
   echo -en "\\033[72G" >/dev/console #move to column 72.
   if [ $1 -eq 0 ]
   then
@@ -337,7 +374,7 @@ check_status(){
   fi
 }
 
-
+_do_devtmpfs
 
 ###################LOAD MODULES TO ACCESS DRIVES#####################
 echo -n "Loading drivers needed to access disk drives" >/dev/console #STEP ONE
@@ -517,7 +554,7 @@ do
   mnt_func $oneFS /dev/$oneDEV /mnt/data #-t $oneFS /dev/$oneDEV /mnt/data
   [ $? -ne 0 ] && { umnt_func /mnt/data; continue; }
  fi
- 
+
  [ -f /mnt/data/etc/puppyversion ] && FND_FULLINSTALL="/etc/puppyversion" #pre-w464 installations.
  [ -f /mnt/data/etc/DISTRO_SPECS ] && FND_FULLINSTALL="/etc/DISTRO_SPECS"
 
@@ -526,7 +563,7 @@ do
 FND_OLD_PUPXXXSFS=`find /mnt/data -maxdepth 2 -xdev -type f -iname ${DISTRO_FILE_PREFIX}[-_]${DISTRO_VERSION}.sfs | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`
 FND_NEW_PUPXXXSFS=`find /mnt/data -maxdepth 2 -xdev -type f -iname ${DISTRO_PUPPYSFS:-NOT_AVAILABLE}              | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`
   FND_OLD_ZDRVSFS=`find /mnt/data -maxdepth 2 -xdev -type f -iname ${ZDRVSFS}                                     | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`
-  FND_NEW_ZDRVSFS=`find /mnt/data -maxdepth 2 -xdev -type f -iname ${DISTRO_ZDRVSFS:-NOT_AVAILABLE}               | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`    
+  FND_NEW_ZDRVSFS=`find /mnt/data -maxdepth 2 -xdev -type f -iname ${DISTRO_ZDRVSFS:-NOT_AVAILABLE}               | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`
    FND_PUPSAVE2FS=`find /mnt/data -maxdepth 2 -xdev -type f -iname ${DISTRO_FILE_PREFIX}save*.[234]fs             | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`
   FND_SWAPFILEPUP=`find /mnt/data -maxdepth 2 -xdev -type f -iname pupswap.swp                                    | grep -v ' ' | sed 's%^/mnt/data%%g' | tr '\n' ' '`
  #v2.22 improved folder name search, avoid false hits...
@@ -558,7 +595,7 @@ if [ "$PSUBDIR" ];then
   xpupfiles="`echo "$PUPPYFILES" | cut -f 3-99 -d ' ' | tr ' ' '\n' | grep "$SPATTERN" | tr '\n' ' '`" #v3.01
   PUPPYFILES="$PDEV1 $DEV1FS $xpupfiles"
  fi
- 
+
 else
  PUPPYFILES="`cat /tmp/PUPPYFILES | tr -s ' '`"
 fi
@@ -636,7 +673,7 @@ fi
 _prepare_puppyfiles_lists(){
 #find ${DISTRO_FILE_PREFIX}-xxx.sfs and ${DISTRO_FILE_PREFIX}save.2fs files...
 rm -f /tmp/PUPXXXSFSS /tmp/PUPSAVE2FSS /tmp/ZDRVXXXSFSS
-touch /tmp/PUPXXXSFSS /tmp/PUPSAVE2FSS /tmp/ZDRVXXXSFSS 
+touch /tmp/PUPXXXSFSS /tmp/PUPSAVE2FSS /tmp/ZDRVXXXSFSS
 
 NUMPARTS=`wc -l /tmp/PUPPYFILES | sed 's%^[[:blank:]]*%%' | cut -f 1 -d ' '`
 case $NUMPARTS in
@@ -650,7 +687,7 @@ case $NUMPARTS in
   ) >/dev/console
   exec /bin/sh >/dev/console 2>&1
   ;;
-  
+
  *) #files in one or more partitions.
   echo "$PUPPYFILES" |
   while read oneLINE
@@ -674,7 +711,7 @@ case $NUMPARTS in
     test "$onePUPXXXSFS" || continue
     echo "$oneDEV,$oneFS,$onePUPXXXSFS"  >> /tmp/PUPXXXSFSS
    done
-   
+
    ZPATTERN="/${ZDRVSFS}"
    for oneZDRVXXXSFS in `echo "$LINEFILES" | tr ' ' '\n' | grep "$ZPATTERN"`
    do
@@ -696,7 +733,7 @@ case $NUMPARTS in
     test "$onePUPSAVE2FS" || continue
     echo "$oneDEV,$oneFS,$onePUPSAVE2FS"  >> /tmp/PUPSAVE2FSS
    done
-   
+
   done
   ;;
 esac
@@ -732,7 +769,7 @@ else
    echo "Type a number to choose which personal file to use:"
    echo "0  none"
    ) >/dev/console
-   
+
    for oneCHOICE in `cat /tmp/PUPSAVE2FSS | tr '\n' ' '`
    do
     oneFILE="`echo "$oneCHOICE" | cut -f 3 -d ','`"
@@ -1005,7 +1042,7 @@ if [ "$CREATEPUPSAVE2FS" ];then
   echo "/dev/$PUPSAVEDEV /mnt/dev_save $PUPSAVEFS defaults  1 1" >> /etc/fstab #v2.21
   fsck_func $PUPSAVEDEV $PUPSAVEFS #v3.01
  ;; esac
- 
+
  mnt_func $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_save noatime #-t $PUPSAVEFS -o noatime /dev/$PUPSAVEDEV /mnt/dev_save
  if [ $? -eq 0 ];then
   SMNTPT="/mnt/dev_save"
@@ -1180,7 +1217,7 @@ if [ "$CREATEFOLDERS" ];then
  #ALLOCK=`expr $RAMSIZE \/ 2 - 50000` #allocate half of physical ram. + leave 50M slack.
  ALLOCK=$(( (RAMSIZE / 2) - 50000 )) #allocate half of physical ram. + leave 50M slack.
  mount -t tmpfs -o size=${ALLOCK}k tmpfs $CREATEFOLDERS #/pup_ro1
- 
+
  #load the folders from the cd...
   ####START LOAD FOLDERS####
   CDMNTPT="/mnt/dev_ro1" #where the multisession cd is mounted.
