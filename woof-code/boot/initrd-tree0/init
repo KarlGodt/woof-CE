@@ -84,29 +84,44 @@ PATH="/bin:/sbin"
 export LANG=C #w004
 
 
-mount -t proc  none /proc
-mount -t sysfs none /sys
+mount -t proc  proc  /proc
+mount -t sysfs sysfs /sys
 mount -t rootfs -o remount,rw rootfs /
-ln -s /proc/mounts /etc/mtab #resize2fs,e2fsck need this.
 
-clear #got this out of embutils, compiled in t2 (as not currently in busybox)
+Q=-q; QUIET=--quiet;S=-s;SILENT=--silent;
+if test "$DEBUG" ; then
+unset Q QUIET S SILENT
+VERB=-v; L_VERB=--verbose
+fi
+
 [ $loglevel ]   && LOGLEVEL=$loglevel #v2.22
 [ "$LOGLEVEL" ] || exec 1>/tmp/bootinit.log 2>&1 #remove o/p from console. v2.22 loglevel added.
 
+[ "$DEBUG" ]    || clear #got this out of embutils, compiled in t2 (as not currently in busybox)
+
+ln -s /proc/mounts /etc/mtab #resize2fs,e2fsck need this.
 #/bin/hotplug2stdout_notimeout > /tmp/pup_event_uevents_initrd &
 
 
-. /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
 
 KERNELVER="`uname -r`"
+. /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
+
 KERNELSUBVER=`echo "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v423
 SFSSTR='squashfs, version 3' #v423
 [ $KERNELSUBVER -gt 28 ] && SFSSTR='squashfs, version 4' #v423
 
+#100911 simple filenames specified in DISTRO_SPECS: DISTRO_ZDRVSFS, DISTRO_PUPPYSFS...
+ZDRVSFS="$DISTRO_ZDRVSFS"
+if [ ! "$ZDRVSFS" ]; then
 #w020 compose name of 'zdrv', to fit 8+3 filename...
 PREFIX1CHAR="`echo "$DISTRO_FILE_PREFIX" | cut -c 1`"
 KERNEL3CHARS="`echo "$KERNELVER" | tr -d '.' | tr -d '\-' | tr -d '[a-z]' | rev | cut -c 1,2,3 | rev`"
 ZDRVSFS="z${PREFIX1CHAR}${DISTRO_VERSION}${KERNEL3CHARS}.sfs"
+fi
+
+PUPXXXSFS="$DISTRO_PUPPYSFS"
+[ "$PUPXXXSFS" ] || PUPXXXSFS="${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs"  #before September 2010
 
 [ $layerfs ] && LAYERFS=$layerfs
 [ $LAYERFS ] || LAYERFS=aufs #aufs or unionfs
@@ -173,7 +188,7 @@ depmod
 [ `wc -l /lib/modules/$KERNELVER/modules.dep  | sed 's%^[[:blank:]]*%%' | cut -f 1 -d ' '` -gt 200 ] && ZDRVINIT='yes'
 
 
-_do_devtmpfs(){
+__do_devtmpfs(){
 # always use DEVTMPFS now.
 if grep $Q "[[:blank:]]\+devtmpfs$" /proc/filesystems; then
 DEVTMPFSFLG=1 #130618 set it from 3builddistro.
@@ -210,6 +225,49 @@ DEVTMPFSFLG=1 #130618 set it from 3builddistro.
   DEVTMPFSFLG=0
  fi
 fi
+}
+
+_do_devtmpfs(){
+# always use DEVTMPFS now.
+if grep $Q "[[:blank:]]\+devtmpfs$" /proc/filesystems; then
+ DEVTMPFSFLG=1 #130618 set it from 3builddistro.
+else
+ DEVTMPFSFLG=0
+ return $DEVTMPFSFLG
+fi
+
+if grep $Q ' /dev ' /proc/mounts; then
+ DEVTMPFSFLG=2
+ return $DEVTMPFSFLG
+fi
+
+mount -t devtmpfs devtmpfs /dev
+test "$?" = 0 || return 254
+
+ if [ "`which mdev`" -o "`which mknod`" ]; then
+   if [ "`which mdev`" ]; then
+    mdev -s
+   else
+     oldIFS="$IFS"
+     IFS=$'\n'
+     find /sys -type f -name uevent -perm 644 |
+     while read oneFILE
+     do
+     unset K MAJOR MINOR DEVPATH DEVNAME DEVTYPE DRIVER DEVICE PRODUCT TYPE BUSNUM DEVNUM INTERFACE MODALIAS DEVMODE
+     source "$oneFILE" 2>>$ERR  || continue
+     test "$MAJOR" -a "$MINOR"      || continue
+     test "$DEVNAME" && { test -e /dev/$DEVNAME && continue; } || { DEVNAME=${oneFILE%/uevent*}; DEVNAME=${DEVNAME##*/}; test -e /dev/$DEVNAME && continue; }
+     test "$DEVMODE" && DEVMODE=-m\ $DEVMODE
+     test -e /dev/$DEVPATH/$DEVNAME || {
+     test "$DEVTYPE" = disk -o "$DEVTYPE" = partition && K=b || K=c
+     test ${DEVNAME%/*} = $DEVNAME || { test -d /dev/$DEVPATH/${DEVNAME%/*} || mkdir $VERB -p /dev/$DEVPATH/${DEVNAME%/*}; }
+     mknod $DEVMODE /dev/$DEVPATH/$DEVNAME $K $MAJOR $MINOR
+      }
+     done
+     IFS="$oldIFS"
+   fi
+ fi
+return $DEVTMPFSFLG
 }
 
 #v3.01 fsck for ext2/3 prior to mounting...
@@ -419,7 +477,7 @@ echo -n "$ATADRIVES" > /ATADRIVES #w479 for testing purposes if crash to console
 if [ "`lsmod | grep -E '^uhci|^ohci|^ehci'`" ];then
   modprobe usb-storage & #run as separate process
   WAITUSB="yes"
-  mount -t usbfs none /proc/bus/usb
+  mount -t usbfs usbfs /proc/bus/usb
 
   #v423 problem recent kernels: kernel configured to load hid-* extra drivers when
   #usbhid loads, but it doesn't work. Most unfortunate. Note, older kernels have the
@@ -442,10 +500,10 @@ fi
 #filesystems...
 modprobe nls_cp437     #needed by windows filesystems.
 modprobe nls_iso8859-1 #needed by linux filesystems.
-#modprobe nls_utf8  #w007
-#modprobe nls_cp850 #w468 now default for fat f.s. (2.6.29.2 kernel)
-modprobe $LAYERFS #unionfs or aufs.
-modprobe fuse #for ntfs-3g driver.
+#modprobe nls_utf8     #w007
+#modprobe nls_cp850    #w468 now default for fat f.s. (2.6.29.2 kernel)
+modprobe $LAYERFS      #unionfs or aufs.
+modprobe fuse          #for ntfs-3g driver.
 
 if [ "$WAITUSB" = "yes" ];then #wait for device to register.
  #v3.94 Classmate laptop, needs more delay here... no, further down...
@@ -457,17 +515,17 @@ if [ "$WAITUSB" = "yes" ];then #wait for device to register.
    CNTUSB=$((CNTUSB + 1))
   [ $CNTUSB -gt 25 ] && break
   #v412 bug, ubuntu kernel, got duplicate 'device found at 2', need 'sort -u'...
-  USBSTORAGES=`/bin/dmesg | grep "usb-storage: device found at" | sort -u | wc -l | sed -e 's/ //g'`
+  USBSTORAGES=`/bin/dmesg | grep "usb-storage: device found at" | sort -u | wc -l | sed 's/ //g'`
   #if booting from usb, USBSTORAGES must be non-zero...
   [ "`echo "$PMEDIA" | grep 'usb'`" ] && [ $USBSTORAGES -eq 0 ] && continue
   [ $USBSTORAGES -eq 0 ] && break
-  AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb-storage: device scan complete" | wc -l | sed -e 's/ //g'`
+  AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb-storage: device scan complete" | wc -l | sed 's/ //g'`
   [ $USBSTORAGES -ne $AVAILABLEUSBSTORAGES ] && USBSTORAGES=0
  done
  [ $USBSTORAGES -ne 0 ] && sleep 1 #v412 was needed for classmate. was 2, try 1sec.
 
  #v423 load hid-* driver...
- for oneHID in `grep -o 'MODALIAS=hid:[^ ]*' /tmp/uevents.log | cut -f 2 -d '=' | tr '\n' ' '`
+ for oneHID in `grep -o 'MODALIAS=hid:[^ ]*' /tmp/uevents.log | cut -f 2 -d '='`
  do
   modprobe $oneHID
  done
@@ -475,9 +533,15 @@ if [ "$WAITUSB" = "yes" ];then #wait for device to register.
 
 fi
 
+[ -c /dev/rtc ]  || mknod /dev/rtc c 10 135 
+[ -d /dev/misc ] || mkdir -p /dev/misc
+[ -c /dev/misc/rtc0 ] || mknod /dev/misc/rtc0 c 254 0
+[ -e /dev/misc/rtc ]  || ln -sf rtc0 /dev/misc/rtc
+/bin/hwclock -s -l #set system time (based on hw clock set to local time).
+
 check_status 0 #END STEP ONE
 
-[ "$RDSH" = 1 ] && exec /bin/sh >/dev/console 2>&1
+[ "$RDSH" = 1 ] && _dropout_rdsh
 ##############END MODULE LOADING TO ACCESS DRIVES####################
 
 #######################FINDING PUPPY FILES###########################
@@ -652,19 +716,19 @@ fi
 _handle_psavemark(){
 if [ "$PDEV1" -a ! "$PSAVEMARK" ];then #w014
  #new BootFlash utility can create 128MB boot partition, 2nd partition for pupsave...
- devnameonly="`echo "$PDEV1" | sed -e 's/[0-9]*$//'`"
+ devnameonly="`echo "$PDEV1" | sed 's/[0-9]*$//'`"
  pdPATTERN='/dev/'"$PDEV1"'|'
  pdSIZEK=`echo "$PCPARTSALL" | grep "$pdPATTERN" | cut -f 3 -d '|'`
  if [ $pdSIZEK -lt 139264 ];then #136MB
   p1PATTERN='/dev/'"$devnameonly"'1|'
   p2PATTERN='/dev/'"$devnameonly"'2|'
-  devnumonly="`echo "$PDEV1" | sed -e 's/sd[a-z]//'`"
+  devnumonly="`echo "$PDEV1" | sed 's/sd[a-z]//'`"
   [ "$devnumonly" = "1" ] && [ "`echo "$PCPARTSALL" | grep "$p2PATTERN"`" ] && PSAVEMARK="2" #USB-HDD or ISO9660.
   [ "$devnumonly" = "4" ] && [ "`echo "$PCPARTSALL" | grep "$p1PATTERN"`" ] && PSAVEMARK="1" #USB-ZIP or ComboFormat.
  fi
 fi
 if [ "$PDEV1" -a "$PSAVEMARK" ];then #v3.97
- devnameonly="`echo "$PDEV1" | sed -e 's/[0-9]*$//'`"
+ devnameonly="`echo "$PDEV1" | sed 's/[0-9]*$//'`"
  PUPSAVEDEV="${devnameonly}${PSAVEMARK}" #partition that has or will-have ${DISTRO_FILE_PREFIX}save.2fs.
 fi
 }
@@ -770,15 +834,15 @@ else
    echo "0  none"
    ) >/dev/console
 
-   for oneCHOICE in `cat /tmp/PUPSAVE2FSS | tr '\n' ' '`
+   for oneCHOICE in `cat /tmp/PUPSAVE2FSS`
    do
     oneFILE="`echo "$oneCHOICE" | cut -f 3 -d ','`"
     onePART="`echo "$oneCHOICE" | cut -f 1 -d ','`"
     echo -e "${CNTSAVE}  ${onePART}\\033[10G${oneFILE}" >/dev/console #10 means move to that column.
-    #CNTSAVE=`expr $CNTSAVE + 1`
      CNTSAVE=$((CNTSAVE + 1))
    done
    echo -en "\\033[0;39m" >/dev/console
+
    while :; do
     read NUMSAVE
     echo "$NUMSAVE" | grep $Q '[^0-9]' && continue
@@ -890,7 +954,7 @@ _set_final_pupmode(){
 
 echo "Detected PUPMODE '$PUPMODE'"
 test "$FPUPMODE" && {
-echo " Forcing PUPMODE '$PUPMODE'"
+echo " Forcing PUPMODE '$FPUPMODE'"
 PUPMODE=$FPUPMODE
 }
 
@@ -967,7 +1031,7 @@ _have_pupsfs_or_dropout
 _set_zdrv
 _set_pupmode_6
 
-[ "$RDSH" = 3 ] && exec /bin/sh >/dev/console 2>&1
+[ "$RDSH" = 3 ] && _dropout_rdsh
 
 _set_final_pupmode
 
@@ -977,7 +1041,7 @@ _set_pmedia_xxxcd
 check_status 0
 ########################END FINDING PUPPY FILES############################
 echo "FINALLY SET PUPMODE='$PUPMODE'"
-[ "$RDSH" = 4 ] && exec /bin/sh >/dev/console 2>&1
+[ "$RDSH" = 4 ] && _dropout_rdsh
 
 ##########################LOADING PUPPY FILES###########################
 RAMSIZE=`free | grep 'Mem:' | tr -s ' ' | cut -f 3 -d ' '` #total physical ram (less shared video).
@@ -1137,7 +1201,7 @@ if [ "$CREATEPUPSAVE2FS" ];then
      ) >/dev/console
      read crypttryagain
      echo >/dev/console
-     [ "$crypttryagain" = "quit" ] &&  exec /bin/sh >/dev/console 2>&1 #v3.98
+     [ "$crypttryagain" = "quit" ] &&  _dropout_rdsh #v3.98
      [ "$crypttryagain" ] && e2fsck -y -f /dev/loop1 >/dev/console
      losetup -d /dev/loop1
     fi
@@ -1277,7 +1341,7 @@ if [ "$CREATEFOLDERS" ];then
     echo "$WHITEOUTS" |
     while read DELWHITE
     do
-     DELFILE="`echo "$DELWHITE" | sed -e 's/\\.wh\\.//g'`"
+     DELFILE="`echo "$DELWHITE" | sed 's/\\.wh\\.//g'`"
      if [ -e "$DELFILE" ];then
       rm -rf "$DELFILE"
       rm -rf "$DELWHITE"
@@ -1480,7 +1544,7 @@ _cp_pupmode_77_to_ram
 
 _version_handling
 
-[ "$RDSH" = 5 ] && exec /bin/sh >/dev/console 2>&1
+[ "$RDSH" = 5 ] && _dropout_rdsh
 
 _check_if_copy_to_ram
 
@@ -1491,13 +1555,15 @@ _load_zdrv
 
 check_status $?
 
-[ "$RDSH" = 6 ] && exec /bin/sh >/dev/console 2>&1
+[ "$RDSH" = 6 ] && _dropout_rdsh
 
 ########################END LOADING PUPPY FILES########################
 
 
 #/etc/PUPSTATE passes useful variables to the running puppy...
 mkdir -p /pup_rw/etc/rc.d
+
+[ "$DEBUG" ] || rm -f /pup_rw/etc/rc.d/PUPSTATE
 
 (
 echo "PUPMODE=$PUPMODE"
@@ -1533,6 +1599,14 @@ if [ "$FASTPARTS" = " " -o "$FASTPARTS" = "" ];then
 else
  echo "FASTPARTS='$FASTPARTS'"
 fi
+
+if [ "$PLANG" ];then #120215 L18L. 120217 bring this back, seems like a good thing!
+ echo "#PLANG is written to LANG in /etc/profile by init script initrd...
+PLANG=${PLANG}
+OUTPUT_CHARSET=UTF-8
+export OUTPUT_CHARSET"
+fi
+echo "PSUBDIR='${zPSUBDIR}'" #120215
 ) >> /pup_rw/etc/rc.d/PUPSTATE
 
 #older ${DISTRO_FILE_PREFIX}save.2fs <v2.16 will not have this file...
@@ -1572,7 +1646,7 @@ if [ "$PUPSAVE" ];then
   UMNTRO="" ; EXTRASFSLIST=""
   if [ -f /tmp/EXTRASFSS ];then
    CNTLOOP=4
-   for oneEXTRA in `cat /tmp/EXTRASFSS | tr '\n' ' '`
+   for oneEXTRA in `cat /tmp/EXTRASFSS`
    do
     #v423 need to reject wrong squashfs version... v424 no, don't bother...
     #[ "`disktype $oneEXTRA | grep "$SFSSTR"`" ] || continue
@@ -1589,19 +1663,27 @@ if [ "$PUPSAVE" ];then
     #...w015 change 7 to 10 so can have 6 sfs files.
    done
   fi
+  
   #keep a record of different layer configurations...
   SAVEFILE="`echo "$PUPSAVE" | cut -f 3 -d ','`"
   SAVEFILENAMEONLY="`basename $SAVEFILE`"
   SFSFILE="`echo "$PUPSFS" | cut -f 3 -d ','`"
   SFSFILENAMEONLY="`basename $SFSFILE`"
-  RECORDLIST="$SAVEFILENAMEONLY $SFSFILENAMEONLY $EXTRASFSLIST $ZFACTOR" #v426
-  NEWUNIONRECORD="`echo "$RECORDLIST" | tr -s ' '  | sed -e 's/ $//'`"
+  RECORDLIST="${SAVEFILENAMEONLY:-/} ${SFSFILENAMEONLY:-/} $EXTRASFSLIST $ZFACTOR" #v426
+  NEWUNIONRECORD=`echo $RECORDLIST`
  fi
 fi
 
 
 #update /etc/rc.d/BOOTCONFIG with latest unionfs layers configuration...
-cat $OLDFILESMNTPT/etc/rc.d/BOOTCONFIG | grep -v '^PREVUNIONRECORD' | sed -e 's/^LASTUNIONRECORD/PREVUNIONRECORD/g' >/pup_rw/etc/rc.d/BOOTCONFIG
+
+#(
+#cat $OLDFILESMNTPT/etc/rc.d/BOOTCONFIG | grep -v '^PREVUNIONRECORD' | sed -e 's%^LASTUNIONRECORD%PREVUNIONRECORD%g' 
+#) >/pup_rw/etc/rc.d/BOOTCONFIG
+
+xBOOTCONFIG="`sed '/PREVUNIONRECORD/d ; s%^LASTUNIONRECORD%PREVUNIONRECORD%' $OLDFILESMNTPT/etc/rc.d/BOOTCONFIG`"
+echo "$xBOOTCONFIG" > /pup_rw/etc/rc.d/BOOTCONFIG
+
 sync
 echo "LASTUNIONRECORD='$NEWUNIONRECORD'" >> /pup_rw/etc/rc.d/BOOTCONFIG
 [ "$LASTUNIONRECORD" = "$NEWUNIONRECORD" ] && NEWUNIONRECORD="" #used below.
@@ -1617,8 +1699,9 @@ _prepare_files_version_difference(){
 #after switch_root, rc.sysinit calls rc.update, but need to do pre-cleaning...
 if [ "$OLDFILESMNTPT" ];then
  #an empty tmp is required for mounting a tmpfs onto later...
- rm -rf $OLDFILESMNTPT/tmp/*
- rm -rf $OLDFILESMNTPT/tmp/.[0-9a-zA-Z]*
+ mkdir -p $OLDFILESMNTPT/tmp
+   rm -rf $OLDFILESMNTPT/tmp/*
+   rm -rf $OLDFILESMNTPT/tmp/.[0-9a-zA-Z]*
  if [ ! -L $OLDFILESMNTPT/usr/X11R6 ];then #test if a symlink.
   #this is supposed to be a link to X11R7. <2.10 it won't be...
   if [ -d $OLDFILESMNTPT/usr/X11R6 ];then
@@ -1640,7 +1723,9 @@ if [ "$OLDFILESMNTPT" ];then
  #[ ! $OLDPVERSION ] && OLDPVERSION=$NEWPVERSION
  #[ "$PCLEAN" = "yes" ] && OLDPVERSION=`expr $NEWPVERSION - 1`
  #[ "$PPURGE" = "yes" ] && OLDPVERSION=`expr $NEWPVERSION - 1`
+ NEWPVERSION=`echo $NEWPVERSION | sed 's/[^0-9]//g'`
  [ $OLDPVERSION ] || OLDPVERSION=$NEWPVERSION
+ OLDPVERSION=`echo $OLDPVERSION | sed 's/[^0-9]//g'`
  [ "$PCLEAN" = "yes" ] && OLDPVERSION=$((NEWPVERSION - 1))
  [ "$PPURGE" = "yes" ] && OLDPVERSION=$((NEWPVERSION - 1))
 
@@ -1673,7 +1758,7 @@ if [ "$OLDFILESMNTPT" ];then
   #v2.12 this while-loop has become ultra-slow... seems upx compressed execs
   #responsible, recently upx-ed all the execs, now restore busybox, grep, cp.
   DOTCNT=0
-  /bin/find ./ -noleaf -type f | sed -e 's/^\.//g' |
+  /bin/find ./ -noleaf -type f | sed 's/^\.//g' |
   while read oneNEW
   do
    #DOTCNT=`expr $DOTCNT + 1`
@@ -1718,14 +1803,14 @@ if [ "$OLDFILESMNTPT" ];then
  if [ "$NEWUNIONRECORD" -o "$PPURGE" = "yes" ];then
   #find all .wh.__dir_opaque files at the OLDFILESMNTPT layer... v424 bugfixes...
   cd $OLDFILESMNTPT
-  /bin/find ./ -noleaf -type f -name ".wh.*" | sed -e 's/^\.//g' |
+  /bin/find ./ -noleaf -type f -name ".wh.*" | sed 's/^\.//g' |
   while read oneOPAQUE #examples: /usr/src/.wh.__dir_opaque, /usr/src/.wh.bin
   do
    oneDIR="`dirname $oneOPAQUE`" #ex: /usr/src
    WHBASE="`basename $oneOPAQUE`" #ex: .wh.bin
    if [ "$WHBASE" != ".wh.__dir_opaque" ];then #aufs2 always enter this condition...
     #example, .wh.bin alongside bin directory means it is deleted...
-    oneDEL="`echo "$WHBASE" | sed -e 's/^\\.wh\\.//g'`" #ex: bin
+    oneDEL="`echo "$WHBASE" | sed 's/^\\.wh\\.//g'`" #ex: bin
     oneDIR="${oneDIR}/${oneDEL}" #ex: /usr/src/bin
     [ -e ".${oneDIR}" ] || continue
    fi
@@ -1768,25 +1853,33 @@ _prepare_files_version_difference
 
 ##################THE BIG EVENT###############################################
 
-[ "$RDSH" = 7 ] && exec /bin/sh >/dev/console 2>&1
+[ "$RDSH" = 7 ] && _dropout_rdsh
 
 #create the unionfs layered f.s.... ***THE BIG EVENT***
+mkdir -p /pup_new
+
 if [ "$LAYERFS" = "aufs" ];then
- mount -t aufs -o udba=reval,diropq=w,dirs=${UMNTMAIN}${ZLAYER}${UMNTRO} unionfs /pup_new
+ echo "About to:mount -t aufs -o udba=reval,diropq=w,dirs=${UMNTMAIN}${ZLAYER}${UMNTRO} unionfs /pup_new"
+                mount -t aufs -o udba=reval,diropq=w,dirs=${UMNTMAIN}${ZLAYER}${UMNTRO} unionfs /pup_new
 else #unionfs
- UMNTMAIN="`echo "$UMNTMAIN" | sed -e 's/+wh//g'`" #w003 'ro+wh' not accepted by unionfs, change back to 'ro'.
- mount -t unionfs -o dirs=${UMNTMAIN}${ZLAYER}${UMNTRO} unionfs /pup_new
+ UMNTMAIN="`echo "$UMNTMAIN" | sed 's/+wh//g'`" #w003 'ro+wh' not accepted by unionfs, change back to 'ro'.
+ echo "About to:mount -t unionfs -o dirs=${UMNTMAIN}${ZLAYER}${UMNTRO} unionfs /pup_new"
+                mount -t unionfs -o dirs=${UMNTMAIN}${ZLAYER}${UMNTRO} unionfs /pup_new
 fi
 check_status $? #END STEP FIVE
 
-[ "$RDSH" = 8 ] && exec /bin/sh >/dev/console 2>&1
+[ "$RDSH" = 8 ] && _dropout_rdsh
 
 #######################END SETUP UNIONFS LAYERED FILESYSTEM###################
 
 #######################SETUP SWITCH TO MAIN FILESYSTEM########################
 #echo -n "Performing a 'switch_root' to the layered filesystem..." >/dev/console
+echo "Preparing the 'switch_root' to the layered filesystem..."
 echo -n "Preparing the 'switch_root' to the layered filesystem..." >/dev/console
-mkdir -p /pup_new/initrd
+
+for d in initrd tmp dev proc sys etc lib mnt var; do
+mkdir -p /pup_new/$d; done
+
 mount -t ramfs initrdramfs /pup_new/initrd
 
 #prepare everything for doing a switch_root...
@@ -1806,11 +1899,11 @@ done
 
 mkdir -p /pup_new/initrd/tmp
 
-for oneMNT in `mount | cut -f 3 -d ' ' | grep -v 'pup_new' | grep '^/pup_' | tr '\n' ' '`
+for oneMNT in `mount | cut -f 3 -d ' ' | grep -v 'pup_new' | grep '^/pup_'`
 do
  mount -o move $oneMNT /pup_new/initrd${oneMNT}
 done
-for oneMNT in `mount | cut -f 3 -d ' ' | grep '^/mnt/' | tr '\n' ' '`
+for oneMNT in `mount | cut -f 3 -d ' ' | grep '^/mnt/'`
 do
  mount -o move $oneMNT /pup_new/initrd${oneMNT}
 done
@@ -1841,14 +1934,29 @@ if [ "$CREATETMPFS" != "/pup_rw" ];then #test if no tmpfs on unionfs top layer.
  #ln -snf tmp/thumbnails /pup_new/root/.thumbnails
 fi
 
-#PNOX is a boot param. /etc/profile prevents X from starting if this file exists...
-[ "$PNOX" != "yes" ] || touch /pup_new/tmp/bootcnt.txt
+_mount_andor_cp_dev(){
+mkdir -p /pup_new/dev
+#[ "$DEVTMPFSFLG" != 0 ] && mount -t devtmpfs devtmpfs /pup_new/dev
+[ "$DEVTMPFSFLG" != 0 ] || /bin/cp -a -u -f /dev/* /pup_new/dev/
+}
+_mount_andor_cp_dev
+
+#PNOX is a boot param. /etc/profile prevents X from starting
+# both ways either  if this file exists... ,or if this file not exist ...
+# to avoid having the bootcnt.txt file all the time in /tmp,
+# /etc/profile or /root/.profile needs to be changed
+# default is to not expect a bootcnt.txt file and startx,
+# and create the bootcnt.txt file in the profile code.
+# considerations : inittab respawning, .bashrc sources profile file
+#[ "$PNOX" = "yes" ] && touch /pup_new/tmp/bootcnt.txt
+ [ "$PNOX" = "yes" ] || touch /pup_new/tmp/bootcnt.txt
+
 cp -a /DISTRO_SPECS /pup_new/initrd/
 
 cp -af /tmp/* /pup_new/initrd/tmp/ #keep any log files.
 
-check_status $?
 
+check_status $?
 #RDSH is a boot param. exit to initial ramdisk shell...
 if [ "$RDSH" = "yes" -o "$RDSH" = 9 ];then
  (
@@ -1871,22 +1979,24 @@ echo -en "\\033[0;39m" >/dev/console
 
 
 _unmount_pseudofs(){
+grep $Q ' /dev ' "$*"/proc/mounts && umount "$*"/dev
 umount "$*"/proc/bus/usb
 umount "$*"/sys
 umount "$*"/proc
 }
 
 _move_pseudofs(){
+grep $Q ' /dev ' /proc/mounts && { mkdir -p ./dev; mount $VERB $VERB -o move /dev ./dev; }
 mkdir -p ./sys
 mount $VERB $VERB -o move /sys ./sys
 mkdir -p ./proc
 mount $VERB $VERB -o move /proc ./proc
-grep ' /dev ' /proc/mounts && { mkdir -p ./dev; mount $VERB $VERB -o move /dev ./dev; }
 }
 
 
 if [ "`grep '^/dev/root ' /proc/mounts`" = "" ]; then
 echo -n "Performing a 'switch_root' to the layered filesystem..." >/dev/console
+[ "$DEVTMPFSFLG" != 0 ] && mount -t devtmpfs devtmpfs /pup_new/dev
 _unmount_pseudofs
 #now using cpio archive for initramfs 'initial ramdisk'...
 #exec switch_root -c /dev/console /pup_new /bin/busybox init 3
