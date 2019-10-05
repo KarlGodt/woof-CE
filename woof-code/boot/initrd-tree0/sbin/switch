@@ -1,10 +1,95 @@
 #!/bin/sh
 #if have dropped to a shell in initramfs, type 'exec switch' to keep going.
 
-sync
-umount /proc/bus/usb
-umount /sys
-umount /proc
+_unmount_pseudofs(){
+test "$*" = "/pup_new" && return 0
+grep $Q " /pup_new/dev " /proc/mounts && grep $Q " $*/dev " /proc/mounts && umount /dev
+grep $Q " /pup_new/tmp " /proc/mounts && grep $Q " $*/tmp " /proc/mounts && umount /tmp
+if grep $Q " $*/proc/bus/usb " /proc/mounts; then
+umount "$*"/proc/bus/usb
+fi
+umount "$*"/sys
+#umount "$*"/proc
+#if grep $Q '/pup_new/dev' /proc/mounts; then
+# [ "$*" = '/pup_new' ] || { grep $Q " $*/dev " /proc/mounts && umount "$*"/dev; }
+#fi
+umount "$*"/proc
+}
 
+_move_pseudofs(){
+test "$*" || return 1
+test "$*" = '.' && absP=`pwd` || absP="$*"
+grep $Q ' /dev ' /proc/mounts && { grep $Q " $absP/dev " /proc/mounts && { umount /dev || true; } || { mkdir -p "$*"/dev; mount $VERB $VERB -o move /dev "$*"/dev; }; }
+
+#case just mounted above , unmount /dev
+grep $Q " $*/dev " /proc/mounts && grep $Q ' /dev ' /proc/mounts && umount /dev
+#case no /dev handling above, move /dev
+grep $Q ' /dev ' /proc/mounts && { mkdir -p "$*"/dev; mount $VERB $VERB -o move /dev "$*"/dev; }
+
+#grep $Q ' /tmp ' /proc/mounts && { mkdir -p "$*"/tmp; mount $VERB $VERB -o move /tmp "$*"/tmp; }
+mkdir -p "$*"/sys
+mount $VERB $VERB -o move /sys "$*"/sys
+mkdir -p "$*"/proc
+mount $VERB $VERB -o move /proc "$*"/proc
+}
+
+echo -en "\\033[0;39m" >/dev/console
+
+if [ "`grep '^/dev/root ' /proc/mounts`" = "" ]; then
+echo -n "Performing a 'switch_root' to the layered filesystem..." >/dev/console
+[ "$DEVTMPFSFLG" != 0 ] && mount -t devtmpfs devtmpfs /pup_new/dev
+_unmount_pseudofs
 #now using cpio archive for initramfs 'initial ramdisk'...
+#exec switch_root -c /dev/console /pup_new /bin/busybox init 3
 exec switch_root /pup_new /sbin/init
+else
+echo -n "Performing a 'pivot_root' to the layered filesystem..." >/dev/console
+# assuming old-style
+cd /pup_new
+test -e bin/chroot || cp -a ../bin/chroot bin/
+_move_pseudofs '.'
+mkdir -p oldstyle_initramdisk
+pivot_root . oldstyle_initramdisk
+
+#mount | grep oldstyle_initramdisk | while read dev on mnt type fs mops n m;
+UNMOUNT_DIRS=`mount | grep oldstyle_initramdisk`
+UNMOUNT_DIRS=`echo $UNMOUNT_DIRS |rev |sed 's% )%\n)%g'|rev` # reverse order
+echo "$UNMOUNT_DIRS" | while read dev on mnt type fs mops n m;
+ do
+ sleep 1
+  case "$mnt" in
+  *oldstyle_initramdisk*)
+  umount -lr "$mnt"
+
+  if test $? != 0; then
+
+   oldPATH="$PATH"
+   PATH="oldstyle_initramdisk/bin:oldstyle_initramdisk/sbin:$PATH"
+   echo -e "\n\\033[0;33mFAILURE unmounting $mnt\\033[0;39m" >/dev/console
+   mkdir oldstyle_initrd
+   if [ $? = 0 ]; then
+    cp -a oldstyle_initramdisk/bin oldstyle_initrd/bin
+    cp -a oldstyle_initramdisk/sbin oldstyle_initrd/sbin
+   else
+    false
+   fi
+   if [ $? = 0 ]; then
+    PATH="/oldstyle_initrd/bin:/oldstyle_initrd/sbin:$PATH"
+    export PATH
+   fi
+   echo -en "\\033[0;33m]"
+   dmesg | tail -n 7
+   echo -en "\\033[0;39m]"
+   echo -e "\\033[0;31mDropping out to console. Good Luck.......\\033[0;39m"
+   exec chroot . /bin/sh </dev/console >/dev/console 2>&1
+
+  fi
+
+  ;;
+  esac
+ done
+
+sleep 1
+exec chroot . /sbin/init
+fi
+
